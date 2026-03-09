@@ -1,115 +1,125 @@
 <div align="center">
-  <img src="assets/logo.svg" width="128" height="128" alt="remote-agent">
+  <img src="assets/logo.svg" width="120" alt="remote-agent">
   <h1>remote-agent</h1>
-  <p><strong>Multi-agent orchestration for Claude Code</strong></p>
-  <p>Spawn isolated agents with fresh context windows. Decompose → Execute → Verify → Apply.</p>
+  <p><b>Multi-agent orchestration for Claude Code with worktree isolation</b></p>
 </div>
 
-## In Action
+## What it does
 
-### Parallel Swarm Execution
-<img src="assets/terminal-swarm.svg" width="700" alt="Swarm parallel execution">
+Spawn isolated Claude Code agents with fresh 200K context windows.
+Decompose tasks, run agents in parallel, verify results, apply changes safely.
 
-### Isolation Rollback Protection
-<img src="assets/terminal-isolation.svg" width="700" alt="Isolation rollback">
+## Quick start
+
+```bash
+remote-agent "explore the auth module"
+swarm --mode parallel --agents 3 "analyze the codebase"
+swarm --mode swarm --verify "implement feature X"
+swarm --mode pipeline "refactor the API layer"
+git diff | swarm --stdin --mode review --verify
+```
 
 ## Architecture
 
-<img src="assets/architecture.svg" width="900" alt="Architecture">
-
-- **Main session delegates** to swarm via hooks — agents get fresh 200K context, isolated config
-- **Worktree isolation** prevents cross-contamination between parallel agents
-- **Verifier** cross-checks agent claims against actual `git diff`
-- **Completion contracts** give the main session a structured JSON summary
-
-## Modes
-
-<img src="assets/modes.svg" width="900" alt="Execution modes">
-
-| Mode | Agents | Use Case |
-|------|--------|----------|
-| `single` | 1 | Bug fixes, focused tasks |
-| `parallel` | 2–5 | Research, exploration |
-| `pipeline` | 4 stages | Feature implementation (research → implement → test → review) |
-| `swarm` | 2–5 + verify | Large implementations with verification |
-| `review` | 1 + verify | Code review, security audits |
-
-## Isolation
-
-<img src="assets/isolation.svg" width="900" alt="3-layer isolation">
-
-1. **Snapshot** — SHA-256 fingerprint of all files before agent runs (escape detection baseline)
-2. **Worktree** — Git worktree + untracked file copy per agent, `node_modules/` symlinked
-3. **Rollback** — Syntax validation (`node --check`, `py_compile`) on all changes; failures → restore from backup
-
-## Quick Start
-
-```bash
-npm install                # requires @anthropic-ai/claude-code
-
-# Single agent
-remote-agent "explore the auth module"
-
-# Parallel research
-swarm --mode parallel --agents 3 "analyze the codebase"
-
-# Implementation with verification
-swarm --mode swarm --verify "implement user authentication"
-
-# Pipeline (research → implement → test → review)
-swarm --mode pipeline "refactor the auth system to use JWT"
-
-# Code review
-git diff | remote-agent --stdin "review for bugs and security issues"
+```
+┌─────────────────────────┐
+│   Main Claude Session   │
+│  (Opus 4.6 · 1M · hooks)│
+└────────────┬────────────┘
+             │ DELEGATE
+    ┌────────▼────────┐
+    │    swarm.mjs    │
+    │   orchestrator  │
+    └──┬─────┬─────┬──┘
+       │     │     │
+  ┌────▼┐ ┌─▼──┐ ┌▼────┐
+  │ A-1 │ │A-2 │ │ A-3 │  ← agent-entry.mjs
+  │200K │ │200K│ │200K │  ← fresh context each
+  └──┬──┘ └─┬──┘ └──┬──┘
+     │      │       │
+  ┌──▼──┐┌──▼──┐┌───▼──┐
+  │ wt-1││wt-2 ││ wt-3 │  ← git worktrees
+  └─────┘└─────┘└──────┘
 ```
 
-## Module Structure
+> [Interactive diagram](assets/diagrams/architecture.html)
+
+## Execution modes
 
 ```
-lib/
-├── output.mjs         → colors, log, quiet mode
-├── config.mjs         → models, roles, depth presets
-├── cli.mjs            → argument parsing & help
-├── telemetry.mjs      → tool call & checklist tracking
-├── context-bridge.mjs → context file ↔ system prompt
-├── agent-spawn.mjs    → subprocess spawning
-├── lifecycle.mjs      → bd tasks, cleanup
-├── isolation.mjs      → snapshot, worktree, rollback
-└── orchestration.mjs  → decompose, parallel, pipeline, verify
+Mode       Flow                                    Use Case
+─────────  ──────────────────────────────────────  ─────────────────
+single     task → agent → result                   Bug fixes
+parallel   task → decompose → agents → merge       Research
+pipeline   task → research → impl → test → review  Features
+swarm      task → decompose → agents → verify      Large impl
+review     task → opus → verify → result            Code review
 ```
 
-Entry points: `agent-entry.mjs` (single agent) · `swarm.mjs` (multi-agent orchestrator)
+> [Interactive diagram](assets/diagrams/modes.html)
 
-## CLI Reference
+## Isolation model
+
+```
+BEFORE              DURING                AFTER
+─────────────────   ────────────────────  ─────────────────────
+snapshot files      agent runs in         ┌─ validate ✓ → apply
+(SHA-256 hashes)    isolated worktree     │
+backup sources      ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌   └─ validate ✗ → rollback
+                    escape detection:          ↑ restore from backup
+                    absolute-path writes
+                    caught by hash diff
+```
+
+> [Interactive diagram](assets/diagrams/isolation.html)
+
+## Modules
+
+```
+remote-agent/
+├── agent-entry.mjs      ← CLI supervisor (484 lines)
+├── swarm.mjs            ← orchestrator (219 lines)
+└── lib/
+    ├── output.mjs       ← colors, logging
+    ├── config.mjs       ← models, roles, presets
+    ├── cli.mjs          ← arg parsing, help text
+    ├── telemetry.mjs    ← tool call tracking
+    ├── context-bridge.mjs ← context ↔ system prompt
+    ├── agent-spawn.mjs  ← subprocess spawning
+    ├── lifecycle.mjs    ← bd tasks, cleanup
+    ├── isolation.mjs    ← snapshot, worktree, rollback
+    └── orchestration.mjs ← decompose, parallel, verify
+```
+
+> [Interactive graph](assets/diagrams/module-graph.html)
+
+## CLI reference
 
 ### `remote-agent`
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `-m, --model` | `sonnet` | `sonnet` (4.6) or `opus` (4.6), both 1M context |
-| `-b, --budget` | `15` | Max budget in USD (1–100) |
-| `-t, --timeout` | `600` | Timeout in seconds (10–3600) |
-| `-n, --turns` | `50` | Max tool-use turns (1–200) |
-| `-s, --system` | — | Append custom system prompt |
-| `--context-file` | — | Structured context JSON input |
-| `--result-file` | — | Structured result JSON output |
-| `--stdin` | — | Read task/diff from stdin |
-| `--max-retries` | `0` | Retry on non-timeout failures |
-| `-q, --quiet` | — | Suppress status output |
+| `-m, --model` | `sonnet` | Model: sonnet or opus (both 1M) |
+| `-b, --budget` | `15` | Max budget in USD |
+| `-t, --timeout` | `600` | Timeout in seconds |
+| `-n, --turns` | `50` | Max tool-use turns |
+| `--result-file` | — | Write JSON result |
+| `--context-file` | — | Read structured context |
+| `--stdin` | — | Read task from stdin |
+| `--max-retries` | `0` | Retry on failure (opt-in) |
+| `-q, --quiet` | — | Suppress status |
 
 ### `swarm`
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--mode` | `auto` | `single` · `parallel` · `pipeline` · `swarm` · `review` |
-| `--agents` | `3` | Parallel agent count (1–5) |
-| `--depth` | `normal` | `shallow` (10 turns/$5) · `normal` (25/$15) · `thorough` (50/$25) |
-| `--timeout` | `600` | Per-agent timeout in seconds |
-| `--verify` | auto | Force verification (auto for swarm/pipeline/review) |
-| `--no-verify` | — | Skip verification |
-| `--result-file` | — | Write full contract JSON |
-| `--context-file` | — | Pass context to all agents |
-| `--bd-task` | — | Beads task ID for lifecycle tracking |
+| `--mode` | `auto` | single/parallel/pipeline/swarm/review |
+| `--agents` | `3` | Max parallel agents (1-5) |
+| `--depth` | `normal` | shallow/normal/thorough |
+| `--verify/--no-verify` | auto | Verification pass |
+| `--result-file` | — | Write JSON contract |
+| `--timeout` | `600` | Per-agent timeout |
+| `--bd-task` | — | Beads task tracking |
 
 ## License
 
