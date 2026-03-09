@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>3-Layer Isolation</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100vh; overflow: hidden; background: #000000; }
+  svg { display: block; width: 100%; height: 100vh; }
+
+
+  .edge-animated {
+    stroke-dasharray: 8 4;
+    animation: dashFlow 1.5s linear infinite;
+  }
+  @keyframes dashFlow {
+    to { stroke-dashoffset: -24; }
+  }
+</style>
+</head>
+<body>
+<svg viewBox="0 0 1100 520" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arr-cyan" viewBox="0 0 10 7" refX="10" refY="3.5"
+      markerWidth="8" markerHeight="6" orient="auto-start-reverse">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#06B6D4" />
+    </marker>
+    <marker id="arr-green" viewBox="0 0 10 7" refX="10" refY="3.5"
+      markerWidth="8" markerHeight="6" orient="auto-start-reverse">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#10B981" />
+    </marker>
+    <marker id="arr-red" viewBox="0 0 10 7" refX="10" refY="3.5"
+      markerWidth="8" markerHeight="6" orient="auto-start-reverse">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#EF4444" />
+    </marker>
+    <marker id="arr-amber" viewBox="0 0 10 7" refX="10" refY="3.5"
+      markerWidth="8" markerHeight="6" orient="auto-start-reverse">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#F59E0B" />
+    </marker>
+  </defs>
+
+  <rect width="1100" height="520" fill="#000000" />
+
+  <!-- Title -->
+  <text x="550" y="32" text-anchor="middle" fill="#E2E8F0" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="600">
+    <tspan fill="#06B6D4">&#9670;</tspan> 3-Layer Isolation Model
+  </text>
+
+  <!-- ═══════════════ Phase Labels ═══════════════ -->
+  <text x="140" y="68" text-anchor="middle" fill="#64748B" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600" letter-spacing="2">BEFORE</text>
+  <text x="500" y="68" text-anchor="middle" fill="#64748B" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600" letter-spacing="2">DURING</text>
+  <text x="870" y="68" text-anchor="middle" fill="#64748B" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600" letter-spacing="2">AFTER</text>
+
+  <!-- Vertical phase dividers -->
+  <line x1="310" y1="55" x2="310" y2="490" stroke="#1a1a1a" stroke-width="1" stroke-dasharray="4 4" />
+  <line x1="660" y1="55" x2="660" y2="490" stroke="#1a1a1a" stroke-width="1" stroke-dasharray="4 4" />
+
+  <!-- ═══════════════ BEFORE Section ═══════════════ -->
+  <g class="node" style="animation-delay: 0.1s">
+    <!-- Snapshot Files -->
+    <rect x="50" y="100" width="180" height="55" rx="8" fill="#111111" stroke="#06B6D4" stroke-width="1" />
+    <text x="140" y="125" text-anchor="middle" fill="#E2E8F0" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="600">Snapshot Files</text>
+    <text x="140" y="143" text-anchor="middle" fill="#64748B" font-family="system-ui, -apple-system, sans-serif" font-size="10">SHA-256 &#183; 12,000 files</text>
+  </g>
+
+  <g class="node" style="animation-delay: 0.2s">
+    <!-- Backup Sources -->
+    <rect x="50" y="190" width="180" height="55" rx="8" fill="#111111" stroke="#06B6D4" stroke-width="1" />
+    <text x="140" y="215" text-anchor="middle" fill="#E2E8F0" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="600">Backup Sources</text>
+    <text x="140" y="233" text-anchor="middle" fill="#64748B" font-family="system-ui, -apple-system, sans-serif" font-size="10">418 .mjs/.js/.py files</text>
+  </g>
+
+  <g class="node" style="animation-delay: 0.3s">
+    <!-- Create Worktree -->
+    <rect x="50" y="280" width="180" height="55" rx="8" fill="#111111" stroke="#06B6D4" stroke-width="1" />
+    <text x="140" y="305" text-anchor="middle" fill="#E2E8F0" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="600">Create Worktree</text>
+    <text x="140" y="323" text-anchor="middle" fill="#64748B" font-family="system-ui, -apple-system, sans-serif" font-size="10">git worktree add --detach</text>
+  </g>
+
+  <!-- Edges: BEFORE → DURING -->
+  <path d="M 230 127 C 290 127, 340 210, 390 210" stroke="#06B6D4" stroke-width="1.5" fill="none" class="edge-animated" marker-end="url(#arr-cyan)" />
+  <path d="M 230 217 C 290 217, 340 230, 390 230" stroke="#06B6D4" stroke-width="1.5" fill="none" class="edge-animated" marker-end="url(#arr-cyan)" />
+  <path d="M 230 307 C 290 307, 340 250, 390 250" stroke="#06B6D4" stroke-width="1.5" fill="none" class="edge-animated" marker-end="url(#arr-cyan)" />
+
+  <!-- ═══════════════ DURING Section ═══════════════ -->
+  <g class="node" style="animation-delay: 0.4s">
+    <!-- Dashed boundary box -->
+    <rect x="380" y="160" width="240" height="120" rx="12" fill="none" stroke="#06B6D4" stroke-width="2" stroke-dasharray="8 4" opacity="0.4" />
+
+    <!-- Agent Executes (inside boundary) -->
+    <rect x="400" y="180" width="200" height="80" rx="8" fill="#111111" stroke="#06B6D4" stroke-width="1" />
+    <text x="500" y="212" text-anchor="middle" fill="#E2E8F0" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="600">Agent Executes</text>
+    <text x="500" y="232" text-anchor="middle" fill="#64748B" font-family="system-ui, -apple-system, sans-serif" font-size="11">Isolated cwd &#183; Fresh context</text>
+  </g>
+
+  <g class="node" style="animation-delay: 0.5s">
+    <!-- Escape Detection warning -->
+    <rect x="390" y="320" width="220" height="60" rx="8" fill="#111111" stroke="#EF4444" stroke-width="1" />
+    <text x="500" y="345" text-anchor="middle" fill="#EF4444" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600">&#9888; Escape Detection</text>
+    <text x="500" y="365" text-anchor="middle" fill="#64748B" font-family="system-ui, -apple-system, sans-serif" font-size="10">Hash mismatch on absolute path writes</text>
+
+    <!-- Connection from boundary to escape -->
+    <line x1="500" y1="280" x2="500" y2="320" stroke="#EF4444" stroke-width="1" stroke-dasharray="4 3" />
+  </g>
+
+  <!-- Edge: DURING → Decision point -->
+  <path d="M 620 220 C 660 220, 680 220, 710 220" stroke="#F59E0B" stroke-width="1.5" fill="none" marker-end="url(#arr-amber)" />
+
+  <!-- ═══════════════ AFTER Section — Decision Diamond ═══════════════ -->
+  <g class="node" style="animation-delay: 0.6s">
+    <!-- Diamond shape for decision -->
+    <polygon points="740,220 770,195 800,220 770,245" fill="#111111" stroke="#F59E0B" stroke-width="1.5" />
+    <text x="770" y="224" text-anchor="middle" fill="#F59E0B" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-weight="600">?</text>
+  </g>
+
+  <!-- ═══ Success Path (top) ═══ -->
+  <path d="M 800 208 C 830 190, 840 150, 860 150" stroke="#10B981" stroke-width="1.5" fill="none" marker-end="url(#arr-green)" />
+  <text x="830" y="172" fill="#10B981" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="600">PASS</text>
+
+  <g class="node" style="animation-delay: 0.7s">
+    <!-- Validate OK -->
+    <rect x="870" y="120" width="180" height="55" rx="8" fill="#111111" stroke="#10B981" stroke-width="1" />
+    <text x="960" y="144" text-anchor="middle" fill="#10B981" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="600">Validate &#10003;</text>
+    <text x="960" y="162" text-anchor="middle" fill="#64748B" font-family="system-ui, -apple-system, sans-serif" font-size="10">node --check &#183; py_compile</text>
+  </g>
+
+  <line x1="960" y1="175" x2="960" y2="205" stroke="#10B981" stroke-width="1.5" marker-end="url(#arr-green)" />
+
+  <g class="node" style="animation-delay: 0.75s">
+    <!-- Apply -->
+    <rect x="870" y="210" width="180" height="50" rx="8" fill="#0d2b22" stroke="#10B981" stroke-width="1.5" />
+    <text x="960" y="232" text-anchor="middle" fill="#10B981" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="600">Apply</text>
+    <text x="960" y="249" text-anchor="middle" fill="#64748B" font-family="system-ui, -apple-system, sans-serif" font-size="10">Changes copied to main</text>
+  </g>
+
+  <!-- ═══ Failure Path (bottom) ═══ -->
+  <path d="M 800 232 C 830 250, 840 310, 860 310" stroke="#EF4444" stroke-width="1.5" fill="none" marker-end="url(#arr-red)" />
+  <text x="830" y="278" fill="#EF4444" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="600">FAIL</text>
+
+  <g class="node" style="animation-delay: 0.8s">
+    <!-- Validate Fail -->
+    <rect x="870" y="285" width="180" height="55" rx="8" fill="#111111" stroke="#EF4444" stroke-width="1" />
+    <text x="960" y="309" text-anchor="middle" fill="#EF4444" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="600">Validate &#10007;</text>
+    <text x="960" y="327" text-anchor="middle" fill="#64748B" font-family="system-ui, -apple-system, sans-serif" font-size="10">Syntax error detected</text>
+  </g>
+
+  <line x1="960" y1="340" x2="960" y2="370" stroke="#F59E0B" stroke-width="1.5" marker-end="url(#arr-amber)" />
+
+  <g class="node" style="animation-delay: 0.85s">
+    <!-- Rollback -->
+    <rect x="870" y="375" width="180" height="50" rx="8" fill="#111111" stroke="#F59E0B" stroke-width="1" />
+    <text x="960" y="397" text-anchor="middle" fill="#F59E0B" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="600">Rollback</text>
+    <text x="960" y="414" text-anchor="middle" fill="#64748B" font-family="system-ui, -apple-system, sans-serif" font-size="10">Restore from backup</text>
+  </g>
+
+  <!-- Legend -->
+  <g transform="translate(30, 475)">
+    <line x1="0" y1="5" x2="25" y2="5" stroke="#06B6D4" stroke-width="2" stroke-dasharray="8 4" />
+    <text x="32" y="9" fill="#64748B" font-family="system-ui, -apple-system, sans-serif" font-size="10">Prepare</text>
+    <line x1="100" y1="5" x2="125" y2="5" stroke="#10B981" stroke-width="2" />
+    <text x="132" y="9" fill="#64748B" font-family="system-ui, -apple-system, sans-serif" font-size="10">Success path</text>
+    <line x1="220" y1="5" x2="245" y2="5" stroke="#EF4444" stroke-width="1.5" />
+    <text x="252" y="9" fill="#64748B" font-family="system-ui, -apple-system, sans-serif" font-size="10">Failure path</text>
+    <line x1="340" y1="5" x2="365" y2="5" stroke="#F59E0B" stroke-width="1.5" />
+    <text x="372" y="9" fill="#64748B" font-family="system-ui, -apple-system, sans-serif" font-size="10">Rollback</text>
+  </g>
+</svg>
+</body>
+</html>

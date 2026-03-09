@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Module Dependency Graph</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100vh; overflow: hidden; background: #000000; }
+  svg { display: block; width: 100%; height: 100vh; }
+
+  /* Animated dashes on select edges */
+  .edge-animated {
+    stroke-dasharray: 6 3;
+    animation: dashFlow 1.2s linear infinite;
+  }
+  @keyframes dashFlow {
+    to { stroke-dashoffset: -18; }
+  }
+
+  .glow-amber { filter: drop-shadow(0 0 6px rgba(245,158,11,0.25)); }
+  .glow-cyan { filter: drop-shadow(0 0 6px rgba(6,182,212,0.2)); }
+</style>
+</head>
+<body>
+<svg viewBox="0 0 1000 590" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arr-amber" viewBox="0 0 10 7" refX="10" refY="3.5"
+      markerWidth="8" markerHeight="6" orient="auto-start-reverse">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#F59E0B" />
+    </marker>
+    <marker id="arr-cyan" viewBox="0 0 10 7" refX="10" refY="3.5"
+      markerWidth="8" markerHeight="6" orient="auto-start-reverse">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#06B6D4" />
+    </marker>
+    <marker id="arr-slate" viewBox="0 0 10 7" refX="10" refY="3.5"
+      markerWidth="8" markerHeight="6" orient="auto-start-reverse">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#475569" />
+    </marker>
+    <marker id="arr-dim" viewBox="0 0 10 7" refX="10" refY="3.5"
+      markerWidth="8" markerHeight="6" orient="auto-start-reverse">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#334155" />
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1000" height="590" fill="#000000" />
+
+  <!-- Title -->
+  <text x="500" y="30" text-anchor="middle" fill="#E2E8F0" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="600">
+    <tspan fill="#06B6D4">&#9670;</tspan> Module Dependency Graph
+  </text>
+
+  <!-- Layer labels (left margin) -->
+  <text x="18" y="82" fill="#64748B" font-family="system-ui, -apple-system, sans-serif" font-size="10" font-weight="600" letter-spacing="1.5">ENTRY</text>
+  <text x="18" y="222" fill="#64748B" font-family="system-ui, -apple-system, sans-serif" font-size="10" font-weight="600" letter-spacing="1.5">CORE</text>
+  <text x="18" y="368" fill="#64748B" font-family="system-ui, -apple-system, sans-serif" font-size="10" font-weight="600" letter-spacing="1.5">MID</text>
+  <text x="18" y="500" fill="#64748B" font-family="system-ui, -apple-system, sans-serif" font-size="10" font-weight="600" letter-spacing="1.5">LEAF</text>
+
+  <!-- Horizontal layer dividers -->
+  <line x1="60" y1="148" x2="960" y2="148" stroke="#111111" stroke-width="1" />
+  <line x1="60" y1="300" x2="960" y2="300" stroke="#111111" stroke-width="1" />
+  <line x1="60" y1="440" x2="960" y2="440" stroke="#111111" stroke-width="1" />
+
+  <!-- ══════════════ EDGES (drawn first, behind nodes) ══════════════ -->
+
+  <!-- Entry → Core (amber, prominent) -->
+  <path d="M 650,108 C 650,149, 375,149, 375,190" stroke="#F59E0B" stroke-width="1.5" fill="none" opacity="0.6" marker-end="url(#arr-amber)" />
+  <path d="M 650,108 C 650,149, 660,149, 660,190" stroke="#F59E0B" stroke-width="1.5" fill="none" opacity="0.6" marker-end="url(#arr-amber)" />
+
+  <!-- Entry → Mid (amber, medium opacity) -->
+  <path d="M 260,108 C 260,224, 93,224, 93,340" stroke="#F59E0B" stroke-width="1" fill="none" opacity="0.3" marker-end="url(#arr-amber)" />
+  <path d="M 260,108 C 260,224, 450,224, 450,340" stroke="#F59E0B" stroke-width="1" fill="none" opacity="0.3" marker-end="url(#arr-amber)" />
+  <path d="M 260,108 C 260,224, 640,224, 640,340" stroke="#F59E0B" stroke-width="1" fill="none" opacity="0.25" marker-end="url(#arr-amber)" />
+  <path d="M 260,108 C 260,224, 830,224, 830,340" stroke="#F59E0B" stroke-width="1" fill="none" opacity="0.25" marker-end="url(#arr-amber)" />
+  <path d="M 650,108 C 650,224, 270,224, 270,340" stroke="#F59E0B" stroke-width="1" fill="none" opacity="0.3" marker-end="url(#arr-amber)" />
+  <path d="M 650,108 C 650,224, 450,224, 450,340" stroke="#F59E0B" stroke-width="1" fill="none" opacity="0.25" marker-end="url(#arr-amber)" />
+  <path d="M 650,108 C 650,224, 93,224, 93,340" stroke="#F59E0B" stroke-width="1" fill="none" opacity="0.15" marker-end="url(#arr-amber)" />
+
+  <!-- Core → Core (cyan, horizontal) -->
+  <path d="M 488,220 C 510,220, 540,220, 558,220" stroke="#06B6D4" stroke-width="1.2" fill="none" opacity="0.5" marker-end="url(#arr-cyan)" />
+
+  <!-- Core → Mid (cyan) -->
+  <path d="M 375,248 C 375,294, 270,294, 270,340" stroke="#06B6D4" stroke-width="1.2" fill="none" opacity="0.5" marker-end="url(#arr-cyan)" />
+  <path d="M 375,248 C 375,294, 640,294, 640,340" stroke="#06B6D4" stroke-width="1.2" fill="none" opacity="0.5" marker-end="url(#arr-cyan)" />
+
+  <!-- Core → Leaf (dim) -->
+  <path d="M 660,248 C 660,365, 645,365, 645,475" stroke="#334155" stroke-width="0.8" fill="none" opacity="0.3" marker-end="url(#arr-dim)" />
+
+  <!-- Mid → Leaf (dim, utility imports) -->
+  <path d="M 93,390 C 93,432, 290,432, 290,475" stroke="#334155" stroke-width="0.8" fill="none" opacity="0.35" marker-end="url(#arr-dim)" />
+  <path d="M 270,390 C 270,432, 290,432, 290,475" stroke="#334155" stroke-width="0.8" fill="none" opacity="0.35" marker-end="url(#arr-dim)" />
+  <path d="M 450,390 C 450,432, 290,432, 290,475" stroke="#334155" stroke-width="0.8" fill="none" opacity="0.35" marker-end="url(#arr-dim)" />
+  <path d="M 640,390 C 640,432, 290,432, 290,475" stroke="#334155" stroke-width="0.8" fill="none" opacity="0.3" marker-end="url(#arr-dim)" />
+  <path d="M 830,390 C 830,432, 645,432, 645,475" stroke="#334155" stroke-width="0.8" fill="none" opacity="0.35" marker-end="url(#arr-dim)" />
+
+  <!-- ══════════════ NODES ══════════════ -->
+
+  <!-- ─── Layer 0: Entry Points (amber) ─── -->
+  <g class="glow-amber">
+    <rect x="155" y="55" width="210" height="53" rx="8" fill="#111111" stroke="#F59E0B" stroke-width="1.5" />
+    <text x="260" y="77" text-anchor="middle" fill="#F59E0B" font-family="'SF Mono', 'JetBrains Mono', 'Fira Code', monospace" font-size="13" font-weight="600">agent-entry.mjs</text>
+    <text x="260" y="97" text-anchor="middle" fill="#64748B" font-family="system-ui, -apple-system, sans-serif" font-size="10">single agent CLI</text>
+  </g>
+
+  <g class="glow-amber">
+    <rect x="545" y="55" width="210" height="53" rx="8" fill="#111111" stroke="#F59E0B" stroke-width="1.5" />
+    <text x="650" y="77" text-anchor="middle" fill="#F59E0B" font-family="'SF Mono', 'JetBrains Mono', 'Fira Code', monospace" font-size="13" font-weight="600">swarm.mjs</text>
+    <text x="650" y="97" text-anchor="middle" fill="#64748B" font-family="system-ui, -apple-system, sans-serif" font-size="10">multi-agent orchestrator</text>
+  </g>
+
+  <!-- ─── Layer 1: Core Modules (cyan, larger) ─── -->
+  <g class="glow-cyan">
+    <rect x="260" y="190" width="228" height="58" rx="8" fill="#111111" stroke="#06B6D4" stroke-width="1.5" />
+    <text x="375" y="214" text-anchor="middle" fill="#06B6D4" font-family="'SF Mono', 'JetBrains Mono', 'Fira Code', monospace" font-size="13" font-weight="600">orchestration.mjs</text>
+    <text x="375" y="236" text-anchor="middle" fill="#64748B" font-family="system-ui, -apple-system, sans-serif" font-size="10">decompose &#183; dispatch &#183; merge</text>
+  </g>
+
+  <g class="glow-cyan">
+    <rect x="558" y="190" width="205" height="58" rx="8" fill="#111111" stroke="#06B6D4" stroke-width="1.5" />
+    <text x="660" y="214" text-anchor="middle" fill="#06B6D4" font-family="'SF Mono', 'JetBrains Mono', 'Fira Code', monospace" font-size="13" font-weight="600">isolation.mjs</text>
+    <text x="660" y="236" text-anchor="middle" fill="#64748B" font-family="system-ui, -apple-system, sans-serif" font-size="10">worktree &#183; snapshot &#183; validate</text>
+  </g>
+
+  <!-- ─── Layer 2: Mid-Layer (slate) ─── -->
+  <g>
+    <rect x="28" y="340" width="130" height="50" rx="8" fill="#111111" stroke="#475569" stroke-width="1" />
+    <text x="93" y="362" text-anchor="middle" fill="#E2E8F0" font-family="'SF Mono', 'JetBrains Mono', 'Fira Code', monospace" font-size="12" font-weight="600">cli.mjs</text>
+    <text x="93" y="380" text-anchor="middle" fill="#64748B" font-family="system-ui, -apple-system, sans-serif" font-size="9">arg parsing</text>
+  </g>
+
+  <g>
+    <rect x="188" y="340" width="165" height="50" rx="8" fill="#111111" stroke="#475569" stroke-width="1" />
+    <text x="270" y="362" text-anchor="middle" fill="#E2E8F0" font-family="'SF Mono', 'JetBrains Mono', 'Fira Code', monospace" font-size="12" font-weight="600">agent-spawn.mjs</text>
+    <text x="270" y="380" text-anchor="middle" fill="#64748B" font-family="system-ui, -apple-system, sans-serif" font-size="9">subprocess launch</text>
+  </g>
+
+  <g>
+    <rect x="378" y="340" width="145" height="50" rx="8" fill="#111111" stroke="#475569" stroke-width="1" />
+    <text x="450" y="362" text-anchor="middle" fill="#E2E8F0" font-family="'SF Mono', 'JetBrains Mono', 'Fira Code', monospace" font-size="12" font-weight="600">lifecycle.mjs</text>
+    <text x="450" y="380" text-anchor="middle" fill="#64748B" font-family="system-ui, -apple-system, sans-serif" font-size="9">start &#183; monitor &#183; cleanup</text>
+  </g>
+
+  <g>
+    <rect x="550" y="340" width="180" height="50" rx="8" fill="#111111" stroke="#475569" stroke-width="1" />
+    <text x="640" y="362" text-anchor="middle" fill="#E2E8F0" font-family="'SF Mono', 'JetBrains Mono', 'Fira Code', monospace" font-size="11" font-weight="600">context-bridge.mjs</text>
+    <text x="640" y="380" text-anchor="middle" fill="#64748B" font-family="system-ui, -apple-system, sans-serif" font-size="9">cross-session context</text>
+  </g>
+
+  <g>
+    <rect x="758" y="340" width="145" height="50" rx="8" fill="#111111" stroke="#475569" stroke-width="1" />
+    <text x="830" y="362" text-anchor="middle" fill="#E2E8F0" font-family="'SF Mono', 'JetBrains Mono', 'Fira Code', monospace" font-size="12" font-weight="600">telemetry.mjs</text>
+    <text x="830" y="380" text-anchor="middle" fill="#64748B" font-family="system-ui, -apple-system, sans-serif" font-size="9">cost &#183; timing &#183; metrics</text>
+  </g>
+
+  <!-- ─── Layer 3: Leaf (dim, smaller) ─── -->
+  <g>
+    <rect x="215" y="475" width="150" height="45" rx="8" fill="#0a0a0a" stroke="#334155" stroke-width="1" />
+    <text x="290" y="495" text-anchor="middle" fill="#94A3B8" font-family="'SF Mono', 'JetBrains Mono', 'Fira Code', monospace" font-size="12" font-weight="600">output.mjs</text>
+    <text x="290" y="512" text-anchor="middle" fill="#64748B" font-family="system-ui, -apple-system, sans-serif" font-size="9">logging &#183; formatting</text>
+  </g>
+
+  <g>
+    <rect x="570" y="475" width="150" height="45" rx="8" fill="#0a0a0a" stroke="#334155" stroke-width="1" />
+    <text x="645" y="495" text-anchor="middle" fill="#94A3B8" font-family="'SF Mono', 'JetBrains Mono', 'Fira Code', monospace" font-size="12" font-weight="600">config.mjs</text>
+    <text x="645" y="512" text-anchor="middle" fill="#64748B" font-family="system-ui, -apple-system, sans-serif" font-size="9">paths &#183; defaults</text>
+  </g>
+
+  <!-- Legend -->
+  <g transform="translate(60, 560)">
+    <rect x="-5" y="-6" width="10" height="10" rx="2" fill="#F59E0B" />
+    <text x="12" y="3" fill="#64748B" font-family="system-ui, -apple-system, sans-serif" font-size="10">Entry points</text>
+
+    <rect x="120" y="-6" width="10" height="10" rx="2" fill="#06B6D4" />
+    <text x="137" y="3" fill="#64748B" font-family="system-ui, -apple-system, sans-serif" font-size="10">Core modules</text>
+
+    <rect x="255" y="-6" width="10" height="10" rx="2" fill="#475569" />
+    <text x="272" y="3" fill="#64748B" font-family="system-ui, -apple-system, sans-serif" font-size="10">Mid-layer</text>
+
+    <rect x="360" y="-6" width="10" height="10" rx="2" fill="#334155" />
+    <text x="377" y="3" fill="#64748B" font-family="system-ui, -apple-system, sans-serif" font-size="10">Leaf (no deps)</text>
+
+    <text x="500" y="3" fill="#475569" font-family="system-ui, -apple-system, sans-serif" font-size="10">Arrows: importer &#8594; imported</text>
+  </g>
+</svg>
+</body>
+</html>
