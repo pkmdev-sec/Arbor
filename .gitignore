@@ -1,5 +1,21 @@
+# Dependencies
 node_modules/
+
+# Backup files
+*.backup
+*.pre-refactor
+
+# Claude Code runtime state (generated per-session)
+config/projects/
+config/session-env/
+config/shell-snapshots/
+config/backups/
+config/plugins/
+config/.claude.json
+config/subagents/
+
+# OS files
+.DS_Store
+
+# Package lock (regenerated from package.json)
 package-lock.json
-/tmp/
-*.log
-__pycache__/
