@@ -1,259 +1,224 @@
 # remote-agent
 
-Autonomous Claude Code executor with parallel swarm orchestration. Spawns isolated Claude Code subprocesses with fresh 1M context windows — solving the context pollution problem that degrades quality in long sessions.
+> Your Claude Code session shouldn't die after reading 30 files.
 
-## What it does
+**remote-agent** solves the biggest pain point of Claude Code: **context window pollution**. When you ask Claude to explore a codebase, it reads every file into its context, leaving no room for actual work. By the time it's done exploring, it can barely implement anything.
 
-When you're in a Claude Code session and ask it to explore a codebase, implement a feature, or debug an issue, **remote-agent** handles the work in isolated subprocesses instead of polluting your main session's context window.
+remote-agent fixes this by spawning **isolated Claude Code subprocesses** — each with a fresh 1M context window. Your main session stays lean. The agents do the heavy lifting. You get structured results back.
 
-```
-Main Claude Session (stays lean at 20-30% context)
-  │
-  ├─ You: "explore the codebase and map all component connectivity"
-  │
-  ├─ Orchestrator classifies task → RESEARCH, parallel mode, 4 agents
-  │
-  ├─ swarm decomposes into 4 subtasks by directory
-  │   ├─ agent-01: src/models/     ─┐
-  │   ├─ agent-02: src/services/   ─┤ run in parallel
-  │   ├─ agent-03: src/components/ ─┤ fresh 1M context each
-  │   └─ agent-04: src/utils/      ─┘
-  │
-  ├─ Results merged into structured JSON
-  │
-  └─ Main session reads summary (2KB, not 200KB of raw files)
-```
+## See it in action
 
-## Prerequisites
+### The enforcement — Claude is forced to use remote-agent
 
-- **Node.js 18+**
-- **Claude Code** — `curl -fsSL https://claude.ai/install.sh | bash`
-- **`ANTHROPIC_API_KEY`** environment variable set (for the AI task classifier)
-- **Python 3** (for hook scripts)
+When you ask Claude to explore a codebase, the orchestrator blocks it from reading files directly and forces delegation to the swarm:
 
-## Install
+![Enforcement in action](assets/enforcement.svg)
+
+Claude tries `Explore` agent → **blocked**. Tries `Glob` → **blocked**. Finally uses the swarm command → **allowed**. This isn't a suggestion — it's enforcement via PreToolUse hooks.
+
+### The swarm — parallel agents with live output
+
+The swarm decomposes your task into subtasks and runs agents in parallel, each with its own fresh context:
+
+![Swarm parallel execution](assets/swarm-output.svg)
+
+Each agent's activity streams live to your terminal, prefixed with its ID. You see exactly what every agent is doing in real-time.
+
+### The architecture — how it all connects
+
+![Architecture diagram](assets/architecture.svg)
+
+## Why this exists
+
+We built this because Claude Code has a fundamental problem:
+
+1. **Context fills up fast** — Reading 30 files consumes 60%+ of the context window
+2. **Quality degrades** — A bloated session makes worse decisions, misses edge cases, hallucinates
+3. **The $400 spiral** — One exploration task consumed 3.2M tokens and cost $421 because Claude kept reading files into an overloaded context
+
+**remote-agent breaks this cycle.** Each agent gets a fresh 1M context. Your main session only sees summaries. No pollution. No degradation. No $400 bills.
+
+## Quick start
+
+### Prerequisites
+
+- Node.js 18+
+- [Claude Code](https://claude.ai/install.sh) installed
+- `ANTHROPIC_API_KEY` env var set
+- Python 3
+
+### Install
 
 ```bash
-git clone https://github.com/yourusername/remote-agent.git
+git clone https://github.com/pkmdev-sec/remote-agent.git
 cd remote-agent
 ./install.sh
 ```
 
-The installer:
-1. Installs `@anthropic-ai/claude-code` npm dependency
-2. Symlinks `remote-agent` and `swarm` to `~/.local/bin/`
-3. Copies hook scripts to `~/.claude/hooks/`
-4. Registers hooks in `~/.claude/settings.json`
-5. Creates isolated subprocess config (no hooks, no MCP)
+That's it. The installer handles everything — dependencies, PATH symlinks, hook registration, and isolated subprocess config.
 
-## Usage
-
-### Single agent
+### Try it
 
 ```bash
-# Simple task
+# Single agent — explore a codebase
 remote-agent "explore src/auth/ and map the authentication flow"
 
-# With result file
-remote-agent -m sonnet --result-file /tmp/result.json "analyze the data models"
+# Swarm — 3 parallel agents
+swarm --mode parallel --agents 3 "analyze the entire codebase architecture"
 
-# Pipe input
-git diff HEAD~1 | remote-agent --stdin -m opus "review this diff for bugs"
-
-# With context from prior work
-remote-agent --context-file ctx.json --result-file result.json "implement the feature"
-```
-
-### Swarm (parallel agents)
-
-```bash
-# Auto-detect mode
-swarm "explore the entire codebase architecture"
-
-# Explicit parallel with 4 agents
-swarm --mode parallel --agents 4 --result-file /tmp/swarm.json "map all modules"
-
-# Full swarm with verification
-swarm --mode swarm --agents 3 --depth thorough --verify "implement OAuth with tests"
-
-# Pipeline (sequential stages)
-swarm --mode pipeline --verify "refactor the database layer"
-
-# Code review
+# Review with opus
 git diff | swarm --stdin --mode review --verify "security audit"
 ```
 
-### Swarm modes
+## How people use it
 
-| Mode | Pattern | When |
-|------|---------|------|
-| `parallel` | Decompose → N agents → merge | Research, exploration |
-| `swarm` | Decompose → N agents → verify | Large implementations |
-| `pipeline` | Research → Implement → Test → Review | Refactoring, features |
-| `single` | 1 agent + optional verifier | Debugging, focused fixes |
-| `review` | Opus reviewer + verifier | Code review, audits |
+### "Explore this codebase"
 
-### Depth presets
-
-| Depth | Turns | Budget | Verify model |
-|-------|-------|--------|-------------|
-| `shallow` | 10 | $5 | sonnet |
-| `normal` | 25 | $15 | sonnet |
-| `thorough` | 50 | $25 | opus |
-
-## How it works
-
-### Architecture
-
-```
-remote-agent (agent-entry.mjs)
-  │ Supervisor process — spawns cli.js as child process
-  │
-  ├─ Parses CLI flags
-  ├─ Reads --context-file → injects as --append-system-prompt
-  ├─ Spawns: node cli.js -p --model sonnet[1m] --team-name ... "task"
-  ├─ Streams stderr live (tool activity, file reads, etc.)
-  ├─ Captures stdout → result
-  ├─ Writes --result-file on exit
-  └─ Cleans up team directory
-
-swarm (swarm.mjs)
-  │ Multi-agent orchestrator — spawns N remote-agents
-  │
-  ├─ Phase 1: DECOMPOSE — scans project structure, splits into subtasks
-  ├─ Phase 2: EXECUTE — spawns agents in parallel (Promise.all)
-  ├─ Phase 3: VERIFY — opus agent cross-checks claims vs git diff
-  └─ Phase 4: REPORT — writes completion contract JSON
+```bash
+swarm --mode parallel --agents 4 --result-file /tmp/result.json \
+  "map all modules, their exports, and how they connect"
 ```
 
-### Nesting bypass
+The swarm:
+1. Scans your project structure (`find . -maxdepth 2`)
+2. Splits into 4 non-overlapping subtasks by directory
+3. Runs 4 agents in parallel — each reads only its assigned area
+4. Merges everything into one structured result
 
-Claude Code blocks spawning itself inside itself (`CLAUDECODE=1` guard). We bypass via:
-1. **Team triple**: `--team-name` + `--agent-id` + `--agent-name` (legitimate mechanism)
-2. **`CLAUDECODE=""`**: Empty string passes the `=== "1"` check
+Your main session reads a 2KB summary instead of 200KB of raw files.
 
-### Isolation
+### "Implement this feature"
 
-Each subprocess gets:
-- **Fresh 1M context** via `sonnet[1m]` / `opus[1m]`
-- **No hooks** — `CLAUDE_CONFIG_DIR` points to minimal config with `disableAllHooks: true`
-- **No MCP servers** — clean config has no MCP registrations
-- **Full tool access** — Read, Write, Edit, Bash, Grep, Glob
-- **No session persistence** — `--no-session-persistence` for clean disposal
+```bash
+swarm --mode swarm --agents 3 --depth thorough --verify \
+  "add OAuth authentication with Google and GitHub providers"
+```
 
-### Hook enforcement
+The swarm:
+1. Decomposes into subtasks (middleware, tests, routes)
+2. Agents implement in parallel
+3. Opus verifier cross-checks every claim against the actual `git diff`
+4. Produces a completion contract with PASS/FAIL per item
 
-The orchestrator uses Claude Code hooks to enforce remote-agent usage:
+### "Fix this bug"
 
-1. **`auto_orchestrator.py`** (UserPromptSubmit) — AI-powered task classifier using Haiku. Determines task type, mode, agents, depth. Writes `DELEGATE` state file + pre-computed swarm command.
+```bash
+swarm --mode single --verify \
+  "the app crashes when login is called with null email"
+```
 
-2. **`block_agent_tool.py`** (PreToolUse: Agent, Read, Glob, Grep) — When `DELEGATE` active, blocks Claude from using Agent/Read/Glob/Grep directly. Forces Bash with swarm command.
+Single agent investigates, traces, fixes, runs tests. Verifier confirms the fix matches the `git diff`.
 
-3. **`fulfill_delegate.py`** (PostToolUse: Bash) — When Bash runs remote-agent/swarm, transitions state from `DELEGATE` → `FULFILLED`, unblocking all tools for follow-up work.
+### "Review my changes"
 
-4. **`block_task_tools.py`** (PreToolUse: TaskCreate, etc.) — Blocks Claude's internal task system, redirects to `bd` CLI for persistent task tracking.
+```bash
+git diff HEAD~3 | swarm --stdin --mode review --verify "find bugs, security issues, logic errors"
+```
+
+Opus reviewer gets the diff in a fresh context — no prior bias. Verifier cross-checks findings.
+
+## Swarm modes
+
+| Mode | What it does | Best for |
+|------|-------------|----------|
+| `parallel` | Split by directory, N agents in parallel | Codebase exploration, research |
+| `swarm` | Decompose into subtasks, parallel + verify | Feature implementation |
+| `pipeline` | Sequential: research → build → test → review | Refactoring, careful changes |
+| `single` | 1 agent + optional verifier | Bug fixes, focused tasks |
+| `review` | Opus reviewer + verifier cross-check | Code review, security audit |
+
+## The enforcement system
+
+This is what makes remote-agent actually get used instead of ignored. Claude Code has a habit of ignoring suggestions and doing things its own way. So we don't suggest — we **enforce**.
+
+### How it works
+
+1. **You type a prompt** → The AI orchestrator (Haiku) classifies it in ~1 second
+2. **Orchestrator writes DELEGATE state** + a pre-computed swarm command
+3. **Claude tries to use Agent/Read/Glob/Grep** → All **blocked** by PreToolUse hooks
+4. **Claude's only option is Bash** → Runs the swarm command
+5. **After swarm completes** → PostToolUse hook transitions to FULFILLED → all tools unblocked
+
+The key insight we learned the hard way: **text directives don't work**. We tried three times to tell Claude "use remote-agent" via hook messages. It ignored them every time. The only thing that works is blocking the tools it would otherwise use.
 
 ### State lifecycle
 
 ```
-User prompt → orchestrator writes DELEGATE + swarm command
-  │
-  ├─ Claude tries Agent → BLOCKED "Use Bash: swarm ..."
-  ├─ Claude tries Read  → BLOCKED "Use Bash: swarm ..."
-  ├─ Claude tries Glob  → BLOCKED "Use Bash: swarm ..."
-  │
-  └─ Claude uses Bash with swarm → ALLOWED
-       └─ PostToolUse transitions DELEGATE → FULFILLED
-           └─ All tools unblocked for follow-up
+DELEGATE  →  Agent/Read/Glob/Grep BLOCKED, only Bash allowed
+FULFILLED →  All tools unblocked (swarm ran successfully)
+DIRECT    →  All tools allowed (simple questions, follow-ups)
 ```
 
 ## Configuration
 
 ### Models
 
-Only `sonnet` and `opus` are allowed — both resolve to 1M context variants (`sonnet[1m]`, `opus[1m]`). Haiku is not supported.
+Only **Sonnet 4.6** and **Opus 4.6** — both with 1M context (`[1m]` suffix). No haiku. Every agent gets the full context window.
+
+### Depth presets
+
+| Depth | Turns/agent | Budget | Verifier |
+|-------|------------|--------|----------|
+| `shallow` | 10 | $5 | sonnet |
+| `normal` | 25 | $15 | sonnet |
+| `thorough` | 50 | $25 | opus |
 
 ### Agent roles
 
-Agents receive role-specific system prompts:
+Each agent gets a role-specific system prompt:
 
-- **worker**: Must produce a completion checklist (PASS/FAIL/SKIP per item)
-- **verifier**: Adversarial cross-checking — compares claims against git diff
-- **decomposer**: Outputs JSON array of non-overlapping subtasks
+- **Worker** — Must produce a completion checklist (`[PASS]`/`[FAIL]`/`[SKIP]` per item)
+- **Verifier** — Adversarial cross-checking: compares claims against `git diff`, flags omissions
+- **Decomposer** — Reads actual project structure, outputs non-overlapping JSON subtask array
 
-### Context file schema
-
-Pass prior knowledge from the main session:
-
-```json
-{
-  "task": {
-    "scope": ["src/models/"],
-    "constraints": ["Read-only", "Focus on exports"]
-  },
-  "prior_knowledge": {
-    "decisions": ["Using Prisma ORM"],
-    "file_summaries": { "src/auth.ts": "JWT middleware" }
-  }
-}
-```
-
-### Result file schema (completion contract)
-
-```json
-{
-  "version": 2,
-  "task": "explore codebase",
-  "mode": "parallel",
-  "agents": [
-    {
-      "id": "agent-01",
-      "subtask": "Explore src/models/",
-      "status": "completed",
-      "output": "full agent output text...",
-      "duration_ms": 25000
-    }
-  ],
-  "merged_output": "all agent outputs combined with headers",
-  "verification": { "output": "VERDICT: PASS", "model": "opus" },
-  "summary": { "total_agents": 4, "completed": 4, "failed": 0 }
-}
-```
-
-## File structure
+## Project structure
 
 ```
 remote-agent/
-├── agent-entry.mjs      # Single agent supervisor (spawns cli.js subprocess)
-├── swarm.mjs            # Multi-agent orchestrator (decompose → parallel → verify)
+├── agent-entry.mjs       # Single agent supervisor
+├── swarm.mjs             # Multi-agent orchestrator
 ├── config/
-│   └── settings.json    # Isolated config for subprocesses (no hooks, full permissions)
+│   └── settings.json     # Isolated config (no hooks, full permissions)
 ├── hooks/
-│   ├── auto_orchestrator.py   # AI task classifier + swarm command generator
-│   ├── block_agent_tool.py    # PreToolUse enforcer (blocks Agent/Read/Glob/Grep during DELEGATE)
-│   ├── fulfill_delegate.py    # PostToolUse transition (DELEGATE → FULFILLED after Bash)
-│   └── block_task_tools.py    # Blocks internal task tools → redirects to bd CLI
+│   ├── auto_orchestrator.py    # AI task classifier (Haiku)
+│   ├── block_agent_tool.py     # Blocks Agent/Read/Glob/Grep during DELEGATE
+│   ├── fulfill_delegate.py     # DELEGATE→FULFILLED after Bash runs
+│   └── block_task_tools.py     # Blocks internal tasks → bd CLI
+├── install.sh
 ├── package.json
-├── install.sh           # One-command installer
 └── README.md
 ```
 
 ## Troubleshooting
 
-**"Error: Claude Code cannot be launched inside another Claude Code session"**
-The nesting guard is blocking subprocess spawning. Ensure `CLAUDECODE` is not set to `"1"` in your environment.
+### "Claude Code cannot be launched inside another Claude Code session"
+The nesting guard is active. The install script handles this, but if you see this error, ensure `CLAUDECODE` isn't set to `"1"` in your env.
 
-**Agent/Read/Glob blocked unexpectedly**
-The delegation state is stale. Clear it: `echo '{"mode":"DIRECT"}' > ~/.claude/hooks/.acontext_state/delegate_mode.json`
+### Agent/Read blocked when you don't expect it
+Stale delegation state. Quick fix:
+```bash
+echo '{"mode":"DIRECT"}' > ~/.claude/hooks/.acontext_state/delegate_mode.json
+```
 
-**"This model does not support the effort parameter"**
-Remove `CLAUDE_CODE_ALWAYS_ENABLE_EFFORT` from your `~/.claude/settings.json` — it breaks sonnet/haiku.
+### Hooks not firing in a new project
+Hooks load at session start. Always start a **fresh** session (not `--resume`) after modifying hooks.
 
-**Hooks not firing in a project**
-Hooks load at session start. If you modified settings.json, start a **new** session (don't `--resume`).
+### Blocking yourself when editing the orchestrator
+The blocker has a built-in escape: if your working directory contains `/.claude`, it never blocks. You can always edit your own config.
 
-**Blocking yourself when editing the orchestrator**
-The blocker has an escape hatch: if the working directory contains `/.claude`, it never blocks.
+## The story behind this
+
+This started as a simple wrapper around `claude -p`. Then we discovered Claude ignores hook directives. Then we built an MCP server. Claude ignored that too. Then we discovered that compound hook matchers (`{Agent,Read,Glob,Grep}`) silently don't fire for Read/Glob/Grep — only Agent gets blocked.
+
+Every "simple" fix revealed a deeper problem. The final system has:
+- PreToolUse enforcement (not suggestion)
+- Split matchers (one per tool, not compound)
+- DELEGATE → FULFILLED state machine
+- AI-powered classification replacing brittle regex
+- Live stderr streaming with agent ID prefixes
+- Completion contracts with per-agent outputs
+
+It took 5 architectural iterations to get here. But now it actually works.
 
 ## License
 
