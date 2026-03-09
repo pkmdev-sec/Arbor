@@ -1,0 +1,22 @@
+{
+  "name": "remote-agent",
+  "version": "1.0.0",
+  "description": "Autonomous Claude Code executor with parallel swarm orchestration — spawns isolated subprocesses with fresh context windows",
+  "type": "module",
+  "bin": {
+    "remote-agent": "./agent-entry.mjs",
+    "swarm": "./swarm.mjs"
+  },
+  "scripts": {
+    "start": "node agent-entry.mjs",
+    "swarm": "node swarm.mjs",
+    "update-claude": "npm install @anthropic-ai/claude-code@latest",
+    "test": "node agent-entry.mjs --version && node swarm.mjs --help > /dev/null && echo 'All checks passed'"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-code": "2.1.71"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
