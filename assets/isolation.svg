@@ -1,0 +1,116 @@
+<svg viewBox="0 0 800 380" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="a-cyan" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto">
+      <polygon points="0,0 7,2.5 0,5" fill="#06B6D4"/>
+    </marker>
+    <marker id="a-slate" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto">
+      <polygon points="0,0 7,2.5 0,5" fill="#475569"/>
+    </marker>
+    <marker id="a-green" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto">
+      <polygon points="0,0 7,2.5 0,5" fill="#10B981"/>
+    </marker>
+    <marker id="a-red" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto">
+      <polygon points="0,0 7,2.5 0,5" fill="#EF4444"/>
+    </marker>
+    <marker id="a-amber" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto">
+      <polygon points="0,0 7,2.5 0,5" fill="#F59E0B"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="380" fill="#000000"/>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- PHASE 1: BEFORE (x=20-230) -->
+  <!-- ═══════════════════════════════════════ -->
+  <text x="125" y="24" text-anchor="middle" font-family="monospace" font-size="12" fill="#64748B">BEFORE</text>
+
+  <!-- Dashed grouping box -->
+  <rect x="30" y="38" width="190" height="175" rx="8" ry="8" fill="none" stroke="#333333" stroke-width="1" stroke-dasharray="6 4"/>
+
+  <!-- Snapshot node -->
+  <rect x="50" y="58" width="150" height="55" rx="8" ry="8" fill="#111111" stroke="#06B6D4" stroke-width="1.5"/>
+  <text x="125" y="82" text-anchor="middle" font-family="monospace" font-size="13" fill="#E2E8F0">Snapshot</text>
+  <text x="125" y="100" text-anchor="middle" font-family="monospace" font-size="9" fill="#64748B">SHA-256 file hashes</text>
+
+  <!-- Backup node -->
+  <rect x="50" y="133" width="150" height="55" rx="8" ry="8" fill="#111111" stroke="#06B6D4" stroke-width="1.5"/>
+  <text x="125" y="157" text-anchor="middle" font-family="monospace" font-size="13" fill="#E2E8F0">Backup</text>
+  <text x="125" y="175" text-anchor="middle" font-family="monospace" font-size="9" fill="#64748B">Copy source files</text>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- PHASE 2: DURING (x=260-480) -->
+  <!-- ═══════════════════════════════════════ -->
+  <text x="370" y="24" text-anchor="middle" font-family="monospace" font-size="12" fill="#64748B">DURING</text>
+
+  <!-- Isolation boundary (dashed) -->
+  <rect x="275" y="38" width="190" height="140" rx="8" ry="8" fill="none" stroke="#06B6D4" stroke-width="1.5" stroke-dasharray="6 4" opacity="0.6"/>
+
+  <!-- Agent Executes (inside boundary) -->
+  <rect x="295" y="60" width="150" height="65" rx="8" ry="8" fill="#111111" stroke="#06B6D4" stroke-width="1.5"/>
+  <text x="370" y="88" text-anchor="middle" font-family="sans-serif" font-size="13" fill="#E2E8F0">Agent Executes</text>
+  <text x="370" y="108" text-anchor="middle" font-family="monospace" font-size="9" fill="#64748B">Isolated worktree</text>
+
+  <!-- Isolation label -->
+  <text x="370" y="158" text-anchor="middle" font-family="monospace" font-size="9" fill="#06B6D4" opacity="0.6">isolation boundary</text>
+
+  <!-- Escape Detection (outside boundary, below) -->
+  <rect x="290" y="198" width="160" height="48" rx="8" ry="8" fill="#111111" stroke="#F59E0B" stroke-width="1.5"/>
+  <text x="370" y="219" text-anchor="middle" font-family="monospace" font-size="12" fill="#F59E0B">Escape Detection</text>
+  <text x="370" y="236" text-anchor="middle" font-family="monospace" font-size="9" fill="#64748B">hash mismatch</text>
+
+  <!-- Arrow from Escape Detection up to boundary -->
+  <line x1="370" y1="198" x2="370" y2="180" stroke="#F59E0B" stroke-width="1.5" marker-end="url(#a-amber)"/>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- PHASE 3: AFTER (x=520-780) -->
+  <!-- ═══════════════════════════════════════ -->
+  <text x="650" y="24" text-anchor="middle" font-family="monospace" font-size="12" fill="#64748B">AFTER</text>
+
+  <!-- Fork diamond -->
+  <polygon points="540,125 555,110 570,125 555,140" fill="#111111" stroke="#475569" stroke-width="1.5"/>
+
+  <!-- ── TOP PATH: Success ── -->
+  <!-- Validate check -->
+  <rect x="590" y="60" width="90" height="40" rx="8" ry="8" fill="#111111" stroke="#10B981" stroke-width="1.5"/>
+  <text x="635" y="85" text-anchor="middle" font-family="monospace" font-size="11" fill="#10B981">Validate ✓</text>
+
+  <line x1="680" y1="80" x2="698" y2="80" stroke="#10B981" stroke-width="1.5" marker-end="url(#a-green)"/>
+
+  <!-- Apply -->
+  <rect x="708" y="60" width="70" height="40" rx="8" ry="8" fill="#10B981" stroke="#10B981" stroke-width="1.5"/>
+  <text x="743" y="85" text-anchor="middle" font-family="monospace" font-size="11" fill="#000000">Apply</text>
+
+  <text x="743" y="118" text-anchor="middle" font-family="monospace" font-size="9" fill="#64748B">changes copied to main</text>
+
+  <!-- Fork → top path -->
+  <line x1="555" y1="110" x2="555" y2="80" stroke="#475569" stroke-width="1"/>
+  <line x1="555" y1="80" x2="588" y2="80" stroke="#10B981" stroke-width="1.5" marker-end="url(#a-green)"/>
+
+  <!-- ── BOTTOM PATH: Failure ── -->
+  <!-- Validate fail -->
+  <rect x="590" y="180" width="90" height="40" rx="8" ry="8" fill="#111111" stroke="#EF4444" stroke-width="1.5"/>
+  <text x="635" y="205" text-anchor="middle" font-family="monospace" font-size="11" fill="#EF4444">Validate ✗</text>
+
+  <line x1="680" y1="200" x2="698" y2="200" stroke="#EF4444" stroke-width="1.5" marker-end="url(#a-red)"/>
+
+  <!-- Rollback -->
+  <rect x="708" y="180" width="70" height="40" rx="8" ry="8" fill="#111111" stroke="#F59E0B" stroke-width="1.5"/>
+  <text x="743" y="205" text-anchor="middle" font-family="monospace" font-size="11" fill="#F59E0B">Rollback</text>
+
+  <text x="743" y="238" text-anchor="middle" font-family="monospace" font-size="9" fill="#64748B">originals restored</text>
+
+  <!-- Fork → bottom path -->
+  <line x1="555" y1="140" x2="555" y2="200" stroke="#475569" stroke-width="1"/>
+  <line x1="555" y1="200" x2="588" y2="200" stroke="#EF4444" stroke-width="1.5" marker-end="url(#a-red)"/>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- Phase connection arrows -->
+  <!-- ═══════════════════════════════════════ -->
+
+  <!-- Phase 1 → Phase 2 -->
+  <line x1="220" y1="125" x2="273" y2="125" stroke="#475569" stroke-width="1.5" marker-end="url(#a-slate)"/>
+
+  <!-- Phase 2 → Phase 3 (fork diamond) -->
+  <line x1="465" y1="125" x2="538" y2="125" stroke="#475569" stroke-width="1.5" marker-end="url(#a-slate)"/>
+</svg>

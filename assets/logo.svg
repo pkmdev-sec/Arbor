@@ -1,40 +1,37 @@
 <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-  <!-- Background -->
-  <rect width="512" height="512" fill="#0F172A"/>
+  <!-- Pitch black background circle -->
+  <circle cx="256" cy="256" r="250" fill="#000000"/>
 
-  <!-- Outer boundary circle (dotted) -->
-  <circle cx="256" cy="256" r="180" fill="none" stroke="#06B6D4" stroke-width="2" stroke-dasharray="4 8" opacity="0.3"/>
+  <!-- Isolation ring (dashed boundary at ~80% radius) -->
+  <circle cx="256" cy="256" r="200" fill="none" stroke="#333333" stroke-width="1.5" stroke-dasharray="8 5" opacity="0.4"/>
 
-  <!-- Connection lines from center to agents -->
-  <line x1="256" y1="256" x2="256" y2="100" stroke="#06B6D4" stroke-width="3" opacity="0.6"/>
-  <line x1="256" y1="256" x2="404" y2="176" stroke="#06B6D4" stroke-width="3" opacity="0.6"/>
-  <line x1="256" y1="256" x2="404" y2="336" stroke="#06B6D4" stroke-width="3" opacity="0.6"/>
-  <line x1="256" y1="256" x2="108" y2="336" stroke="#06B6D4" stroke-width="3" opacity="0.6"/>
-  <line x1="256" y1="256" x2="108" y2="176" stroke="#06B6D4" stroke-width="3" opacity="0.6"/>
+  <!-- Connection lines from center hexagon to agent circles -->
+  <line x1="256" y1="256" x2="256" y2="106" stroke="#06B6D4" stroke-width="1.5" opacity="0.5"/>
+  <line x1="256" y1="256" x2="399" y2="210" stroke="#06B6D4" stroke-width="1.5" opacity="0.5"/>
+  <line x1="256" y1="256" x2="344" y2="377" stroke="#06B6D4" stroke-width="1.5" opacity="0.5"/>
+  <line x1="256" y1="256" x2="168" y2="377" stroke="#06B6D4" stroke-width="1.5" opacity="0.5"/>
+  <line x1="256" y1="256" x2="113" y2="210" stroke="#06B6D4" stroke-width="1.5" opacity="0.5"/>
 
-  <!-- Agent nodes (5 outer circles) -->
-  <circle cx="256" cy="100" r="24" fill="#06B6D4"/>
-  <circle cx="404" cy="176" r="24" fill="#06B6D4"/>
-  <circle cx="404" cy="336" r="24" fill="#06B6D4"/>
-  <circle cx="108" cy="336" r="24" fill="#06B6D4"/>
-  <circle cx="108" cy="176" r="24" fill="#06B6D4"/>
+  <!-- 5 agent nodes (outer cyan circles) -->
+  <circle cx="256" cy="106" r="22" fill="#06B6D4"/>
+  <circle cx="399" cy="210" r="22" fill="#06B6D4"/>
+  <circle cx="344" cy="377" r="22" fill="#06B6D4"/>
+  <circle cx="168" cy="377" r="22" fill="#06B6D4"/>
+  <circle cx="113" cy="210" r="22" fill="#06B6D4"/>
 
-  <!-- Agent node highlights -->
-  <circle cx="262" cy="94" r="6" fill="#FFFFFF" opacity="0.8"/>
-  <circle cx="410" cy="170" r="6" fill="#FFFFFF" opacity="0.8"/>
-  <circle cx="410" cy="330" r="6" fill="#FFFFFF" opacity="0.8"/>
-  <circle cx="114" cy="330" r="6" fill="#FFFFFF" opacity="0.8"/>
-  <circle cx="114" cy="170" r="6" fill="#FFFFFF" opacity="0.8"/>
+  <!-- Agent highlight specks -->
+  <circle cx="250" cy="100" r="5" fill="#FFFFFF" opacity="0.5"/>
+  <circle cx="393" cy="204" r="5" fill="#FFFFFF" opacity="0.5"/>
+  <circle cx="338" cy="371" r="5" fill="#FFFFFF" opacity="0.5"/>
+  <circle cx="162" cy="371" r="5" fill="#FFFFFF" opacity="0.5"/>
+  <circle cx="107" cy="204" r="5" fill="#FFFFFF" opacity="0.5"/>
 
-  <!-- Central orchestrator hexagon -->
-  <path d="M 256 216 L 290.784 236 L 290.784 276 L 256 296 L 221.216 276 L 221.216 236 Z" fill="#F59E0B"/>
+  <!-- Central orchestrator hexagon (amber) -->
+  <polygon points="256,206 299,231 299,281 256,306 213,281 213,231" fill="#F59E0B"/>
 
-  <!-- Central hexagon highlight -->
-  <path d="M 256 226 L 280.392 241 L 280.392 271 L 256 286 L 231.608 271 L 231.608 241 Z" fill="#FFFFFF" opacity="0.15"/>
+  <!-- Inner hexagon glow -->
+  <polygon points="256,218 288,237 288,275 256,294 224,275 224,237" fill="#FFFFFF" opacity="0.1"/>
 
-  <!-- Central node inner accent -->
-  <circle cx="256" cy="256" r="16" fill="#FFFFFF" opacity="0.25"/>
-
-  <!-- Small core dot -->
-  <circle cx="256" cy="256" r="6" fill="#FFFFFF" opacity="0.9"/>
+  <!-- Center accent dot -->
+  <circle cx="256" cy="256" r="8" fill="#FFFFFF" opacity="0.25"/>
 </svg>

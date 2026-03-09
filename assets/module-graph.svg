@@ -1,0 +1,176 @@
+<svg viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="d-amber" markerWidth="6" markerHeight="4" refX="6" refY="2" orient="auto">
+      <polygon points="0,0 6,2 0,4" fill="#F59E0B"/>
+    </marker>
+    <marker id="d-cyan" markerWidth="6" markerHeight="4" refX="6" refY="2" orient="auto">
+      <polygon points="0,0 6,2 0,4" fill="#06B6D4"/>
+    </marker>
+    <marker id="d-slate" markerWidth="6" markerHeight="4" refX="6" refY="2" orient="auto">
+      <polygon points="0,0 6,2 0,4" fill="#475569"/>
+    </marker>
+    <marker id="d-dim" markerWidth="6" markerHeight="4" refX="6" refY="2" orient="auto">
+      <polygon points="0,0 6,2 0,4" fill="#333333"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="500" fill="#000000"/>
+
+  <!-- Layer labels -->
+  <text x="15" y="45" font-family="monospace" font-size="9" fill="#333333">ENTRY</text>
+  <text x="15" y="165" font-family="monospace" font-size="9" fill="#333333">CORE</text>
+  <text x="15" y="285" font-family="monospace" font-size="9" fill="#333333">MID</text>
+  <text x="15" y="405" font-family="monospace" font-size="9" fill="#333333">LEAF</text>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- Layer 1: Entry Points (y=40) — amber -->
+  <!-- ═══════════════════════════════════════ -->
+
+  <!-- agent-entry.mjs -->
+  <rect x="135" y="22" width="130" height="40" rx="8" ry="8" fill="#111111" stroke="#F59E0B" stroke-width="2"/>
+  <text x="200" y="47" text-anchor="middle" font-family="monospace" font-size="11" fill="#F59E0B">agent-entry.mjs</text>
+
+  <!-- swarm.mjs -->
+  <rect x="480" y="22" width="100" height="40" rx="8" ry="8" fill="#111111" stroke="#F59E0B" stroke-width="2"/>
+  <text x="530" y="47" text-anchor="middle" font-family="monospace" font-size="11" fill="#F59E0B">swarm.mjs</text>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- Layer 2: Core (y=160) — cyan, larger -->
+  <!-- ═══════════════════════════════════════ -->
+
+  <!-- orchestration.mjs -->
+  <rect x="170" y="142" width="160" height="44" rx="8" ry="8" fill="#111111" stroke="#06B6D4" stroke-width="2"/>
+  <text x="250" y="169" text-anchor="middle" font-family="monospace" font-size="12" fill="#06B6D4">orchestration.mjs</text>
+
+  <!-- isolation.mjs -->
+  <rect x="460" y="142" width="140" height="44" rx="8" ry="8" fill="#111111" stroke="#06B6D4" stroke-width="2"/>
+  <text x="530" y="169" text-anchor="middle" font-family="monospace" font-size="12" fill="#06B6D4">isolation.mjs</text>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- Layer 3: Mid (y=280) — slate -->
+  <!-- ═══════════════════════════════════════ -->
+
+  <!-- cli.mjs -->
+  <rect x="20" y="262" width="80" height="40" rx="8" ry="8" fill="#111111" stroke="#475569" stroke-width="1.5"/>
+  <text x="60" y="287" text-anchor="middle" font-family="monospace" font-size="11" fill="#E2E8F0">cli.mjs</text>
+
+  <!-- agent-spawn.mjs -->
+  <rect x="130" y="262" width="140" height="40" rx="8" ry="8" fill="#111111" stroke="#475569" stroke-width="1.5"/>
+  <text x="200" y="287" text-anchor="middle" font-family="monospace" font-size="11" fill="#E2E8F0">agent-spawn.mjs</text>
+
+  <!-- lifecycle.mjs -->
+  <rect x="300" y="262" width="110" height="40" rx="8" ry="8" fill="#111111" stroke="#475569" stroke-width="1.5"/>
+  <text x="355" y="287" text-anchor="middle" font-family="monospace" font-size="11" fill="#E2E8F0">lifecycle.mjs</text>
+
+  <!-- context-bridge.mjs -->
+  <rect x="440" y="262" width="140" height="40" rx="8" ry="8" fill="#111111" stroke="#475569" stroke-width="1.5"/>
+  <text x="510" y="287" text-anchor="middle" font-family="monospace" font-size="11" fill="#E2E8F0">context-bridge.mjs</text>
+
+  <!-- telemetry.mjs -->
+  <rect x="610" y="262" width="120" height="40" rx="8" ry="8" fill="#111111" stroke="#475569" stroke-width="1.5"/>
+  <text x="670" y="287" text-anchor="middle" font-family="monospace" font-size="11" fill="#E2E8F0">telemetry.mjs</text>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- Layer 4: Leaf (y=400) — dim -->
+  <!-- ═══════════════════════════════════════ -->
+
+  <!-- output.mjs -->
+  <rect x="220" y="385" width="120" height="40" rx="8" ry="8" fill="#111111" stroke="#333333" stroke-width="1.5"/>
+  <text x="280" y="410" text-anchor="middle" font-family="monospace" font-size="11" fill="#64748B">output.mjs</text>
+
+  <!-- config.mjs -->
+  <rect x="445" y="385" width="110" height="40" rx="8" ry="8" fill="#111111" stroke="#333333" stroke-width="1.5"/>
+  <text x="500" y="410" text-anchor="middle" font-family="monospace" font-size="11" fill="#64748B">config.mjs</text>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- EDGES: Entry → Core (bright structural) -->
+  <!-- ═══════════════════════════════════════ -->
+
+  <!-- swarm → orchestration -->
+  <line x1="510" y1="62" x2="280" y2="140" stroke="#06B6D4" stroke-width="1.5" opacity="0.7" marker-end="url(#d-cyan)"/>
+
+  <!-- swarm → isolation -->
+  <line x1="530" y1="62" x2="530" y2="140" stroke="#06B6D4" stroke-width="1.5" opacity="0.7" marker-end="url(#d-cyan)"/>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- EDGES: Entry → Mid (medium structural) -->
+  <!-- ═══════════════════════════════════════ -->
+
+  <!-- agent-entry → cli -->
+  <line x1="170" y1="62" x2="70" y2="260" stroke="#475569" stroke-width="1" opacity="0.45" marker-end="url(#d-slate)"/>
+
+  <!-- agent-entry → lifecycle -->
+  <line x1="210" y1="62" x2="340" y2="260" stroke="#475569" stroke-width="1" opacity="0.5" marker-end="url(#d-slate)"/>
+
+  <!-- agent-entry → context-bridge -->
+  <line x1="230" y1="62" x2="490" y2="260" stroke="#475569" stroke-width="1" opacity="0.5" marker-end="url(#d-slate)"/>
+
+  <!-- agent-entry → telemetry -->
+  <line x1="240" y1="62" x2="650" y2="260" stroke="#475569" stroke-width="1" opacity="0.4" marker-end="url(#d-slate)"/>
+
+  <!-- swarm → cli -->
+  <line x1="500" y1="62" x2="80" y2="260" stroke="#475569" stroke-width="1" opacity="0.4" marker-end="url(#d-slate)"/>
+
+  <!-- swarm → agent-spawn -->
+  <line x1="510" y1="62" x2="210" y2="260" stroke="#475569" stroke-width="1" opacity="0.5" marker-end="url(#d-slate)"/>
+
+  <!-- swarm → lifecycle -->
+  <line x1="530" y1="62" x2="360" y2="260" stroke="#475569" stroke-width="1" opacity="0.45" marker-end="url(#d-slate)"/>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- EDGES: Core → Mid (medium structural) -->
+  <!-- ═══════════════════════════════════════ -->
+
+  <!-- orchestration → agent-spawn -->
+  <line x1="230" y1="186" x2="210" y2="260" stroke="#06B6D4" stroke-width="1" opacity="0.5" marker-end="url(#d-cyan)"/>
+
+  <!-- orchestration → context-bridge -->
+  <line x1="280" y1="186" x2="490" y2="260" stroke="#06B6D4" stroke-width="1" opacity="0.5" marker-end="url(#d-cyan)"/>
+
+  <!-- orchestration → isolation (horizontal, same layer) -->
+  <line x1="330" y1="164" x2="458" y2="164" stroke="#06B6D4" stroke-width="1" opacity="0.35" stroke-dasharray="4 3" marker-end="url(#d-cyan)"/>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- EDGES: → Leaf (dim utility) -->
+  <!-- ═══════════════════════════════════════ -->
+
+  <!-- agent-entry → output -->
+  <line x1="190" y1="62" x2="270" y2="383" stroke="#333333" stroke-width="1" opacity="0.2" marker-end="url(#d-dim)"/>
+
+  <!-- agent-entry → config -->
+  <line x1="220" y1="62" x2="490" y2="383" stroke="#333333" stroke-width="1" opacity="0.2" marker-end="url(#d-dim)"/>
+
+  <!-- swarm → output -->
+  <line x1="520" y1="62" x2="290" y2="383" stroke="#333333" stroke-width="1" opacity="0.2" marker-end="url(#d-dim)"/>
+
+  <!-- swarm → config -->
+  <line x1="540" y1="62" x2="500" y2="383" stroke="#333333" stroke-width="1" opacity="0.2" marker-end="url(#d-dim)"/>
+
+  <!-- orchestration → output -->
+  <line x1="240" y1="186" x2="275" y2="383" stroke="#333333" stroke-width="1" opacity="0.2" marker-end="url(#d-dim)"/>
+
+  <!-- orchestration → config -->
+  <line x1="260" y1="186" x2="495" y2="383" stroke="#333333" stroke-width="1" opacity="0.2" marker-end="url(#d-dim)"/>
+
+  <!-- isolation → output -->
+  <line x1="510" y1="186" x2="290" y2="383" stroke="#333333" stroke-width="1" opacity="0.2" marker-end="url(#d-dim)"/>
+
+  <!-- isolation → config -->
+  <line x1="540" y1="186" x2="505" y2="383" stroke="#333333" stroke-width="1" opacity="0.2" marker-end="url(#d-dim)"/>
+
+  <!-- cli → output -->
+  <line x1="70" y1="302" x2="260" y2="383" stroke="#333333" stroke-width="1" opacity="0.2" marker-end="url(#d-dim)"/>
+
+  <!-- agent-spawn → output -->
+  <line x1="200" y1="302" x2="275" y2="383" stroke="#333333" stroke-width="1" opacity="0.2" marker-end="url(#d-dim)"/>
+
+  <!-- lifecycle → output -->
+  <line x1="345" y1="302" x2="290" y2="383" stroke="#333333" stroke-width="1" opacity="0.2" marker-end="url(#d-dim)"/>
+
+  <!-- context-bridge → output -->
+  <line x1="500" y1="302" x2="300" y2="383" stroke="#333333" stroke-width="1" opacity="0.2" marker-end="url(#d-dim)"/>
+
+  <!-- telemetry → config -->
+  <line x1="670" y1="302" x2="510" y2="383" stroke="#333333" stroke-width="1" opacity="0.25" marker-end="url(#d-dim)"/>
+</svg>

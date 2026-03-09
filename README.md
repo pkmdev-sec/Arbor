@@ -21,57 +21,15 @@ git diff | swarm --stdin --mode review --verify
 
 ## Architecture
 
-```
-┌─────────────────────────┐
-│   Main Claude Session   │
-│  (Opus 4.6 · 1M · hooks)│
-└────────────┬────────────┘
-             │ DELEGATE
-    ┌────────▼────────┐
-    │    swarm.mjs    │
-    │   orchestrator  │
-    └──┬─────┬─────┬──┘
-       │     │     │
-  ┌────▼┐ ┌─▼──┐ ┌▼────┐
-  │ A-1 │ │A-2 │ │ A-3 │  ← agent-entry.mjs
-  │200K │ │200K│ │200K │  ← fresh context each
-  └──┬──┘ └─┬──┘ └──┬──┘
-     │      │       │
-  ┌──▼──┐┌──▼──┐┌───▼──┐
-  │ wt-1││wt-2 ││ wt-3 │  ← git worktrees
-  └─────┘└─────┘└──────┘
-```
-
-> [Interactive diagram](assets/diagrams/architecture.html)
+<img src="assets/architecture.svg" width="800" alt="Architecture">
 
 ## Execution modes
 
-```
-Mode       Flow                                    Use Case
-─────────  ──────────────────────────────────────  ─────────────────
-single     task → agent → result                   Bug fixes
-parallel   task → decompose → agents → merge       Research
-pipeline   task → research → impl → test → review  Features
-swarm      task → decompose → agents → verify      Large impl
-review     task → opus → verify → result            Code review
-```
-
-> [Interactive diagram](assets/diagrams/modes.html)
+<img src="assets/modes.svg" width="800" alt="Execution Modes">
 
 ## Isolation model
 
-```
-BEFORE              DURING                AFTER
-─────────────────   ────────────────────  ─────────────────────
-snapshot files      agent runs in         ┌─ validate ✓ → apply
-(SHA-256 hashes)    isolated worktree     │
-backup sources      ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌   └─ validate ✗ → rollback
-                    escape detection:          ↑ restore from backup
-                    absolute-path writes
-                    caught by hash diff
-```
-
-> [Interactive diagram](assets/diagrams/isolation.html)
+<img src="assets/isolation.svg" width="800" alt="3-Layer Isolation">
 
 ## Modules
 
@@ -91,7 +49,7 @@ remote-agent/
     └── orchestration.mjs ← decompose, parallel, verify
 ```
 
-> [Interactive graph](assets/diagrams/module-graph.html)
+<img src="assets/module-graph.svg" width="800" alt="Module Dependencies">
 
 ## CLI reference
 

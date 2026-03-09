@@ -1,40 +1,17 @@
 <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-  <!-- Background -->
-  <rect width="64" height="64" fill="#0F172A"/>
+  <!-- Pitch black background circle -->
+  <circle cx="32" cy="32" r="31" fill="#000000"/>
 
-  <!-- Outer boundary circle (dotted) -->
-  <circle cx="32" cy="32" r="22.5" fill="none" stroke="#06B6D4" stroke-width="0.5" stroke-dasharray="1 2" opacity="0.3"/>
+  <!-- Central amber hexagon -->
+  <polygon points="32,22 40.7,27 40.7,37 32,42 23.3,37 23.3,27" fill="#F59E0B"/>
 
-  <!-- Connection lines from center to agents -->
-  <line x1="32" y1="32" x2="32" y2="12.5" stroke="#06B6D4" stroke-width="0.8" opacity="0.6"/>
-  <line x1="32" y1="32" x2="50.5" y2="22" stroke="#06B6D4" stroke-width="0.8" opacity="0.6"/>
-  <line x1="32" y1="32" x2="50.5" y2="42" stroke="#06B6D4" stroke-width="0.8" opacity="0.6"/>
-  <line x1="32" y1="32" x2="13.5" y2="42" stroke="#06B6D4" stroke-width="0.8" opacity="0.6"/>
-  <line x1="32" y1="32" x2="13.5" y2="22" stroke="#06B6D4" stroke-width="0.8" opacity="0.6"/>
+  <!-- Three cyan agent dots (120 degrees apart) -->
+  <circle cx="32" cy="11" r="4" fill="#06B6D4"/>
+  <circle cx="50" cy="42" r="4" fill="#06B6D4"/>
+  <circle cx="14" cy="42" r="4" fill="#06B6D4"/>
 
-  <!-- Agent nodes (5 outer circles) -->
-  <circle cx="32" cy="12.5" r="3" fill="#06B6D4"/>
-  <circle cx="50.5" cy="22" r="3" fill="#06B6D4"/>
-  <circle cx="50.5" cy="42" r="3" fill="#06B6D4"/>
-  <circle cx="13.5" cy="42" r="3" fill="#06B6D4"/>
-  <circle cx="13.5" cy="22" r="3" fill="#06B6D4"/>
-
-  <!-- Agent node highlights -->
-  <circle cx="33" cy="11.5" r="0.8" fill="#FFFFFF" opacity="0.8"/>
-  <circle cx="51.5" cy="21" r="0.8" fill="#FFFFFF" opacity="0.8"/>
-  <circle cx="51.5" cy="41" r="0.8" fill="#FFFFFF" opacity="0.8"/>
-  <circle cx="14.5" cy="41" r="0.8" fill="#FFFFFF" opacity="0.8"/>
-  <circle cx="14.5" cy="21" r="0.8" fill="#FFFFFF" opacity="0.8"/>
-
-  <!-- Central orchestrator hexagon -->
-  <path d="M 32 27 L 36.348 29.5 L 36.348 34.5 L 32 37 L 27.652 34.5 L 27.652 29.5 Z" fill="#F59E0B"/>
-
-  <!-- Central hexagon highlight -->
-  <path d="M 32 28.25 L 35.049 30.125 L 35.049 33.875 L 32 35.75 L 28.951 33.875 L 28.951 30.125 Z" fill="#FFFFFF" opacity="0.15"/>
-
-  <!-- Central node inner accent -->
-  <circle cx="32" cy="32" r="2" fill="#FFFFFF" opacity="0.25"/>
-
-  <!-- Small core dot -->
-  <circle cx="32" cy="32" r="0.8" fill="#FFFFFF" opacity="0.9"/>
+  <!-- Thin connecting lines -->
+  <line x1="32" y1="22" x2="32" y2="15" stroke="#06B6D4" stroke-width="0.8" opacity="0.4"/>
+  <line x1="40.7" y1="37" x2="46" y2="42" stroke="#06B6D4" stroke-width="0.8" opacity="0.4"/>
+  <line x1="23.3" y1="37" x2="18" y2="42" stroke="#06B6D4" stroke-width="0.8" opacity="0.4"/>
 </svg>

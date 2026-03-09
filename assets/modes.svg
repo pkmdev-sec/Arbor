@@ -1,0 +1,192 @@
+<svg viewBox="0 0 800 440" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="m-slate" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto">
+      <polygon points="0,0 7,2.5 0,5" fill="#475569"/>
+    </marker>
+    <marker id="m-cyan" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto">
+      <polygon points="0,0 7,2.5 0,5" fill="#06B6D4"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="440" fill="#000000"/>
+
+  <!-- Separator lines between rows -->
+  <line x1="20" y1="88" x2="780" y2="88" stroke="#1E293B" stroke-width="1"/>
+  <line x1="20" y1="172" x2="780" y2="172" stroke="#1E293B" stroke-width="1"/>
+  <line x1="20" y1="262" x2="780" y2="262" stroke="#1E293B" stroke-width="1"/>
+  <line x1="20" y1="352" x2="780" y2="352" stroke="#1E293B" stroke-width="1"/>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- ROW 1: SINGLE (y=50) -->
+  <!-- ═══════════════════════════════════════ -->
+  <text x="30" y="55" font-family="monospace" font-size="14" font-weight="bold" fill="#E2E8F0">single</text>
+  <text x="30" y="70" font-family="monospace" font-size="9" fill="#64748B">one agent, one task</text>
+
+  <!-- Task -->
+  <rect x="150" y="32" width="70" height="36" rx="6" ry="6" fill="#1E293B" stroke="#475569" stroke-width="1.5"/>
+  <text x="185" y="55" text-anchor="middle" font-family="monospace" font-size="11" fill="#E2E8F0">Task</text>
+
+  <line x1="220" y1="50" x2="268" y2="50" stroke="#475569" stroke-width="1.5" marker-end="url(#m-slate)"/>
+
+  <!-- Agent -->
+  <rect x="278" y="32" width="70" height="36" rx="6" ry="6" fill="#111111" stroke="#06B6D4" stroke-width="1.5"/>
+  <text x="313" y="55" text-anchor="middle" font-family="monospace" font-size="11" fill="#06B6D4">Agent</text>
+
+  <line x1="348" y1="50" x2="396" y2="50" stroke="#475569" stroke-width="1.5" marker-end="url(#m-slate)"/>
+
+  <!-- Result -->
+  <rect x="406" y="32" width="70" height="36" rx="6" ry="6" fill="#111111" stroke="#10B981" stroke-width="1.5"/>
+  <text x="441" y="55" text-anchor="middle" font-family="monospace" font-size="11" fill="#10B981">Result</text>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- ROW 2: PARALLEL (y=130) -->
+  <!-- ═══════════════════════════════════════ -->
+  <text x="30" y="135" font-family="monospace" font-size="14" font-weight="bold" fill="#E2E8F0">parallel</text>
+  <text x="30" y="150" font-family="monospace" font-size="9" fill="#64748B">fan-out, merge</text>
+
+  <!-- Task -->
+  <rect x="150" y="112" width="70" height="36" rx="6" ry="6" fill="#1E293B" stroke="#475569" stroke-width="1.5"/>
+  <text x="185" y="135" text-anchor="middle" font-family="monospace" font-size="11" fill="#E2E8F0">Task</text>
+
+  <line x1="220" y1="130" x2="258" y2="130" stroke="#475569" stroke-width="1.5" marker-end="url(#m-slate)"/>
+
+  <!-- Decompose -->
+  <rect x="268" y="112" width="90" height="36" rx="6" ry="6" fill="#111111" stroke="#8B5CF6" stroke-width="1.5"/>
+  <text x="313" y="135" text-anchor="middle" font-family="monospace" font-size="11" fill="#8B5CF6">Decompose</text>
+
+  <!-- Fan-out lines to 3 agents -->
+  <line x1="358" y1="122" x2="398" y2="108" stroke="#06B6D4" stroke-width="1" marker-end="url(#m-cyan)"/>
+  <line x1="358" y1="130" x2="398" y2="130" stroke="#06B6D4" stroke-width="1" marker-end="url(#m-cyan)"/>
+  <line x1="358" y1="138" x2="398" y2="152" stroke="#06B6D4" stroke-width="1" marker-end="url(#m-cyan)"/>
+
+  <!-- 3 Agent nodes stacked -->
+  <rect x="408" y="94" width="56" height="28" rx="4" ry="4" fill="#111111" stroke="#06B6D4" stroke-width="1"/>
+  <text x="436" y="112" text-anchor="middle" font-family="monospace" font-size="9" fill="#06B6D4">Agent</text>
+
+  <rect x="408" y="116" width="56" height="28" rx="4" ry="4" fill="#111111" stroke="#06B6D4" stroke-width="1"/>
+  <text x="436" y="134" text-anchor="middle" font-family="monospace" font-size="9" fill="#06B6D4">Agent</text>
+
+  <rect x="408" y="138" width="56" height="28" rx="4" ry="4" fill="#111111" stroke="#06B6D4" stroke-width="1"/>
+  <text x="436" y="156" text-anchor="middle" font-family="monospace" font-size="9" fill="#06B6D4">Agent</text>
+
+  <!-- Fan-in lines to Merge -->
+  <line x1="464" y1="108" x2="504" y2="122" stroke="#475569" stroke-width="1" marker-end="url(#m-slate)"/>
+  <line x1="464" y1="130" x2="504" y2="130" stroke="#475569" stroke-width="1" marker-end="url(#m-slate)"/>
+  <line x1="464" y1="152" x2="504" y2="138" stroke="#475569" stroke-width="1" marker-end="url(#m-slate)"/>
+
+  <!-- Merge -->
+  <rect x="514" y="112" width="65" height="36" rx="6" ry="6" fill="#111111" stroke="#475569" stroke-width="1.5"/>
+  <text x="546" y="135" text-anchor="middle" font-family="monospace" font-size="11" fill="#E2E8F0">Merge</text>
+
+  <line x1="579" y1="130" x2="617" y2="130" stroke="#475569" stroke-width="1.5" marker-end="url(#m-slate)"/>
+
+  <!-- Result -->
+  <rect x="627" y="112" width="70" height="36" rx="6" ry="6" fill="#111111" stroke="#10B981" stroke-width="1.5"/>
+  <text x="662" y="135" text-anchor="middle" font-family="monospace" font-size="11" fill="#10B981">Result</text>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- ROW 3: PIPELINE (y=220) -->
+  <!-- ═══════════════════════════════════════ -->
+  <text x="30" y="225" font-family="monospace" font-size="14" font-weight="bold" fill="#E2E8F0">pipeline</text>
+  <text x="30" y="240" font-family="monospace" font-size="9" fill="#64748B">sequential stages</text>
+
+  <!-- Task -->
+  <rect x="150" y="202" width="60" height="36" rx="6" ry="6" fill="#1E293B" stroke="#475569" stroke-width="1.5"/>
+  <text x="180" y="225" text-anchor="middle" font-family="monospace" font-size="11" fill="#E2E8F0">Task</text>
+  <line x1="210" y1="220" x2="228" y2="220" stroke="#475569" stroke-width="1.5" marker-end="url(#m-slate)"/>
+
+  <!-- Research -->
+  <rect x="238" y="202" width="75" height="36" rx="6" ry="6" fill="#111111" stroke="#06B6D4" stroke-width="1.5"/>
+  <text x="275" y="225" text-anchor="middle" font-family="monospace" font-size="10" fill="#06B6D4">Research</text>
+  <line x1="313" y1="220" x2="331" y2="220" stroke="#475569" stroke-width="1.5" marker-end="url(#m-slate)"/>
+
+  <!-- Implement -->
+  <rect x="341" y="202" width="82" height="36" rx="6" ry="6" fill="#111111" stroke="#06B6D4" stroke-width="1.5"/>
+  <text x="382" y="225" text-anchor="middle" font-family="monospace" font-size="10" fill="#06B6D4">Implement</text>
+  <line x1="423" y1="220" x2="441" y2="220" stroke="#475569" stroke-width="1.5" marker-end="url(#m-slate)"/>
+
+  <!-- Test -->
+  <rect x="451" y="202" width="55" height="36" rx="6" ry="6" fill="#111111" stroke="#06B6D4" stroke-width="1.5"/>
+  <text x="478" y="225" text-anchor="middle" font-family="monospace" font-size="10" fill="#06B6D4">Test</text>
+  <line x1="506" y1="220" x2="524" y2="220" stroke="#475569" stroke-width="1.5" marker-end="url(#m-slate)"/>
+
+  <!-- Review -->
+  <rect x="534" y="202" width="68" height="36" rx="6" ry="6" fill="#111111" stroke="#06B6D4" stroke-width="1.5"/>
+  <text x="568" y="225" text-anchor="middle" font-family="monospace" font-size="10" fill="#06B6D4">Review</text>
+  <line x1="602" y1="220" x2="620" y2="220" stroke="#475569" stroke-width="1.5" marker-end="url(#m-slate)"/>
+
+  <!-- Result -->
+  <rect x="630" y="202" width="70" height="36" rx="6" ry="6" fill="#111111" stroke="#10B981" stroke-width="1.5"/>
+  <text x="665" y="225" text-anchor="middle" font-family="monospace" font-size="11" fill="#10B981">Result</text>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- ROW 4: SWARM (y=310) -->
+  <!-- ═══════════════════════════════════════ -->
+  <text x="30" y="315" font-family="monospace" font-size="14" font-weight="bold" fill="#E2E8F0">swarm</text>
+  <text x="30" y="330" font-family="monospace" font-size="9" fill="#64748B">decompose + verify</text>
+
+  <!-- Task -->
+  <rect x="150" y="292" width="70" height="36" rx="6" ry="6" fill="#1E293B" stroke="#475569" stroke-width="1.5"/>
+  <text x="185" y="315" text-anchor="middle" font-family="monospace" font-size="11" fill="#E2E8F0">Task</text>
+  <line x1="220" y1="310" x2="248" y2="310" stroke="#475569" stroke-width="1.5" marker-end="url(#m-slate)"/>
+
+  <!-- Decompose -->
+  <rect x="258" y="292" width="90" height="36" rx="6" ry="6" fill="#111111" stroke="#8B5CF6" stroke-width="1.5"/>
+  <text x="303" y="315" text-anchor="middle" font-family="monospace" font-size="11" fill="#8B5CF6">Decompose</text>
+
+  <!-- Fan-out -->
+  <line x1="348" y1="302" x2="388" y2="288" stroke="#06B6D4" stroke-width="1" marker-end="url(#m-cyan)"/>
+  <line x1="348" y1="310" x2="388" y2="310" stroke="#06B6D4" stroke-width="1" marker-end="url(#m-cyan)"/>
+  <line x1="348" y1="318" x2="388" y2="332" stroke="#06B6D4" stroke-width="1" marker-end="url(#m-cyan)"/>
+
+  <!-- 3 Agent nodes -->
+  <rect x="398" y="274" width="56" height="28" rx="4" ry="4" fill="#111111" stroke="#06B6D4" stroke-width="1"/>
+  <text x="426" y="292" text-anchor="middle" font-family="monospace" font-size="9" fill="#06B6D4">Agent</text>
+
+  <rect x="398" y="296" width="56" height="28" rx="4" ry="4" fill="#111111" stroke="#06B6D4" stroke-width="1"/>
+  <text x="426" y="314" text-anchor="middle" font-family="monospace" font-size="9" fill="#06B6D4">Agent</text>
+
+  <rect x="398" y="318" width="56" height="28" rx="4" ry="4" fill="#111111" stroke="#06B6D4" stroke-width="1"/>
+  <text x="426" y="336" text-anchor="middle" font-family="monospace" font-size="9" fill="#06B6D4">Agent</text>
+
+  <!-- Fan-in to Verify -->
+  <line x1="454" y1="288" x2="494" y2="302" stroke="#475569" stroke-width="1" marker-end="url(#m-slate)"/>
+  <line x1="454" y1="310" x2="494" y2="310" stroke="#475569" stroke-width="1" marker-end="url(#m-slate)"/>
+  <line x1="454" y1="332" x2="494" y2="318" stroke="#475569" stroke-width="1" marker-end="url(#m-slate)"/>
+
+  <!-- Verify (amber — distinguishes swarm from parallel) -->
+  <rect x="504" y="292" width="70" height="36" rx="6" ry="6" fill="#111111" stroke="#F59E0B" stroke-width="1.5"/>
+  <text x="539" y="315" text-anchor="middle" font-family="monospace" font-size="11" fill="#F59E0B">Verify</text>
+
+  <line x1="574" y1="310" x2="617" y2="310" stroke="#475569" stroke-width="1.5" marker-end="url(#m-slate)"/>
+
+  <!-- Result -->
+  <rect x="627" y="292" width="70" height="36" rx="6" ry="6" fill="#111111" stroke="#10B981" stroke-width="1.5"/>
+  <text x="662" y="315" text-anchor="middle" font-family="monospace" font-size="11" fill="#10B981">Result</text>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- ROW 5: REVIEW (y=390) -->
+  <!-- ═══════════════════════════════════════ -->
+  <text x="30" y="395" font-family="monospace" font-size="14" font-weight="bold" fill="#E2E8F0">review</text>
+  <text x="30" y="410" font-family="monospace" font-size="9" fill="#64748B">opus + verify</text>
+
+  <!-- Task -->
+  <rect x="150" y="377" width="70" height="36" rx="6" ry="6" fill="#1E293B" stroke="#475569" stroke-width="1.5"/>
+  <text x="185" y="400" text-anchor="middle" font-family="monospace" font-size="11" fill="#E2E8F0">Task</text>
+  <line x1="220" y1="395" x2="268" y2="395" stroke="#475569" stroke-width="1.5" marker-end="url(#m-slate)"/>
+
+  <!-- Opus -->
+  <rect x="278" y="377" width="70" height="36" rx="6" ry="6" fill="#111111" stroke="#F59E0B" stroke-width="1.5"/>
+  <text x="313" y="400" text-anchor="middle" font-family="monospace" font-size="11" fill="#F59E0B">Opus</text>
+  <line x1="348" y1="395" x2="396" y2="395" stroke="#475569" stroke-width="1.5" marker-end="url(#m-slate)"/>
+
+  <!-- Verify -->
+  <rect x="406" y="377" width="70" height="36" rx="6" ry="6" fill="#111111" stroke="#F59E0B" stroke-width="1.5"/>
+  <text x="441" y="400" text-anchor="middle" font-family="monospace" font-size="11" fill="#F59E0B">Verify</text>
+  <line x1="476" y1="395" x2="524" y2="395" stroke="#475569" stroke-width="1.5" marker-end="url(#m-slate)"/>
+
+  <!-- Result -->
+  <rect x="534" y="377" width="70" height="36" rx="6" ry="6" fill="#111111" stroke="#10B981" stroke-width="1.5"/>
+  <text x="569" y="400" text-anchor="middle" font-family="monospace" font-size="11" fill="#10B981">Result</text>
+</svg>
