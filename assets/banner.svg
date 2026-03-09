@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="200" viewBox="0 0 800 200">
+  <defs>
+    <linearGradient id="bbg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1b26"/>
+      <stop offset="100%" style="stop-color:#24283b"/>
+    </linearGradient>
+    <linearGradient id="bcore" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#7aa2f7"/>
+      <stop offset="100%" style="stop-color:#bb9af7"/>
+    </linearGradient>
+    <filter id="bglow">
+      <feGaussianBlur stdDeviation="3" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect width="800" height="200" rx="12" fill="url(#bbg)"/>
+
+  <!-- Orbiting dots (left side) -->
+  <circle cx="60" cy="60" r="8" fill="#9ece6a" filter="url(#bglow)" opacity="0.8"/>
+  <circle cx="120" cy="35" r="6" fill="#9ece6a" filter="url(#bglow)" opacity="0.6"/>
+  <circle cx="40" cy="120" r="7" fill="#e0af68" filter="url(#bglow)" opacity="0.7"/>
+  <circle cx="130" cy="140" r="8" fill="#9ece6a" filter="url(#bglow)" opacity="0.8"/>
+  <circle cx="80" cy="165" r="6" fill="#f7768e" filter="url(#bglow)" opacity="0.7"/>
+
+  <!-- Connection lines -->
+  <line x1="60" y1="60" x2="165" y2="90" stroke="#7aa2f7" stroke-width="1" opacity="0.3"/>
+  <line x1="120" y1="35" x2="165" y2="90" stroke="#7aa2f7" stroke-width="1" opacity="0.3"/>
+  <line x1="40" y1="120" x2="165" y2="100" stroke="#7aa2f7" stroke-width="1" opacity="0.3"/>
+  <line x1="130" y1="140" x2="165" y2="100" stroke="#7aa2f7" stroke-width="1" opacity="0.3"/>
+  <line x1="80" y1="165" x2="165" y2="100" stroke="#f7768e" stroke-width="1" opacity="0.3"/>
+
+  <!-- Core circle -->
+  <circle cx="175" cy="100" r="30" fill="url(#bcore)" opacity="0.15"/>
+  <circle cx="175" cy="100" r="20" fill="url(#bcore)" opacity="0.25"/>
+  <text x="175" y="96" text-anchor="middle" fill="#c0caf5" font-family="monospace" font-size="16" font-weight="bold" filter="url(#bglow)">RA</text>
+  <text x="175" y="112" text-anchor="middle" fill="#565f89" font-family="sans-serif" font-size="7">swarm</text>
+
+  <!-- Title -->
+  <text x="240" y="80" fill="#c0caf5" font-family="sans-serif" font-size="40" font-weight="bold">remote-agent</text>
+  <text x="240" y="110" fill="#7aa2f7" font-family="sans-serif" font-size="16">Autonomous Claude Code executor with parallel swarm orchestration</text>
+  <text x="240" y="135" fill="#565f89" font-family="sans-serif" font-size="13">Spawns isolated subprocesses with fresh 1M context windows</text>
+
+  <!-- Badges area -->
+  <rect x="240" y="150" width="75" height="22" rx="4" fill="#9ece6a" opacity="0.15"/>
+  <text x="277" y="165" text-anchor="middle" fill="#9ece6a" font-family="sans-serif" font-size="10">sonnet[1m]</text>
+
+  <rect x="325" y="150" width="65" height="22" rx="4" fill="#bb9af7" opacity="0.15"/>
+  <text x="357" y="165" text-anchor="middle" fill="#bb9af7" font-family="sans-serif" font-size="10">opus[1m]</text>
+
+  <rect x="400" y="150" width="50" height="22" rx="4" fill="#f7768e" opacity="0.15"/>
+  <text x="425" y="165" text-anchor="middle" fill="#f7768e" font-family="sans-serif" font-size="10">swarm</text>
+
+  <rect x="460" y="150" width="60" height="22" rx="4" fill="#e0af68" opacity="0.15"/>
+  <text x="490" y="165" text-anchor="middle" fill="#e0af68" font-family="sans-serif" font-size="10">enforced</text>
+
+  <rect x="530" y="150" width="80" height="22" rx="4" fill="#7aa2f7" opacity="0.15"/>
+  <text x="570" y="165" text-anchor="middle" fill="#7aa2f7" font-family="sans-serif" font-size="10">hook-driven</text>
+</svg>

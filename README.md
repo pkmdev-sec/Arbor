@@ -1,4 +1,22 @@
-# remote-agent
+<p align="center">
+  <img src="assets/banner.svg" alt="remote-agent banner" width="800"/>
+</p>
+
+<p align="center">
+  <a href="#quick-start"><img src="https://img.shields.io/badge/get_started-blue?style=for-the-badge" alt="Get Started"/></a>
+  <a href="#how-people-use-it"><img src="https://img.shields.io/badge/examples-green?style=for-the-badge" alt="Examples"/></a>
+  <a href="#the-enforcement-system"><img src="https://img.shields.io/badge/how_it_works-purple?style=for-the-badge" alt="How it works"/></a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Claude_Code-v2.1.71-7aa2f7?style=flat-square&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCI+PHJlY3Qgd2lkdGg9IjIwIiBoZWlnaHQ9IjIwIiByeD0iNCIgZmlsbD0iIzFhMWIyNiIvPjx0ZXh0IHg9IjEwIiB5PSIxNCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzdhYTJmNyIgZm9udC1zaXplPSIxMCIgZm9udC1mYW1pbHk9Im1vbm9zcGFjZSI+UkE8L3RleHQ+PC9zdmc+" alt="Claude Code"/>
+  <img src="https://img.shields.io/badge/context-1M_tokens-9ece6a?style=flat-square" alt="1M Context"/>
+  <img src="https://img.shields.io/badge/agents-parallel_swarm-bb9af7?style=flat-square" alt="Parallel Swarm"/>
+  <img src="https://img.shields.io/badge/enforcement-hook--driven-e0af68?style=flat-square" alt="Hook Driven"/>
+  <img src="https://img.shields.io/badge/license-MIT-565f89?style=flat-square" alt="MIT License"/>
+</p>
+
+---
 
 > Your Claude Code session shouldn't die after reading 30 files.
 

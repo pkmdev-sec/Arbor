@@ -51,6 +51,8 @@ BASH_ALLOW_PREFIXES = (
     "bash -n",
     "echo ",            # Echo for status/debugging (can't read files)
     "which ",           # Path lookups
+    "gh ",              # GitHub CLI
+    "curl ",            # HTTP requests (for APIs)
     "ls ",              # Directory listings (not file reading)
     "ls\t",
     "mkdir ",           # Directory creation
