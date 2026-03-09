@@ -1,76 +1,40 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400">
-  <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#1a1b26;stop-opacity:1"/>
-      <stop offset="100%" style="stop-color:#24283b;stop-opacity:1"/>
-    </linearGradient>
-    <linearGradient id="ring" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#7aa2f7;stop-opacity:1"/>
-      <stop offset="50%" style="stop-color:#bb9af7;stop-opacity:1"/>
-      <stop offset="100%" style="stop-color:#7dcfff;stop-opacity:1"/>
-    </linearGradient>
-    <linearGradient id="core" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#7aa2f7;stop-opacity:1"/>
-      <stop offset="100%" style="stop-color:#bb9af7;stop-opacity:1"/>
-    </linearGradient>
-    <filter id="glow">
-      <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
-      <feMerge>
-        <feMergeNode in="coloredBlur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
-    <filter id="softglow">
-      <feGaussianBlur stdDeviation="8" result="blur"/>
-      <feMerge>
-        <feMergeNode in="blur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
-  </defs>
-
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
   <!-- Background -->
-  <rect width="400" height="400" rx="40" fill="url(#bg)"/>
+  <rect width="512" height="512" fill="#0F172A"/>
 
-  <!-- Outer orbit ring -->
-  <circle cx="200" cy="200" r="140" fill="none" stroke="url(#ring)" stroke-width="2" opacity="0.3"/>
-  <circle cx="200" cy="200" r="110" fill="none" stroke="url(#ring)" stroke-width="1.5" opacity="0.2"/>
-
-  <!-- Orbiting agent nodes (the swarm) -->
-  <circle cx="200" cy="60" r="14" fill="#9ece6a" filter="url(#glow)" opacity="0.9"/>
-  <text x="200" y="64" text-anchor="middle" fill="#1a1b26" font-family="sans-serif" font-size="11" font-weight="bold">1</text>
-
-  <circle cx="325" cy="148" r="14" fill="#9ece6a" filter="url(#glow)" opacity="0.9"/>
-  <text x="325" y="152" text-anchor="middle" fill="#1a1b26" font-family="sans-serif" font-size="11" font-weight="bold">2</text>
-
-  <circle cx="325" cy="262" r="14" fill="#9ece6a" filter="url(#glow)" opacity="0.9"/>
-  <text x="325" y="266" text-anchor="middle" fill="#1a1b26" font-family="sans-serif" font-size="11" font-weight="bold">3</text>
-
-  <circle cx="200" cy="340" r="14" fill="#f7768e" filter="url(#glow)" opacity="0.9"/>
-  <text x="200" y="344" text-anchor="middle" fill="#1a1b26" font-family="sans-serif" font-size="10" font-weight="bold">V</text>
-
-  <circle cx="75" cy="262" r="14" fill="#9ece6a" filter="url(#glow)" opacity="0.9"/>
-  <text x="75" y="266" text-anchor="middle" fill="#1a1b26" font-family="sans-serif" font-size="11" font-weight="bold">4</text>
-
-  <circle cx="75" cy="148" r="14" fill="#e0af68" filter="url(#glow)" opacity="0.9"/>
-  <text x="75" y="152" text-anchor="middle" fill="#1a1b26" font-family="sans-serif" font-size="10" font-weight="bold">D</text>
+  <!-- Outer boundary circle (dotted) -->
+  <circle cx="256" cy="256" r="180" fill="none" stroke="#06B6D4" stroke-width="2" stroke-dasharray="4 8" opacity="0.3"/>
 
   <!-- Connection lines from center to agents -->
-  <line x1="200" y1="165" x2="200" y2="74" stroke="#7aa2f7" stroke-width="1" opacity="0.4"/>
-  <line x1="230" y1="180" x2="311" y2="148" stroke="#7aa2f7" stroke-width="1" opacity="0.4"/>
-  <line x1="230" y1="220" x2="311" y2="262" stroke="#7aa2f7" stroke-width="1" opacity="0.4"/>
-  <line x1="200" y1="235" x2="200" y2="326" stroke="#f7768e" stroke-width="1" opacity="0.4"/>
-  <line x1="170" y1="220" x2="89" y2="262" stroke="#7aa2f7" stroke-width="1" opacity="0.4"/>
-  <line x1="170" y1="180" x2="89" y2="148" stroke="#e0af68" stroke-width="1" opacity="0.4"/>
+  <line x1="256" y1="256" x2="256" y2="100" stroke="#06B6D4" stroke-width="3" opacity="0.6"/>
+  <line x1="256" y1="256" x2="404" y2="176" stroke="#06B6D4" stroke-width="3" opacity="0.6"/>
+  <line x1="256" y1="256" x2="404" y2="336" stroke="#06B6D4" stroke-width="3" opacity="0.6"/>
+  <line x1="256" y1="256" x2="108" y2="336" stroke="#06B6D4" stroke-width="3" opacity="0.6"/>
+  <line x1="256" y1="256" x2="108" y2="176" stroke="#06B6D4" stroke-width="3" opacity="0.6"/>
 
-  <!-- Central core — the orchestrator -->
-  <circle cx="200" cy="200" r="50" fill="url(#core)" filter="url(#softglow)" opacity="0.15"/>
-  <circle cx="200" cy="200" r="35" fill="url(#core)" opacity="0.25"/>
+  <!-- Agent nodes (5 outer circles) -->
+  <circle cx="256" cy="100" r="24" fill="#06B6D4"/>
+  <circle cx="404" cy="176" r="24" fill="#06B6D4"/>
+  <circle cx="404" cy="336" r="24" fill="#06B6D4"/>
+  <circle cx="108" cy="336" r="24" fill="#06B6D4"/>
+  <circle cx="108" cy="176" r="24" fill="#06B6D4"/>
 
-  <!-- Terminal prompt icon in center -->
-  <text x="200" y="195" text-anchor="middle" fill="#c0caf5" font-family="monospace" font-size="28" font-weight="bold" filter="url(#glow)">RA</text>
-  <text x="200" y="218" text-anchor="middle" fill="#565f89" font-family="sans-serif" font-size="10">orchestrator</text>
+  <!-- Agent node highlights -->
+  <circle cx="262" cy="94" r="6" fill="#FFFFFF" opacity="0.8"/>
+  <circle cx="410" cy="170" r="6" fill="#FFFFFF" opacity="0.8"/>
+  <circle cx="410" cy="330" r="6" fill="#FFFFFF" opacity="0.8"/>
+  <circle cx="114" cy="330" r="6" fill="#FFFFFF" opacity="0.8"/>
+  <circle cx="114" cy="170" r="6" fill="#FFFFFF" opacity="0.8"/>
 
-  <!-- Labels -->
-  <text x="200" y="388" text-anchor="middle" fill="#565f89" font-family="sans-serif" font-size="11">remote-agent</text>
+  <!-- Central orchestrator hexagon -->
+  <path d="M 256 216 L 290.784 236 L 290.784 276 L 256 296 L 221.216 276 L 221.216 236 Z" fill="#F59E0B"/>
+
+  <!-- Central hexagon highlight -->
+  <path d="M 256 226 L 280.392 241 L 280.392 271 L 256 286 L 231.608 271 L 231.608 241 Z" fill="#FFFFFF" opacity="0.15"/>
+
+  <!-- Central node inner accent -->
+  <circle cx="256" cy="256" r="16" fill="#FFFFFF" opacity="0.25"/>
+
+  <!-- Small core dot -->
+  <circle cx="256" cy="256" r="6" fill="#FFFFFF" opacity="0.9"/>
 </svg>
