@@ -1,5 +1,21 @@
 <p align="center">
-  <img src="assets/banner.svg" alt="remote-agent" width="800"/>
+  <img src="assets/logo.svg" alt="remote-agent" width="160"/>
+</p>
+
+<h1 align="center">remote-agent</h1>
+
+<p align="center">
+  <strong>Autonomous Claude Code executor with parallel swarm orchestration</strong><br/>
+  <sub>Spawns isolated subprocesses with fresh 1M context windows</sub>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/sonnet-1M_context-3fb950?style=flat-square" alt="Sonnet 1M"/>
+  <img src="https://img.shields.io/badge/opus-1M_context-bb9af7?style=flat-square" alt="Opus 1M"/>
+  <img src="https://img.shields.io/badge/swarm-parallel-7aa2f7?style=flat-square" alt="Swarm"/>
+  <img src="https://img.shields.io/badge/enforcement-hook--driven-d29922?style=flat-square" alt="Enforced"/>
+  <img src="https://img.shields.io/badge/verification-opus-f85149?style=flat-square" alt="Verified"/>
+  <img src="https://img.shields.io/badge/license-MIT-8b949e?style=flat-square" alt="MIT"/>
 </p>
 
 <p align="center">
