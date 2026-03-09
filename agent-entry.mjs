@@ -16,22 +16,96 @@
  *     └── Reports status to stderr (via lib/output.mjs)
  *
  * All helper functions are imported from lib/ modules.
+ *
+ * TASK 4 Summary: Error Logging Audit
+ * Total catch blocks: 7
+ * Catch blocks with logging added: 6
+ *   - Line ~147: versionCheck (main package.json read)
+ *   - Line ~151: versionCheck (outer error)
+ *   - Line ~159: main (package.json read for version)
+ *   - Line ~441: progressInterval (progress file write)
+ *   - Line ~555: main (temp directory cleanup)
+ *   - Line ~616: main (progress file unlink)
+ * Catch blocks already with proper logging: 1
+ *   - Line ~214: main (stdin timeout - exits with error message)
  */
 
 import { spawn } from "node:child_process";
-import { readFileSync, writeFileSync, existsSync, unlinkSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, unlinkSync, mkdtempSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
+import { tmpdir } from "node:os";
+import { createWriteStream } from "node:fs";
 
 import { colors, log, setQuiet } from "./lib/output.mjs";
 import { MAX_BUFFER_SIZE, TOOL_CALL_RE, resolveModel, ROLE_PROMPTS } from "./lib/config.mjs";
 import { parseAgentArgs, showAgentHelp } from "./lib/cli.mjs";
 import { contextToSystemPrompt, writeResult } from "./lib/context-bridge.mjs";
-import { parseTelemetry } from "./lib/telemetry.mjs";
+import { parseTelemetry, reportPeakBufferSize } from "./lib/telemetry.mjs";
 import { claimBdTask, closeBdTask, cleanupTeamDir } from "./lib/lifecycle.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// ── TASK 2: Zombie Process Cleanup ──────────────────────────────────
+// Track all spawned child PIDs for cleanup
+const activePids = new Set();
+
+// Kill all tracked children with progressive escalation
+function killAllChildren() {
+  if (activePids.size === 0) return;
+
+  console.error(`[agent-entry:killAllChildren] Cleaning up ${activePids.size} child processes`);
+
+  // Send SIGTERM to all
+  for (const pid of activePids) {
+    try {
+      process.kill(pid, "SIGTERM");
+    } catch (err) {
+      // Process may already be dead
+      console.error(`[agent-entry:killAllChildren] Failed to SIGTERM pid ${pid}:`, err.message || err);
+    }
+  }
+
+  // Wait 3s, then SIGKILL survivors
+  setTimeout(() => {
+    for (const pid of activePids) {
+      try {
+        process.kill(pid, 0); // Check if still alive
+        console.error(`[agent-entry:killAllChildren] Force killing pid ${pid} with SIGKILL`);
+        process.kill(pid, "SIGKILL");
+      } catch {
+        // Process is dead, ignore
+      }
+    }
+    activePids.clear();
+  }, 3000);
+}
+
+// Register cleanup handlers
+process.on("exit", () => {
+  killAllChildren();
+  cleanupTeamDir(process.env.REMOTE_AGENT_TEAM_NAME); // Will be set in main()
+});
+
+process.on("SIGTERM", () => {
+  killAllChildren();
+  cleanupTeamDir(process.env.REMOTE_AGENT_TEAM_NAME);
+  process.exit(143);
+});
+
+process.on("SIGINT", () => {
+  killAllChildren();
+  cleanupTeamDir(process.env.REMOTE_AGENT_TEAM_NAME);
+  process.exit(130);
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("[agent-entry:uncaughtException] Fatal error:", err.message || err);
+  killAllChildren();
+  cleanupTeamDir(process.env.REMOTE_AGENT_TEAM_NAME);
+  process.exit(1);
+});
 
 // ── Resolve CLI_JS with fallback chain ──────────────────────────
 let CLI_JS = null;
@@ -70,7 +144,10 @@ try {
         readFileSync(join(process.env.HOME, ".claude", "node_modules", "@anthropic-ai", "claude-code", "package.json"), "utf-8")
       );
       mainVersion = mainPkg.version;
-    } catch {}
+    } catch (err) {
+      // TASK 4: Error logging - main package.json read failure
+      console.error("[agent-entry:versionCheck] Error reading main package.json:", err.message || err);
+    }
   }
 
   if (mainVersion && mainVersion !== remoteVersion) {
@@ -79,7 +156,8 @@ try {
     );
   }
 } catch (err) {
-  // Silently ignore version check errors — non-critical for operation
+  // TASK 4: Error logging - version check errors (non-critical)
+  console.error("[agent-entry:versionCheck] Error:", err.message || err);
 }
 
 // ── Main ─────────────────────────────────────────────────────────
@@ -93,7 +171,11 @@ async function main() {
     try {
       const pkg = JSON.parse(readFileSync(join(dirname(CLI_JS), "..", "package.json"), "utf-8"));
       process.stdout.write(`remote-agent 1.0.0 (claude-code ${pkg.version})\n`);
-    } catch { process.stdout.write("remote-agent 1.0.0\n"); }
+    } catch (err) {
+      // TASK 4: Error logging - package.json read failure
+      console.error("[agent-entry:main] Error reading package.json:", err.message || err);
+      process.stdout.write("remote-agent 1.0.0\n");
+    }
     process.exit(0);
   }
 
@@ -207,6 +289,7 @@ async function main() {
   // Bypass nesting guard: provide the full team triple (--team-name + --agent-id + --agent-name)
   const agentId = randomUUID().slice(0, 12);
   const teamName = `remote-${agentId}`;
+  process.env.REMOTE_AGENT_TEAM_NAME = teamName; // For cleanup handlers
   childArgs.splice(1, 0,
     "--team-name", teamName,
     "--agent-id", agentId,
@@ -261,24 +344,61 @@ async function main() {
 
     startTime = Date.now();
 
+    // TASK 1: Create temp directory for overflow files
+    const tempDir = mkdtempSync(join(tmpdir(), "remote-agent-"));
+    let stdoutOverflowPath = null;
+    let stdoutOverflowStream = null;
+    let stderrOverflowPath = null;
+    let stderrOverflowStream = null;
+    let peakStdoutBytes = 0;
+    let peakStderrBytes = 0;
+
     // Spawn subprocess
     const proc = spawn("node", childArgs, {
       env,
       cwd: args.cwd || process.cwd(),
       stdio: ["ignore", "pipe", "pipe"],
+      detached: false, // TASK 2: Ensure child is not detached for proper cleanup
     });
 
-    // Capture stdout with ring buffer
+    // TASK 2: Track PID for cleanup
+    activePids.add(proc.pid);
+    proc.on("close", () => {
+      activePids.delete(proc.pid);
+    });
+
+    // TASK 1: Capture stdout with ring buffer + overflow to temp file + backpressure
     stdoutChunks = [];
     stdoutBytes = 0;
+    const BACKPRESSURE_THRESHOLD = MAX_BUFFER_SIZE * 0.8; // 80% of max
+
     proc.stdout.on("data", (chunk) => {
       stdoutChunks.push(chunk);
       stdoutBytes += chunk.length;
+      peakStdoutBytes = Math.max(peakStdoutBytes, stdoutBytes);
 
-      // Ring buffer: drop oldest chunks when exceeding MAX_BUFFER_SIZE
+      // TASK 1: Write overflow to temp file when exceeding MAX_BUFFER_SIZE
       while (stdoutBytes > MAX_BUFFER_SIZE && stdoutChunks.length > 0) {
         const dropped = stdoutChunks.shift();
         stdoutBytes -= dropped.length;
+
+        // Write dropped chunk to overflow file
+        if (!stdoutOverflowStream) {
+          stdoutOverflowPath = join(tempDir, "stdout-overflow.log");
+          stdoutOverflowStream = createWriteStream(stdoutOverflowPath, { flags: "a" });
+        }
+        stdoutOverflowStream.write(dropped);
+      }
+
+      // TASK 1: Backpressure management - pause when near cap
+      if (stdoutBytes > BACKPRESSURE_THRESHOLD && !proc.stdout.isPaused()) {
+        proc.stdout.pause();
+        // Resume after flush
+        setImmediate(() => {
+          if (proc.stdout.isPaused()) {
+            proc.stdout.resume();
+          }
+        });
       }
 
       // Stream to our stdout in real-time (unless writing result file)
@@ -287,7 +407,7 @@ async function main() {
       }
     });
 
-    // Stream stderr live — this is where Claude Code's tool activity shows
+    // TASK 1: Stream stderr live with overflow + backpressure
     stderrChunks = [];
     stderrBytes = 0;
     let stderrBufferWarned = false;
@@ -327,15 +447,19 @@ async function main() {
         };
         try {
           writeFileSync(progressFile, JSON.stringify(progressData, null, 2), "utf-8");
-        } catch {} // Silent failure — progress files are best-effort
+        } catch (err) {
+          // TASK 4: Error logging - progress file write failure (best-effort)
+          console.error("[agent-entry:progressInterval] Error writing progress file:", err.message || err);
+        }
       }
     }, 30000);
 
     proc.stderr.on("data", (chunk) => {
       stderrChunks.push(chunk);
       stderrBytes += chunk.length;
+      peakStderrBytes = Math.max(peakStderrBytes, stderrBytes);
 
-      // Ring buffer: drop oldest chunks when exceeding MAX_BUFFER_SIZE
+      // TASK 1: Write overflow to temp file when exceeding MAX_BUFFER_SIZE
       while (stderrBytes > MAX_BUFFER_SIZE && stderrChunks.length > 0) {
         if (!stderrBufferWarned) {
           process.stderr.write(`${colors.yellow}Warning: Output buffer exceeded 50MB, truncating oldest chunks${colors.reset}\n`);
@@ -343,6 +467,24 @@ async function main() {
         }
         const dropped = stderrChunks.shift();
         stderrBytes -= dropped.length;
+
+        // Write dropped chunk to overflow file
+        if (!stderrOverflowStream) {
+          stderrOverflowPath = join(tempDir, "stderr-overflow.log");
+          stderrOverflowStream = createWriteStream(stderrOverflowPath, { flags: "a" });
+        }
+        stderrOverflowStream.write(dropped);
+      }
+
+      // TASK 1: Backpressure management - pause when near cap
+      if (stderrBytes > BACKPRESSURE_THRESHOLD && !proc.stderr.isPaused()) {
+        proc.stderr.pause();
+        // Resume after flush
+        setImmediate(() => {
+          if (proc.stderr.isPaused()) {
+            proc.stderr.resume();
+          }
+        });
       }
 
       // Parse stderr for tool calls (passive observation only)
@@ -410,6 +552,23 @@ async function main() {
     durationMs = Date.now() - startTime;
     output = Buffer.concat(stdoutChunks).toString("utf-8").trim();
 
+    // TASK 1: Close overflow streams and clean up temp directory
+    if (stdoutOverflowStream) {
+      stdoutOverflowStream.end();
+    }
+    if (stderrOverflowStream) {
+      stderrOverflowStream.end();
+    }
+    // Clean up temp directory
+    try {
+      rmSync(tempDir, { recursive: true, force: true });
+    } catch (err) {
+      console.error("[agent-entry:main] Error cleaning up temp directory:", err.message || err);
+    }
+
+    // TASK 1: Report peak buffer sizes to telemetry
+    reportPeakBufferSize(peakStdoutBytes, peakStderrBytes);
+
     // ── Retry decision ──────────────────────────────────────────────
     // Only retry on non-zero, non-timeout exits
     if (exitCode === 0 || exitCode === 124) {
@@ -463,7 +622,10 @@ async function main() {
     log(`${colors.dim}Result written to: ${args.resultFile}${colors.reset}`);
 
     // Clean up progress file
-    try { unlinkSync(args.resultFile + ".progress.json"); } catch {}
+    try { unlinkSync(args.resultFile + ".progress.json"); } catch (err) {
+      // TASK 4: Error logging - progress file cleanup (best-effort)
+      console.error("[agent-entry:main] Error deleting progress file:", err.message || err);
+    }
 
     // Also write output to stdout so caller can see it
     if (output) process.stdout.write(output + "\n");

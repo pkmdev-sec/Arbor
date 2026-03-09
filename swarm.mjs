@@ -7,6 +7,8 @@
  *
  * All orchestration logic lives in lib/ modules. This file is the slim
  * entry point that wires everything together via mode routing.
+ *
+ * Catch blocks: 3 total, 3 fixed (added error logging to silent catches)
  */
 
 import { execFileSync } from "node:child_process";
@@ -193,7 +195,9 @@ async function main() {
       } else {
         log(`${colors.yellow}bd: ${args.bdTask} left open (${contract.summary.failed} failures)${colors.reset}`);
       }
-    } catch {}
+    } catch (error) {
+      console.error("[swarm.mjs:main] Error:", error.message || error);
+    }
   }
 
   // Clean up any remaining worktrees and backups (belt-and-suspenders)
@@ -203,11 +207,15 @@ async function main() {
       for (const d of readdirSync(wtDir)) {
         cleanupIsolation(join(wtDir, d), null);
       }
-    } catch {}
+    } catch (error) {
+      console.error("[swarm.mjs:main] Error:", error.message || error);
+    }
   }
   const bkDir = join(workDir, "backups");
   if (existsSync(bkDir)) {
-    try { rmSync(bkDir, { recursive: true, force: true }); } catch {}
+    try { rmSync(bkDir, { recursive: true, force: true }); } catch (error) {
+      console.error("[swarm.mjs:main] Error:", error.message || error);
+    }
   }
 
   process.exit(contract.summary.failed > 0 ? 1 : 0);
