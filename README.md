@@ -76,12 +76,6 @@ Text directives don't work — Claude ignores them. We learned this after 5 fail
 
 During delegation, only `remote-agent`, `swarm`, `bd`, `git`, and test commands pass through Bash. Everything else — Agent, Read, Glob, Grep, Write, Edit, even `Bash(cat)` — is blocked.
 
-## What We Discovered
-
-This project was built on 8 reverse-engineering discoveries from Claude Code v2.1.71's binary:
-
-<p align="center"><img src="assets/04-reverse-engineering.svg" width="700"/></p>
-
 ## Agent Roles
 
 | Role | Job | Output |
