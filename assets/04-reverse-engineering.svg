@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="700" height="480" viewBox="0 0 700 480">
+  <rect width="700" height="480" rx="8" fill="#0d1117"/>
+  <text x="350" y="28" text-anchor="middle" fill="#e6edf3" font-family="system-ui,sans-serif" font-size="15" font-weight="700">Reverse Engineering Discoveries</text>
+  <text x="350" y="48" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="10">Claude Code v2.1.71 · Mach-O arm64 → npm cli.js (12.2MB bundled ESM)</text>
+
+  <!-- Discovery 1: Nesting Guard -->
+  <rect x="20" y="65" width="320" height="90" rx="6" fill="#161b22" stroke="#7aa2f7" stroke-width="1"/>
+  <text x="30" y="85" fill="#7aa2f7" font-family="system-ui,sans-serif" font-size="11" font-weight="700">1. The CLAUDECODE Nesting Guard</text>
+  <text x="30" y="102" fill="#e6edf3" font-family="monospace" font-size="9">if(process.env.CLAUDECODE === "1")</text>
+  <text x="30" y="115" fill="#e6edf3" font-family="monospace" font-size="9">  exit("Cannot launch inside Claude")</text>
+  <text x="30" y="132" fill="#3fb950" font-family="system-ui,sans-serif" font-size="9">Bypass: CLAUDECODE="" (empty !== "1")</text>
+  <text x="30" y="145" fill="#3fb950" font-family="system-ui,sans-serif" font-size="9">Also: --team-name + --agent-id + --agent-name</text>
+
+  <!-- Discovery 2: Team Triple -->
+  <rect x="360" y="65" width="320" height="90" rx="6" fill="#161b22" stroke="#bb9af7" stroke-width="1"/>
+  <text x="370" y="85" fill="#bb9af7" font-family="system-ui,sans-serif" font-size="11" font-weight="700">2. The Team Triple Requirement</text>
+  <text x="370" y="102" fill="#e6edf3" font-family="monospace" font-size="9">--team-name ALONE → validation error</text>
+  <text x="370" y="118" fill="#e6edf3" font-family="monospace" font-size="9">Need ALL THREE:</text>
+  <text x="370" y="132" fill="#3fb950" font-family="monospace" font-size="9">  --team-name remote-{uuid}</text>
+  <text x="370" y="145" fill="#3fb950" font-family="monospace" font-size="9">  --agent-id {uuid} --agent-name remote-agent</text>
+
+  <!-- Discovery 3: CLAUDE_CONFIG_DIR -->
+  <rect x="20" y="170" width="320" height="90" rx="6" fill="#161b22" stroke="#3fb950" stroke-width="1"/>
+  <text x="30" y="190" fill="#3fb950" font-family="system-ui,sans-serif" font-size="11" font-weight="700">3. CLAUDE_CONFIG_DIR (The Isolation Key)</text>
+  <text x="30" y="207" fill="#e6edf3" font-family="monospace" font-size="9">Points subprocess to minimal settings.json</text>
+  <text x="30" y="222" fill="#e6edf3" font-family="monospace" font-size="9">{disableAllHooks: true, allow: ["*"]}</text>
+  <text x="30" y="240" fill="#d29922" font-family="system-ui,sans-serif" font-size="9">Without: 84.7s (hooks overhead)</text>
+  <text x="30" y="253" fill="#3fb950" font-family="system-ui,sans-serif" font-size="9">With:    5.8s  (17x faster!)</text>
+
+  <!-- Discovery 4: Feature Flags -->
+  <rect x="360" y="170" width="320" height="90" rx="6" fill="#161b22" stroke="#d29922" stroke-width="1"/>
+  <text x="370" y="190" fill="#d29922" font-family="system-ui,sans-serif" font-size="11" font-weight="700">4. 60+ Feature Flags (tengu_*)</text>
+  <text x="370" y="207" fill="#e6edf3" font-family="monospace" font-size="9">p8("tengu_remote_backend", false)</text>
+  <text x="370" y="222" fill="#e6edf3" font-family="monospace" font-size="9">p8("tengu_session_memory", ...)</text>
+  <text x="370" y="237" fill="#e6edf3" font-family="monospace" font-size="9">p8("tengu_auto_background_agents",...)</text>
+  <text x="370" y="253" fill="#8b949e" font-family="system-ui,sans-serif" font-size="9">Cached in .claude.json → cachedGrowthBookFeatures</text>
+
+  <!-- Discovery 5: Remote Session -->
+  <rect x="20" y="275" width="320" height="90" rx="6" fill="#161b22" stroke="#f85149" stroke-width="1"/>
+  <text x="30" y="295" fill="#f85149" font-family="system-ui,sans-serif" font-size="11" font-weight="700">5. Internal Remote Session (OAuth-only)</text>
+  <text x="30" y="312" fill="#e6edf3" font-family="monospace" font-size="9">claude --remote "task" → creates session</text>
+  <text x="30" y="327" fill="#e6edf3" font-family="monospace" font-size="9">→ runs on Anthropic servers (not local)</text>
+  <text x="30" y="342" fill="#e6edf3" font-family="monospace" font-size="9">→ requires OAuth + tengu_remote_backend</text>
+  <text x="30" y="357" fill="#f85149" font-family="system-ui,sans-serif" font-size="9">Unusable: OAuth-only, server-side, no CLI-to-CLI</text>
+
+  <!-- Discovery 6: GitHub != Source -->
+  <rect x="360" y="275" width="320" height="90" rx="6" fill="#161b22" stroke="#8b949e" stroke-width="1"/>
+  <text x="370" y="295" fill="#8b949e" font-family="system-ui,sans-serif" font-size="11" font-weight="700">6. GitHub Repo Is NOT Source Code</text>
+  <text x="370" y="312" fill="#e6edf3" font-family="monospace" font-size="9">anthropics/claude-code = docs + plugins</text>
+  <text x="370" y="327" fill="#e6edf3" font-family="monospace" font-size="9">279 files · 0 TypeScript source files</text>
+  <text x="370" y="342" fill="#e6edf3" font-family="monospace" font-size="9">Actual source: internal to Anthropic</text>
+  <text x="370" y="357" fill="#8b949e" font-family="system-ui,sans-serif" font-size="9">cli.js (12.2MB) from npm is the entire app</text>
+
+  <!-- Discovery 7: Effort Bug -->
+  <rect x="20" y="380" width="320" height="80" rx="6" fill="#161b22" stroke="#f85149" stroke-width="1"/>
+  <text x="30" y="400" fill="#f85149" font-family="system-ui,sans-serif" font-size="11" font-weight="700">7. ALWAYS_ENABLE_EFFORT Breaks Subagents</text>
+  <text x="30" y="417" fill="#e6edf3" font-family="monospace" font-size="9">CLAUDE_CODE_ALWAYS_ENABLE_EFFORT=1</text>
+  <text x="30" y="432" fill="#e6edf3" font-family="monospace" font-size="9">→ 400 error on sonnet/haiku (no effort support)</text>
+  <text x="30" y="447" fill="#3fb950" font-family="system-ui,sans-serif" font-size="9">Fix: removed — Claude handles effort per-model</text>
+
+  <!-- Discovery 8: Hook Matchers -->
+  <rect x="360" y="380" width="320" height="80" rx="6" fill="#161b22" stroke="#d29922" stroke-width="1"/>
+  <text x="370" y="400" fill="#d29922" font-family="system-ui,sans-serif" font-size="11" font-weight="700">8. Compound Matchers Are Broken</text>
+  <text x="370" y="417" fill="#e6edf3" font-family="monospace" font-size="9">{Agent,Read,Glob,Grep} → only Agent fires!</text>
+  <text x="370" y="432" fill="#e6edf3" font-family="monospace" font-size="9">Read, Glob, Grep silently don't trigger</text>
+  <text x="370" y="447" fill="#3fb950" font-family="system-ui,sans-serif" font-size="9">Fix: split into individual per-tool matchers</text>
+</svg>

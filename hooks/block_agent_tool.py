@@ -58,6 +58,11 @@ BASH_ALLOW_PREFIXES = (
     "mkdir ",           # Directory creation
     "chmod ",           # Permissions
     "ln ",              # Symlinks
+    "rm ",              # Remove files
+    "/bin/rm ",         # Remove (absolute path)
+    "/bin/cp ",         # Copy (absolute path)
+    "cp ",              # Copy
+    "mv ",              # Move
     "pwd",              # Current directory
     "date",             # Timestamps
     "wc ",              # Word count
