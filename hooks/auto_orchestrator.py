@@ -378,6 +378,13 @@ def generate_directive(
 
     # ── DIRECT execution (questions, follow-ups, trivial) ──
     if execution == "DIRECT":
+        # FIX #17: FOLLOWUP inherits parent DELEGATE mode — don't clear state
+        if task_type == "FOLLOWUP" and last_routing and last_routing.get("execution") == "DELEGATE":
+            # Keep DELEGATE active — the follow-up is continuing delegated work
+            _blog_msg = "FOLLOWUP inherits DELEGATE from parent"
+            _log(_blog_msg) if '_log' in dir() else None
+            return None  # No directive needed — DELEGATE state already active
+
         _set_delegate_mode("DIRECT")
         if task_type == "FOLLOWUP":
             if pressure in ("HIGH", "CRITICAL"):
@@ -458,6 +465,20 @@ def main() -> None:
 
         if not session_id or not prompt:
             return
+
+        # FIX #3: Write preliminary DELEGATE state BEFORE the AI call.
+        # This closes the TOCTOU race where Claude's first tool fires
+        # before the orchestrator finishes classifying.
+        try:
+            STATE_DIR.mkdir(parents=True, exist_ok=True)
+            DELEGATE_STATE.write_text(json.dumps({
+                "mode": "DELEGATE",
+                "command": "swarm (classifying...)",
+                "task_type": "PENDING",
+                "timestamp": dt.datetime.now(dt.timezone.utc).isoformat(),
+            }), encoding="utf-8")
+        except Exception:
+            pass
 
         # AI-powered classification
         classification = classify_task(prompt)

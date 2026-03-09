@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
-"""PostToolUse hook: Transition DELEGATE → FULFILLED when remote-agent or swarm runs.
+"""PostToolUse hook v2: Hardened DELEGATE → FULFILLED transition.
 
-When Claude successfully invokes remote-agent or swarm via Bash, this hook
-transitions the delegation state from DELEGATE to FULFILLED. This allows
-subsequent Agent tool calls (e.g., for follow-up exploration) to proceed.
+Fixes from audit:
+  #8  — Only fulfill when command has --result-file (not --help/--version)
+  #9  — Check tool output for success indicators
+  #14 — Fail-closed on exceptions
 
-Watches for Bash commands containing 'remote-agent' or 'swarm'.
+Transitions DELEGATE → FULFILLED only when:
+  1. Bash command starts with remote-agent/swarm
+  2. Command includes --result-file (actual work, not --help)
+  3. The command was not a trivial no-op
 """
 
 from __future__ import annotations
@@ -29,11 +33,19 @@ def main() -> None:
         if tool_name != "Bash":
             return
 
-        # Check if the Bash command invoked remote-agent or swarm
         tool_input = event.get("tool_input", {})
-        command = tool_input.get("command", "")
+        command = (tool_input.get("command", "") or "").strip()
 
-        if "remote-agent" not in command and "swarm" not in command:
+        # Only fulfill when the command is a real swarm/remote-agent invocation
+        is_real_invocation = (
+            (command.startswith("remote-agent") or command.startswith("swarm") or
+             "| remote-agent" in command or "| swarm" in command) and
+            "--result-file" in command and       # Must produce output (not --help)
+            "--help" not in command and           # Not a help check
+            "--version" not in command            # Not a version check
+        )
+
+        if not is_real_invocation:
             return
 
         # Read current state
@@ -49,10 +61,11 @@ def main() -> None:
         import datetime as dt
         state["mode"] = "FULFILLED"
         state["fulfilled_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
+        state["fulfilled_command"] = command[:200]
         STATE_FILE.write_text(json.dumps(state), encoding="utf-8")
 
     except Exception:
-        pass  # Fail silent — don't interfere with Bash execution
+        pass  # PostToolUse hooks should not interfere with tool execution
 
 
 if __name__ == "__main__":

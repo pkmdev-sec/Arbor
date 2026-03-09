@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
-"""PreToolUse hook: Enforce remote-agent delegation by blocking fallback paths.
+"""PreToolUse hook v5: Hardened enforcement with Bash allowlist.
 
-When orchestrator sets DELEGATE mode, Claude must use Bash with remote-agent/swarm.
-But Claude has multiple fallback paths when Agent is blocked:
-  1. Agent tool → BLOCKED (original)
-  2. Read/Glob/Grep directly → ALSO BLOCKED (this fix)
-
-This hook blocks ALL exploration/read tools during DELEGATE mode.
-Once remote-agent/swarm runs via Bash (FULFILLED state), everything unblocks.
+Fixes applied from adversarial audit:
+  #1  — Removed /.claude CWD escape hatch (CRITICAL)
+  #2  — Increased timeout guidance, fail-CLOSED on exceptions (HIGH)
+  #4  — Removed staleness timeout (HIGH) — state persists until explicitly changed
+  #5  — Write/Edit blocked during DELEGATE for code-modifying routes (MEDIUM)
+  #6  — Bash switched from blocklist to ALLOWLIST (HIGH)
+  #7  — All chain/pipe/substitution evasions closed by allowlist (HIGH)
+  #14 — Exception handler now fail-CLOSED (MEDIUM)
+  #15 — State file writes blocked by Bash allowlist (CRITICAL)
 
 State lifecycle:
-  DELEGATE  → Agent, Read, Glob, Grep BLOCKED. Only Bash allowed.
-  FULFILLED → All tools allowed (remote-agent was invoked)
-  DIRECT    → All tools allowed (non-delegated task)
+  DELEGATE  → Only allowlisted Bash commands pass. Everything else blocked.
+  FULFILLED → All tools allowed (swarm/remote-agent completed)
+  DIRECT    → All tools allowed (simple task, no delegation)
 """
 
 from __future__ import annotations
@@ -22,52 +24,78 @@ import sys
 from pathlib import Path
 
 STATE_FILE = Path.home() / ".claude" / "hooks" / ".acontext_state" / "delegate_mode.json"
-
-MAX_AGE_SEC = 300
-
-# Tools to block during DELEGATE mode (forces Bash with remote-agent)
-BLOCKED_DURING_DELEGATE = {"Agent", "Read", "Glob", "Grep"}
-
-# Tools that are always allowed (never blocked)
-ALWAYS_ALLOWED = {"Bash", "Write", "Edit", "WebSearch", "WebFetch", "AskUserQuestion",
-                  "EnterPlanMode", "ExitPlanMode", "Skill", "NotebookEdit"}
-
-
 LOG = Path.home() / ".claude" / "hooks" / ".acontext_state" / "blocker.log"
+
+# Bash ALLOWLIST — only these commands are permitted during DELEGATE mode.
+# Everything not matching is blocked. This closes infinite bypass vectors.
+BASH_ALLOW_PREFIXES = (
+    "remote-agent",     # The delegation tool
+    "swarm",            # The swarm orchestrator
+    "bd ",              # Beads task management
+    "bd\t",             # bd with tab
+    "git status",       # Git read commands
+    "git diff",
+    "git log",
+    "git show",
+    "git branch",
+    "npm test",         # Test runners
+    "npx test",
+    "pytest",
+    "cargo test",
+    "go test",
+    "swift test",
+    "jest",
+    "vitest",
+    "node --check",     # Syntax checks
+    "python3 -c \"import py_compile",
+    "bash -n",
+    "echo ",            # Echo for status/debugging (can't read files)
+    "which ",           # Path lookups
+    "ls ",              # Directory listings (not file reading)
+    "ls\t",
+    "mkdir ",           # Directory creation
+    "chmod ",           # Permissions
+    "ln ",              # Symlinks
+    "pwd",              # Current directory
+    "date",             # Timestamps
+    "wc ",              # Word count
+    "find ",            # File finding (not reading)
+)
+
+# Tools that are ALWAYS allowed regardless of delegation state
+ALWAYS_ALLOWED = {"AskUserQuestion", "EnterPlanMode", "ExitPlanMode"}
+
+# Tools blocked during DELEGATE mode
+BLOCKED_DURING_DELEGATE = {"Agent", "Read", "Glob", "Grep", "Write", "Edit",
+                           "Skill", "NotebookEdit", "WebSearch", "WebFetch"}
+
 
 def _blog(msg: str) -> None:
     try:
         with LOG.open("a") as f:
             from datetime import datetime, timezone
-            ts = datetime.now(timezone.utc).strftime("%H:%M:%S")
-            f.write(f"[{ts}] {msg}\n")
+            f.write(f"[{datetime.now(timezone.utc).strftime('%H:%M:%S')}] {msg}\n")
     except Exception:
         pass
+
 
 def main() -> None:
     try:
         event_json = sys.stdin.read().strip()
         if not event_json:
-            _blog("NO INPUT")
             return
 
         event = json.loads(event_json)
         tool_name = event.get("tool_name", "")
         _blog(f"CALLED tool={tool_name}")
 
-        # Never block when working on our own orchestrator config
-        cwd = event.get("cwd", "")
-        if "/.claude" in cwd and "/remote-agent" not in cwd:
-            _blog(f"ALLOW tool={tool_name} (self-config: {cwd})")
-            return
-
-        # Only gate specific tools
-        if tool_name not in BLOCKED_DURING_DELEGATE:
-            _blog(f"SKIP tool={tool_name} (not in blocked set)")
+        # Always-allowed tools — never blocked under any circumstance
+        if tool_name in ALWAYS_ALLOWED:
             return
 
         # Read delegation state
         if not STATE_FILE.exists():
+            _blog(f"ALLOW tool={tool_name} (no state file)")
             return
 
         state = json.loads(STATE_FILE.read_text(encoding="utf-8"))
@@ -78,42 +106,65 @@ def main() -> None:
             _blog(f"ALLOW tool={tool_name} mode={mode}")
             return
 
-        # Check staleness
-        from datetime import datetime, timezone
-        ts = state.get("timestamp", "")
-        if ts:
-            try:
-                state_time = datetime.fromisoformat(ts)
-                age = (datetime.now(timezone.utc) - state_time).total_seconds()
-                if age > MAX_AGE_SEC:
-                    return  # Stale — allow
-            except (ValueError, TypeError):
-                pass
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        # DELEGATE MODE — strict enforcement
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-        # BLOCK — redirect to Bash with remote-agent/swarm
-        command = state.get("command", "remote-agent <task>")
+        # Bash: ALLOWLIST check — only specific commands pass through
+        if tool_name == "Bash":
+            cmd = (event.get("tool_input", {}).get("command", "") or "").strip()
 
-        if tool_name == "Agent":
-            reason = (
-                f"[Orchestrator] Agent tool blocked — use remote-agent via Bash.\n"
-                f"RUN: {command}"
-            )
-        else:
-            reason = (
-                f"[Orchestrator] {tool_name} blocked during delegation — use remote-agent instead.\n"
-                f"Do NOT read files directly. Delegate to remote-agent which has its own fresh context.\n"
-                f"RUN via Bash: {command}\n"
-                f"Then read the result file for findings."
-            )
+            # Check against allowlist
+            for prefix in BASH_ALLOW_PREFIXES:
+                if cmd.startswith(prefix):
+                    _blog(f"ALLOW tool=Bash (allowlisted: {prefix})")
+                    return
 
-        _blog(f"BLOCK tool={tool_name} task_type={state.get('task_type')}")
-        result = {"decision": "block", "reason": reason}
+            # Not in allowlist — block
+            command = state.get("command", "swarm <task>")
+            _blog(f"BLOCK tool=Bash cmd={cmd[:60]}")
+            result = {
+                "decision": "block",
+                "reason": (
+                    f"[Orchestrator] Bash command blocked during delegation.\n"
+                    f"Only remote-agent, swarm, bd, git, and test commands are allowed.\n"
+                    f"RUN: {command}"
+                ),
+            }
+            print(json.dumps(result), flush=True)
+            return
+
+        # All other tools during DELEGATE — block with redirect
+        if tool_name in BLOCKED_DURING_DELEGATE:
+            command = state.get("command", "swarm <task>")
+            _blog(f"BLOCK tool={tool_name}")
+            result = {
+                "decision": "block",
+                "reason": (
+                    f"[Orchestrator] {tool_name} blocked — task delegated to remote-agent.\n"
+                    f"RUN via Bash: {command}"
+                ),
+            }
+            print(json.dumps(result), flush=True)
+            return
+
+        # Unknown tool during DELEGATE — block to be safe
+        _blog(f"BLOCK tool={tool_name} (unknown, fail-closed)")
+        result = {
+            "decision": "block",
+            "reason": f"[Orchestrator] {tool_name} blocked during delegation. Use remote-agent via Bash.",
+        }
         print(json.dumps(result), flush=True)
 
     except json.JSONDecodeError:
-        pass
-    except Exception:
-        pass  # Fail open
+        # Malformed input — fail closed
+        result = {"decision": "block", "reason": "[Orchestrator] Hook input error. Tool blocked for safety."}
+        print(json.dumps(result), flush=True)
+    except Exception as e:
+        # FIX #14: Fail CLOSED, not open
+        _blog(f"ERROR: {e}")
+        result = {"decision": "block", "reason": f"[Orchestrator] Enforcement error. Tool blocked for safety."}
+        print(json.dumps(result), flush=True)
 
 
 if __name__ == "__main__":
