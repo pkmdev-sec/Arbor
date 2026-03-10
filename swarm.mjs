@@ -116,6 +116,17 @@ async function main() {
   setQuiet(args.quiet);
 
   if (args.help) { showSwarmHelp(); process.exit(0); }
+
+  // ── Monitor mode: observe all active runs (no task needed) ──
+  if (args.monitor) {
+    const { startMonitor } = await import("./lib/tui/monitor.mjs");
+    const instance = startMonitor();
+    if (instance) {
+      await instance.waitUntilExit();
+    }
+    process.exit(0);
+  }
+
   if (!args.task) {
     log(`${colors.red}Error: No task provided.${colors.reset}`);
     process.exit(1);
