@@ -31,19 +31,19 @@
   <!-- Row 4: Agent 1 (x=120) -->
   <rect x="40" y="330" width="160" height="70" rx="8" ry="8" fill="#111111" stroke="#06B6D4" stroke-width="1.5"/>
   <text x="120" y="355" text-anchor="middle" font-family="monospace" font-size="12" fill="#E2E8F0">agent-entry.mjs</text>
-  <text x="120" y="372" text-anchor="middle" font-family="monospace" font-size="10" fill="#64748B">Fresh 200K context</text>
+  <text x="120" y="372" text-anchor="middle" font-family="monospace" font-size="10" fill="#64748B">Fresh 1M context</text>
   <text x="120" y="387" text-anchor="middle" font-family="monospace" font-size="10" fill="#64748B">Isolated · No hooks</text>
 
   <!-- Row 4: Agent 2 (x=340) -->
   <rect x="260" y="330" width="160" height="70" rx="8" ry="8" fill="#111111" stroke="#06B6D4" stroke-width="1.5"/>
   <text x="340" y="355" text-anchor="middle" font-family="monospace" font-size="12" fill="#E2E8F0">agent-entry.mjs</text>
-  <text x="340" y="372" text-anchor="middle" font-family="monospace" font-size="10" fill="#64748B">Fresh 200K context</text>
+  <text x="340" y="372" text-anchor="middle" font-family="monospace" font-size="10" fill="#64748B">Fresh 1M context</text>
   <text x="340" y="387" text-anchor="middle" font-family="monospace" font-size="10" fill="#64748B">Isolated · No hooks</text>
 
   <!-- Row 4: Agent 3 (x=560) -->
   <rect x="480" y="330" width="160" height="70" rx="8" ry="8" fill="#111111" stroke="#06B6D4" stroke-width="1.5"/>
   <text x="560" y="355" text-anchor="middle" font-family="monospace" font-size="12" fill="#E2E8F0">agent-entry.mjs</text>
-  <text x="560" y="372" text-anchor="middle" font-family="monospace" font-size="10" fill="#64748B">Fresh 200K context</text>
+  <text x="560" y="372" text-anchor="middle" font-family="monospace" font-size="10" fill="#64748B">Fresh 1M context</text>
   <text x="560" y="387" text-anchor="middle" font-family="monospace" font-size="10" fill="#64748B">Isolated · No hooks</text>
 
   <!-- Row 5: Worktree 1 -->

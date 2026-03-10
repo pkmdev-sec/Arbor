@@ -6,7 +6,7 @@
 
 ## What it does
 
-Spawn isolated Claude Code agents with fresh 200K context windows.
+Spawn isolated Claude Code agents with fresh 1M context windows.
 Decompose tasks, run agents in parallel, verify results, apply changes safely.
 
 ## Quick start

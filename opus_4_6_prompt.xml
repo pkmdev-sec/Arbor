@@ -1,0 +1,36 @@
+<opus_prompt agent="opus-4.6">
+    <targetDirectory>/path/to/user-home/remote-agent</targetDirectory>
+    <instruction>
+        Perform a deep, critical analysis of the codebase within the target directory. Read all relevant files to understand the current architecture and implementation details.
+        
+        <evaluationFocus>
+            All suggestions and plans must be evaluated strictly on their potential to improve:
+            1. Performance
+            2. Quality of the resulting output/feature
+            3. Technical Soundness and Long-Term Maintainability (Complexity and implementation time are secondary; prioritize the technically superior solution even if it is complex or time-consuming).
+            
+            Ignore factors related to infrastructure cost or other non-essential business overhead unless directly impacting the above three points.
+        </evaluationFocus>
+    </instruction>
+    <analysisPoints>
+        <point name="weakness">Identify and document the primary project weaknesses.</point>
+        <point name="bottlenecks">Pinpoint current performance or architectural bottlenecks.</point>
+        <point name="gaps">List any current functional or technical gaps.</point>
+        <point name="optimization">Suggest specific areas for code or process optimization.</point>
+        <point name="innovation">Propose at least one significant new feature or architectural enhancement based on the latest relevant technologies, deriving ideas directly from codebase analysis.</point>
+    </analysisPoints>
+    <deliverable>
+        <type>PRD_Plan</type>
+        <details>
+            Create a structured Product Requirements Document (PRD) plan outlining the prioritized recommendations from the analysis.
+            The plan must include:
+            1. Problem Statement (for each suggested improvement/feature).
+            2. Proposed Solution / New Feature Description.
+            3. Technical Implementation Outline (high-level steps).
+            4. Estimated Priority (Critical, High, Medium, Low).
+        </details>
+    </deliverable>
+    <thinkingMode>
+        Actively scan the codebase for novel opportunities for innovation that were not explicitly requested, prioritizing modern, efficient, and scalable solutions.
+    </thinkingMode>
+</opus_prompt>
