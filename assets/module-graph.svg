@@ -9,9 +9,6 @@
     <marker id="d-slate" markerWidth="6" markerHeight="4" refX="6" refY="2" orient="auto">
       <polygon points="0,0 6,2 0,4" fill="#475569"/>
     </marker>
-    <marker id="d-dim" markerWidth="6" markerHeight="4" refX="6" refY="2" orient="auto">
-      <polygon points="0,0 6,2 0,4" fill="#333333"/>
-    </marker>
   </defs>
 
   <!-- Background -->
@@ -20,7 +17,7 @@
   <!-- Layer labels -->
   <text x="15" y="45" font-family="monospace" font-size="9" fill="#333333">ENTRY</text>
   <text x="15" y="165" font-family="monospace" font-size="9" fill="#333333">CORE</text>
-  <text x="15" y="285" font-family="monospace" font-size="9" fill="#333333">MID</text>
+  <text x="15" y="250" font-family="monospace" font-size="9" fill="#333333">MID</text>
   <text x="15" y="405" font-family="monospace" font-size="9" fill="#333333">LEAF</text>
 
   <!-- ═══════════════════════════════════════ -->
@@ -84,93 +81,55 @@
   <text x="500" y="410" text-anchor="middle" font-family="monospace" font-size="11" fill="#64748B">config.mjs</text>
 
   <!-- ═══════════════════════════════════════ -->
-  <!-- EDGES: Entry → Core (bright structural) -->
+  <!-- EDGES: Entry → Core (thick, cyan) -->
   <!-- ═══════════════════════════════════════ -->
 
-  <!-- swarm → orchestration -->
-  <line x1="510" y1="62" x2="280" y2="140" stroke="#06B6D4" stroke-width="1.5" opacity="0.7" marker-end="url(#d-cyan)"/>
+  <!-- swarm → orchestration (thick, cyan) -->
+  <path d="M 490,62 Q 380,78 280,142" fill="none" stroke="#06B6D4" stroke-width="2.5" opacity="0.8" marker-end="url(#d-cyan)"/>
 
-  <!-- swarm → isolation -->
-  <line x1="530" y1="62" x2="530" y2="140" stroke="#06B6D4" stroke-width="1.5" opacity="0.7" marker-end="url(#d-cyan)"/>
-
-  <!-- ═══════════════════════════════════════ -->
-  <!-- EDGES: Entry → Mid (medium structural) -->
-  <!-- ═══════════════════════════════════════ -->
-
-  <!-- agent-entry → cli -->
-  <line x1="170" y1="62" x2="70" y2="260" stroke="#475569" stroke-width="1" opacity="0.45" marker-end="url(#d-slate)"/>
-
-  <!-- agent-entry → lifecycle -->
-  <line x1="210" y1="62" x2="340" y2="260" stroke="#475569" stroke-width="1" opacity="0.5" marker-end="url(#d-slate)"/>
-
-  <!-- agent-entry → context-bridge -->
-  <line x1="230" y1="62" x2="490" y2="260" stroke="#475569" stroke-width="1" opacity="0.5" marker-end="url(#d-slate)"/>
-
-  <!-- agent-entry → telemetry -->
-  <line x1="240" y1="62" x2="650" y2="260" stroke="#475569" stroke-width="1" opacity="0.4" marker-end="url(#d-slate)"/>
-
-  <!-- swarm → cli -->
-  <line x1="500" y1="62" x2="80" y2="260" stroke="#475569" stroke-width="1" opacity="0.4" marker-end="url(#d-slate)"/>
-
-  <!-- swarm → agent-spawn -->
-  <line x1="510" y1="62" x2="210" y2="260" stroke="#475569" stroke-width="1" opacity="0.5" marker-end="url(#d-slate)"/>
-
-  <!-- swarm → lifecycle -->
-  <line x1="530" y1="62" x2="360" y2="260" stroke="#475569" stroke-width="1" opacity="0.45" marker-end="url(#d-slate)"/>
+  <!-- swarm → isolation (thick, cyan) -->
+  <path d="M 555,62 Q 548,102 530,142" fill="none" stroke="#06B6D4" stroke-width="2.5" opacity="0.8" marker-end="url(#d-cyan)"/>
 
   <!-- ═══════════════════════════════════════ -->
-  <!-- EDGES: Core → Mid (medium structural) -->
+  <!-- EDGES: Entry → Mid (medium) -->
   <!-- ═══════════════════════════════════════ -->
 
-  <!-- orchestration → agent-spawn -->
-  <line x1="230" y1="186" x2="210" y2="260" stroke="#06B6D4" stroke-width="1" opacity="0.5" marker-end="url(#d-cyan)"/>
+  <!-- swarm → agent-spawn (medium) -->
+  <path d="M 506,62 Q 350,200 200,262" fill="none" stroke="#475569" stroke-width="1.5" opacity="0.5" marker-end="url(#d-slate)"/>
 
-  <!-- orchestration → context-bridge -->
-  <line x1="280" y1="186" x2="490" y2="260" stroke="#06B6D4" stroke-width="1" opacity="0.5" marker-end="url(#d-cyan)"/>
+  <!-- swarm → lifecycle (medium) -->
+  <path d="M 530,62 Q 480,140 370,262" fill="none" stroke="#475569" stroke-width="1.5" opacity="0.5" marker-end="url(#d-slate)"/>
 
-  <!-- orchestration → isolation (horizontal, same layer) -->
-  <line x1="330" y1="164" x2="458" y2="164" stroke="#06B6D4" stroke-width="1" opacity="0.35" stroke-dasharray="4 3" marker-end="url(#d-cyan)"/>
+  <!-- swarm → cli (medium) -->
+  <path d="M 498,62 Q 190,90 60,262" fill="none" stroke="#475569" stroke-width="1.5" opacity="0.45" marker-end="url(#d-slate)"/>
+
+  <!-- agent-entry → cli (medium) -->
+  <path d="M 155,62 Q 70,140 60,262" fill="none" stroke="#475569" stroke-width="1.5" opacity="0.5" marker-end="url(#d-slate)"/>
+
+  <!-- agent-entry → context-bridge (medium) -->
+  <path d="M 230,62 Q 420,100 510,262" fill="none" stroke="#475569" stroke-width="1.5" opacity="0.5" marker-end="url(#d-slate)"/>
+
+  <!-- agent-entry → telemetry (medium) -->
+  <path d="M 250,62 Q 540,90 670,262" fill="none" stroke="#475569" stroke-width="1.5" opacity="0.45" marker-end="url(#d-slate)"/>
+
+  <!-- agent-entry → lifecycle (medium) -->
+  <path d="M 210,62 Q 400,110 340,262" fill="none" stroke="#475569" stroke-width="1.5" opacity="0.5" marker-end="url(#d-slate)"/>
 
   <!-- ═══════════════════════════════════════ -->
-  <!-- EDGES: → Leaf (dim utility) -->
+  <!-- EDGES: Core → Mid (thin, cyan) -->
   <!-- ═══════════════════════════════════════ -->
 
-  <!-- agent-entry → output -->
-  <line x1="190" y1="62" x2="270" y2="383" stroke="#333333" stroke-width="1" opacity="0.2" marker-end="url(#d-dim)"/>
+  <!-- orchestration → agent-spawn (thin, cyan) -->
+  <path d="M 225,186 Q 215,220 200,262" fill="none" stroke="#06B6D4" stroke-width="1" opacity="0.5" marker-end="url(#d-cyan)"/>
 
-  <!-- agent-entry → config -->
-  <line x1="220" y1="62" x2="490" y2="383" stroke="#333333" stroke-width="1" opacity="0.2" marker-end="url(#d-dim)"/>
+  <!-- orchestration → context-bridge (thin, cyan) -->
+  <path d="M 300,186 Q 420,210 490,262" fill="none" stroke="#06B6D4" stroke-width="1" opacity="0.5" marker-end="url(#d-cyan)"/>
 
-  <!-- swarm → output -->
-  <line x1="520" y1="62" x2="290" y2="383" stroke="#333333" stroke-width="1" opacity="0.2" marker-end="url(#d-dim)"/>
+  <!-- orchestration → isolation (thin, cyan, dashed) -->
+  <path d="M 330,164 Q 395,145 460,164" fill="none" stroke="#06B6D4" stroke-width="1" opacity="0.4" stroke-dasharray="4 3" marker-end="url(#d-cyan)"/>
 
-  <!-- swarm → config -->
-  <line x1="540" y1="62" x2="500" y2="383" stroke="#333333" stroke-width="1" opacity="0.2" marker-end="url(#d-dim)"/>
-
-  <!-- orchestration → output -->
-  <line x1="240" y1="186" x2="275" y2="383" stroke="#333333" stroke-width="1" opacity="0.2" marker-end="url(#d-dim)"/>
-
-  <!-- orchestration → config -->
-  <line x1="260" y1="186" x2="495" y2="383" stroke="#333333" stroke-width="1" opacity="0.2" marker-end="url(#d-dim)"/>
-
-  <!-- isolation → output -->
-  <line x1="510" y1="186" x2="290" y2="383" stroke="#333333" stroke-width="1" opacity="0.2" marker-end="url(#d-dim)"/>
-
-  <!-- isolation → config -->
-  <line x1="540" y1="186" x2="505" y2="383" stroke="#333333" stroke-width="1" opacity="0.2" marker-end="url(#d-dim)"/>
-
-  <!-- cli → output -->
-  <line x1="70" y1="302" x2="260" y2="383" stroke="#333333" stroke-width="1" opacity="0.2" marker-end="url(#d-dim)"/>
-
-  <!-- agent-spawn → output -->
-  <line x1="200" y1="302" x2="275" y2="383" stroke="#333333" stroke-width="1" opacity="0.2" marker-end="url(#d-dim)"/>
-
-  <!-- lifecycle → output -->
-  <line x1="345" y1="302" x2="290" y2="383" stroke="#333333" stroke-width="1" opacity="0.2" marker-end="url(#d-dim)"/>
-
-  <!-- context-bridge → output -->
-  <line x1="500" y1="302" x2="300" y2="383" stroke="#333333" stroke-width="1" opacity="0.2" marker-end="url(#d-dim)"/>
-
-  <!-- telemetry → config -->
-  <line x1="670" y1="302" x2="510" y2="383" stroke="#333333" stroke-width="1" opacity="0.25" marker-end="url(#d-dim)"/>
+  <!-- ═══════════════════════════════════════ -->
+  <!-- Footnote: utility imports -->
+  <!-- ═══════════════════════════════════════ -->
+  <text x="400" y="460" text-anchor="middle" font-family="monospace" font-size="9" fill="#64748B" font-style="italic">* all modules import output.mjs and config.mjs</text>
 </svg>
