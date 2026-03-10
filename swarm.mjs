@@ -18,6 +18,7 @@ import { randomUUID } from "node:crypto";
 
 import { colors, log, setQuiet } from "./lib/output.mjs";
 import { DEPTH } from "./lib/config.mjs";
+import { initIpcLogger, logIpc } from "./lib/tui/ipc-logger.mjs";
 import { parseSwarmArgs, showSwarmHelp } from "./lib/cli.mjs";
 import { spawnAgent } from "./lib/agent-spawn.mjs";
 import { aiDecision, isAiClientAvailable } from "./lib/ai-client.mjs";
@@ -140,6 +141,9 @@ async function main() {
   const runId = randomUUID().slice(0, 8);
   const workDir = join(SWARM_BASE, runId);
   mkdirSync(workDir, { recursive: true });
+  initIpcLogger(workDir);
+  logIpc('system', 'user', 'lifecycle', 'Swarm started: mode=' + mode + ' agents=' + args.agents, { workDir, depth });
+  logIpc('orchestrator', 'all', 'decision', 'Mode: ' + mode + ' (depth: ' + depth + ')', {});
   // S4: Defer cleanup to background — runs after event loop starts actual work
   setTimeout(() => cleanOldRuns(SWARM_BASE), 100);
 
@@ -187,12 +191,15 @@ async function main() {
       agentId: "agent-01", cwd: isolation.worktreePath || mainCwd,
     });
     workerResults = [{ id: "agent-01", subtask: args.task.slice(0, 80), model: "sonnet", ...result, resultFile: rf, worktreePath: isolation.worktreePath }];
+    logIpc('agent-01', 'orchestrator', 'result', 'Completed in ' + (result.durationMs / 1000).toFixed(1) + 's (exit ' + result.exitCode + ')', { exitCode: result.exitCode, durationMs: result.durationMs });
     log(`  ${result.exitCode === 0 ? `${colors.green}✓${colors.reset}` : `${colors.red}✗${colors.reset}`} ${(result.durationMs / 1000).toFixed(1)}s`);
     if (isolation.success) {
       const apply = await validateAndApply(isolation.worktreePath, mainCwd, isolation.snapshot, isolation.backupDir, isolation.copiedUntracked);
       if (apply.valid) {
+        logIpc('orchestrator', 'agent-01', 'lifecycle', 'Applied ' + apply.applied.length + ' files' + (apply.escaped.length ? ', ' + apply.escaped.length + ' escaped' : ''), {});
         log(`  ${colors.green}✓${colors.reset} agent-01: applied ${apply.applied.length} files${apply.escaped.length ? `, ${apply.escaped.length} escaped (validated)` : ""}`);
       } else {
+        logIpc('orchestrator', 'agent-01', 'error', 'REJECTED: ' + apply.errors.join(', '), {});
         log(`  ${colors.red}✗${colors.reset} agent-01: REJECTED — ${apply.errors.join(", ")}. Rolled back ${apply.rolled_back.length} files.`);
       }
       cleanupIsolation(isolation.worktreePath, isolation.backupDir);
@@ -219,6 +226,7 @@ async function main() {
       scoutProject(args.task, workDir, args.contextFile, projectTree),
     ]);
     scoutSummary = scoutOutput;
+    logIpc('scout', 'orchestrator', 'result', (scoutSummary || '(no output)').slice(0, 200), {});
 
     // Detect decomposition fallback to single-agent mode
     if (subtasks.length === 1 && (subtasks[0].title === "Full task" || subtasks[0].title === "full task")) {
@@ -245,12 +253,15 @@ async function main() {
       agentId: "reviewer", cwd: isolation.worktreePath || mainCwd,
     });
     workerResults = [{ id: "reviewer", subtask: args.task.slice(0, 80), model: "opus", ...result, resultFile: rf, worktreePath: isolation.worktreePath }];
+    logIpc('reviewer', 'orchestrator', 'result', 'Completed in ' + (result.durationMs / 1000).toFixed(1) + 's (exit ' + result.exitCode + ')', { exitCode: result.exitCode, durationMs: result.durationMs });
     log(`  ${result.exitCode === 0 ? `${colors.green}✓${colors.reset}` : `${colors.red}✗${colors.reset}`} ${(result.durationMs / 1000).toFixed(1)}s`);
     if (isolation.success) {
       const apply = await validateAndApply(isolation.worktreePath, mainCwd, isolation.snapshot, isolation.backupDir, isolation.copiedUntracked);
       if (apply.valid) {
+        logIpc('orchestrator', 'reviewer', 'lifecycle', 'Applied ' + apply.applied.length + ' files' + (apply.escaped.length ? ', ' + apply.escaped.length + ' escaped' : ''), {});
         log(`  ${colors.green}✓${colors.reset} reviewer: applied ${apply.applied.length} files${apply.escaped.length ? `, ${apply.escaped.length} escaped (validated)` : ""}`);
       } else {
+        logIpc('orchestrator', 'reviewer', 'error', 'REJECTED: ' + apply.errors.join(', '), {});
         log(`  ${colors.red}✗${colors.reset} reviewer: REJECTED — ${apply.errors.join(", ")}. Rolled back ${apply.rolled_back.length} files.`);
       }
       cleanupIsolation(isolation.worktreePath, isolation.backupDir);
@@ -260,6 +271,10 @@ async function main() {
   // Verification pass
   if (shouldVerify) {
     verifyResult = await verify(args.task, workerResults, depth, workDir);
+    if (verifyResult) {
+      const vm = (verifyResult.output || '').match(/VERDICT:\s*(PASS|FAIL|NEEDS_REWORK)/i);
+      logIpc('verifier', 'orchestrator', 'verdict', vm ? vm[1] : 'UNKNOWN', { durationMs: verifyResult.durationMs });
+    }
   }
 
   const totalMs = Date.now() - startTime;
@@ -269,6 +284,11 @@ async function main() {
     dashboard.unmount();
     setQuiet(args.quiet);
   }
+
+  // Log swarm completion to IPC
+  const completed = workerResults.filter(r => r.exitCode === 0).length;
+  const failed = workerResults.filter(r => r.exitCode !== 0).length;
+  logIpc('system', 'user', 'lifecycle', 'Swarm complete: ' + completed + ' done, ' + failed + ' failed', { totalMs });
 
   // Build contract with FULL agent outputs embedded
   const conflictReport = workerResults._conflictReport || null;

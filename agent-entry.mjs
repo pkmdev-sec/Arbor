@@ -324,6 +324,7 @@ async function main() {
     try {
       initIpcLogger(dirname(args.resultFile));
       logIpc(agentLabel, 'orchestrator', 'lifecycle', `Agent started: ${args.model}, budget $${args.budget}`, { model: args.model, budget: args.budget, timeout: args.timeout, turns: args.maxTurns });
+      logIpc(agentLabel, 'orchestrator', 'lifecycle', 'Task: ' + taskPreview, { model: args.model });
     } catch {
       // IPC init failure is non-fatal
     }
@@ -551,11 +552,16 @@ async function main() {
 
       // Parse stderr for tool calls (passive observation only)
       const text = chunk.toString("utf-8");
+      const prevTool = progress.last_tool;
       for (const { pattern, name } of toolPatterns) {
         if (pattern.test(text)) {
           progress.tool_calls_count++;
           progress.last_tool = name;
         }
+      }
+      // IPC: Log when a new tool type is detected
+      if (progress.last_tool !== prevTool && args.resultFile) {
+        try { logIpc(agentLabel, 'orchestrator', 'tool_call', 'Using: ' + progress.last_tool, {}); } catch { /* non-fatal */ }
       }
 
       // Forward to parent stderr — line-buffered to prevent mid-line interleaving
