@@ -44,6 +44,7 @@ import { parseAgentArgs, showAgentHelp } from "./lib/cli.mjs";
 import { contextToSystemPrompt, writeResult } from "./lib/context-bridge.mjs";
 import { parseTelemetry, reportPeakBufferSize } from "./lib/telemetry.mjs";
 import { claimBdTask, closeBdTask, cleanupTeamDir } from "./lib/lifecycle.mjs";
+import { aiJsonDecision, isAiClientAvailable } from "./lib/ai-client.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -569,10 +570,32 @@ async function main() {
     // TASK 1: Report peak buffer sizes to telemetry
     reportPeakBufferSize(peakStdoutBytes, peakStderrBytes);
 
-    // ── Retry decision ──────────────────────────────────────────────
-    // Only retry on non-zero, non-timeout exits
+    // ── Retry decision (AI-powered error classification) ───────────
     if (exitCode === 0 || exitCode === 124) {
       break; // Success or timeout — don't retry
+    }
+
+    // Classify error before deciding to retry
+    if (retryCount < args.maxRetries && isAiClientAvailable()) {
+      try {
+        const stderrTail = Buffer.concat(stderrChunks).toString("utf-8").slice(-2000);
+        const classification = await aiJsonDecision({
+          model: "claude-sonnet-4-6",
+          system: "Classify this agent execution error. Respond with JSON: {\"type\": \"transient\"|\"permanent\"|\"ambiguous\", \"reason\": \"brief explanation\"}",
+          prompt: `Agent failed with exit code ${exitCode}.\n\nLast 2K of stderr:\n${stderrTail}\n\nIs this error transient (retry will help), permanent (retry will fail again), or ambiguous?`,
+          maxTokens: 128,
+        });
+
+        if (classification.parsed?.type === "permanent") {
+          log(`${colors.yellow}Error classified as permanent: ${classification.parsed.reason || "unknown"} — skipping retry${colors.reset}`);
+          break;
+        }
+        if (classification.parsed?.type) {
+          log(`${colors.dim}Error classified as ${classification.parsed.type}: ${classification.parsed.reason || ""} — will retry${colors.reset}`);
+        }
+      } catch {
+        // Classification failed — proceed with retry (safe default)
+      }
     }
 
     retryCount++;
@@ -602,10 +625,31 @@ async function main() {
     const stderrText = Buffer.concat(stderrChunks).toString("utf-8");
     const telemetry = parseTelemetry(stderrText, output);
 
-    // Add high_token_low_tools signal (elapsed > 120s but total tools < 5)
+    // Quality signals — fast heuristic + optional AI analysis
     const elapsedSec = durationMs / 1000;
     telemetry.quality_signals.high_token_low_tools =
       elapsedSec > 120 && telemetry.tool_calls.total < 5;
+
+    // AI quality analysis for suspicious patterns (post-hoc, non-blocking)
+    if (isAiClientAvailable() && telemetry.quality_signals.high_token_low_tools) {
+      try {
+        const stderrSample = Buffer.concat(stderrChunks).toString("utf-8").slice(-3000);
+        const qa = await aiJsonDecision({
+          model: "claude-sonnet-4-6",
+          system: "Analyze agent execution quality. Detect: stuck loops, error spirals, incomplete work. Respond with JSON: {\"issue\": \"description\"|null, \"severity\": \"low\"|\"medium\"|\"high\"}",
+          prompt: `Agent ran ${elapsedSec.toFixed(0)}s, made ${telemetry.tool_calls.total} tool calls (${JSON.stringify(telemetry.tool_calls)}).\n\nLast 3K stderr:\n${stderrSample}\n\nOutput preview:\n${output.slice(0, 2000)}\n\nDoes this show stuck loops, error spirals, or incomplete work?`,
+          maxTokens: 256,
+        });
+        if (qa.parsed) {
+          telemetry.quality_signals.ai_analysis = qa.parsed;
+          if (qa.parsed.issue) {
+            log(`${colors.yellow}Quality warning: ${qa.parsed.issue} (${qa.parsed.severity})${colors.reset}`);
+          }
+        }
+      } catch {
+        // Quality analysis failed — non-critical, skip silently
+      }
+    }
 
     const result = {
       version: 1,

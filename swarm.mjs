@@ -20,6 +20,7 @@ import { colors, log, setQuiet } from "./lib/output.mjs";
 import { DEPTH } from "./lib/config.mjs";
 import { parseSwarmArgs, showSwarmHelp } from "./lib/cli.mjs";
 import { spawnAgent } from "./lib/agent-spawn.mjs";
+import { aiDecision, isAiClientAvailable } from "./lib/ai-client.mjs";
 import { autoMode, decompose, executeParallel, executePipeline, verify, buildContract } from "./lib/orchestration.mjs";
 import { prepareWorktree, validateAndApply, cleanupIsolation } from "./lib/isolation.mjs";
 import { claimBdTask, cleanOldRuns } from "./lib/lifecycle.mjs";
@@ -28,6 +29,43 @@ const SWARM_BASE = "/tmp/swarm";
 
 // ── Scout project structure (Phase 3 — parallel with decompose) ──
 async function scoutProject(task, workDir, contextFile) {
+  // Gather file tree (same approach as decompose)
+  let tree = "";
+  try {
+    try {
+      tree = execFileSync("git", ["ls-files"], {
+        encoding: "utf-8", timeout: 5000, cwd: process.cwd(),
+      }).split("\n").filter(Boolean).slice(0, 300).join("\n");
+    } catch {
+      tree = execFileSync("find", [".", "-maxdepth", "2", "-type", "f", "-not", "-path", "*/.*", "-not", "-path", "*/node_modules/*"], {
+        encoding: "utf-8", timeout: 5000, cwd: process.cwd(),
+      }).split("\n").filter(Boolean).slice(0, 300).join("\n");
+    }
+  } catch {}
+
+  // Fast path: Direct API call (~2-5s vs 30-60s subprocess)
+  if (isAiClientAvailable() && tree) {
+    try {
+      const result = await aiDecision({
+        model: "claude-sonnet-4-6",
+        system: "You are a project structure analyzer. Given a file listing, identify the main language/framework, key entry points, architecture pattern, and module boundaries. Output a concise 1-paragraph summary.",
+        prompt: `Project files:\n${tree}\n\nTask context: ${task.slice(0, 300)}\n\nSummarize the project structure in 1 paragraph.`,
+        maxTokens: 512,
+      });
+
+      const tokens = `${result.usage.input_tokens}+${result.usage.output_tokens}`;
+      log(`${colors.dim}scout: project scan [${result.latencyMs}ms, ${tokens} tokens] (API direct)${colors.reset}`);
+
+      const rf = join(workDir, "scout.json");
+      writeFileSync(rf, JSON.stringify({ version: 1, status: "completed", output: result.content, duration_ms: result.latencyMs, exit_code: 0, model: result.model }, null, 2));
+
+      return result.content;
+    } catch (err) {
+      process.stderr.write(`scout: AI call failed (${err.message}), falling back to subprocess\n`);
+    }
+  }
+
+  // Fallback: Full Claude Code subprocess
   const rf = join(workDir, "scout.json");
   const scoutTask = [
     `Quickly scan the project structure. List the top-level directories, key files, and identify the main language/framework.`,
@@ -50,7 +88,7 @@ async function scoutProject(task, workDir, contextFile) {
   });
 
   const elapsed = ((Date.now() - start) / 1000).toFixed(1);
-  log(`${colors.dim}scout: project scan completed in ${elapsed}s${colors.reset}`);
+  log(`${colors.dim}scout: project scan completed in ${elapsed}s (subprocess fallback)${colors.reset}`);
 
   return result.output || "(scout produced no output)";
 }
