@@ -28,20 +28,22 @@ import { claimBdTask, cleanOldRuns } from "./lib/lifecycle.mjs";
 const SWARM_BASE = "/tmp/swarm";
 
 // ── Scout project structure (Phase 3 — parallel with decompose) ──
-async function scoutProject(task, workDir, contextFile) {
-  // Gather file tree (same approach as decompose)
-  let tree = "";
-  try {
+async function scoutProject(task, workDir, contextFile, projectTree = "") {
+  // S3: Use pre-computed projectTree if provided, otherwise scan
+  let tree = projectTree;
+  if (!tree) {
     try {
-      tree = execFileSync("git", ["ls-files"], {
-        encoding: "utf-8", timeout: 5000, cwd: process.cwd(),
-      }).split("\n").filter(Boolean).slice(0, 300).join("\n");
-    } catch {
-      tree = execFileSync("find", [".", "-maxdepth", "2", "-type", "f", "-not", "-path", "*/.*", "-not", "-path", "*/node_modules/*"], {
-        encoding: "utf-8", timeout: 5000, cwd: process.cwd(),
-      }).split("\n").filter(Boolean).slice(0, 300).join("\n");
-    }
-  } catch {}
+      try {
+        tree = execFileSync("git", ["ls-files"], {
+          encoding: "utf-8", timeout: 5000, cwd: process.cwd(),
+        }).split("\n").filter(Boolean).slice(0, 300).join("\n");
+      } catch {
+        tree = execFileSync("find", [".", "-maxdepth", "2", "-type", "f", "-not", "-path", "*/.*", "-not", "-path", "*/node_modules/*"], {
+          encoding: "utf-8", timeout: 5000, cwd: process.cwd(),
+        }).split("\n").filter(Boolean).slice(0, 300).join("\n");
+      }
+    } catch {}
+  }
 
   // Fast path: Direct API call (~2-5s vs 30-60s subprocess)
   if (isAiClientAvailable() && tree) {
@@ -127,7 +129,8 @@ async function main() {
   const runId = randomUUID().slice(0, 8);
   const workDir = join(SWARM_BASE, runId);
   mkdirSync(workDir, { recursive: true });
-  cleanOldRuns(SWARM_BASE);
+  // S4: Defer cleanup to background — runs after event loop starts actual work
+  setTimeout(() => cleanOldRuns(SWARM_BASE), 100);
 
   log(`${colors.bold}${colors.cyan}swarm${colors.reset} ${colors.dim}|${colors.reset} mode=${mode} ${colors.dim}|${colors.reset} agents=${args.agents} ${colors.dim}|${colors.reset} depth=${depth} ${colors.dim}|${colors.reset} verify=${shouldVerify}${args.bdTask ? ` ${colors.dim}|${colors.reset} bd=${args.bdTask}` : ""}`);
   log(`${colors.dim}Run: ${workDir}${colors.reset}`);
@@ -146,7 +149,7 @@ async function main() {
   if (mode === "single") {
     const rf = join(workDir, "agent-01-result.json");
     log(`${colors.bold}${colors.cyan}[EXECUTE]${colors.reset} Single agent...`);
-    const isolation = prepareWorktree(workDir, "agent-01", mainCwd);
+    const isolation = await prepareWorktree(workDir, "agent-01", mainCwd);
     const result = await spawnAgent({
       task: args.task, role: "worker", model: "sonnet",
       turns: DEPTH[depth].turns, budget: DEPTH[depth].budget,
@@ -156,7 +159,7 @@ async function main() {
     workerResults = [{ id: "agent-01", subtask: args.task.slice(0, 80), model: "sonnet", ...result, resultFile: rf, worktreePath: isolation.worktreePath }];
     log(`  ${result.exitCode === 0 ? `${colors.green}✓${colors.reset}` : `${colors.red}✗${colors.reset}`} ${(result.durationMs / 1000).toFixed(1)}s`);
     if (isolation.success) {
-      const apply = validateAndApply(isolation.worktreePath, mainCwd, isolation.snapshot, isolation.backupDir, isolation.copiedUntracked);
+      const apply = await validateAndApply(isolation.worktreePath, mainCwd, isolation.snapshot, isolation.backupDir, isolation.copiedUntracked);
       if (apply.valid) {
         log(`  ${colors.green}✓${colors.reset} agent-01: applied ${apply.applied.length} files${apply.escaped.length ? `, ${apply.escaped.length} escaped (validated)` : ""}`);
       } else {
@@ -166,10 +169,24 @@ async function main() {
     }
 
   } else if (mode === "parallel" || mode === "swarm") {
+    // S3: Compute file tree ONCE, pass to both decompose and scoutProject
+    let projectTree = "";
+    try {
+      projectTree = execFileSync("git", ["ls-files"], {
+        encoding: "utf-8", timeout: 5000, cwd: process.cwd(),
+      }).split("\n").filter(Boolean).slice(0, 300).join("\n");
+    } catch {
+      try {
+        projectTree = execFileSync("find", [".", "-maxdepth", "2", "-type", "f", "-not", "-path", "*/.*", "-not", "-path", "*/node_modules/*"], {
+          encoding: "utf-8", timeout: 5000, cwd: process.cwd(),
+        }).split("\n").filter(Boolean).slice(0, 300).join("\n");
+      } catch {}
+    }
+
     // Phase 3: Run scout in parallel with decomposer to eliminate idle time
     const [subtasks, scoutOutput] = await Promise.all([
-      decompose(args.task, Math.max(1, args.agents - 1), depth, args.contextFile, workDir),
-      scoutProject(args.task, workDir, args.contextFile),
+      decompose(args.task, Math.max(1, args.agents - 1), depth, args.contextFile, workDir, projectTree),
+      scoutProject(args.task, workDir, args.contextFile, projectTree),
     ]);
     scoutSummary = scoutOutput;
     workerResults = await executeParallel(subtasks, depth, args.contextFile, workDir, scoutSummary);
@@ -180,7 +197,7 @@ async function main() {
   } else if (mode === "review") {
     const rf = join(workDir, "reviewer-result.json");
     log(`${colors.bold}${colors.cyan}[REVIEW]${colors.reset} Opus reviewer...`);
-    const isolation = prepareWorktree(workDir, "reviewer", mainCwd);
+    const isolation = await prepareWorktree(workDir, "reviewer", mainCwd);
     const result = await spawnAgent({
       task: args.task, role: "worker", model: "opus",
       turns: 15, budget: DEPTH[depth].budget,
@@ -190,7 +207,7 @@ async function main() {
     workerResults = [{ id: "reviewer", subtask: args.task.slice(0, 80), model: "opus", ...result, resultFile: rf, worktreePath: isolation.worktreePath }];
     log(`  ${result.exitCode === 0 ? `${colors.green}✓${colors.reset}` : `${colors.red}✗${colors.reset}`} ${(result.durationMs / 1000).toFixed(1)}s`);
     if (isolation.success) {
-      const apply = validateAndApply(isolation.worktreePath, mainCwd, isolation.snapshot, isolation.backupDir, isolation.copiedUntracked);
+      const apply = await validateAndApply(isolation.worktreePath, mainCwd, isolation.snapshot, isolation.backupDir, isolation.copiedUntracked);
       if (apply.valid) {
         log(`  ${colors.green}✓${colors.reset} reviewer: applied ${apply.applied.length} files${apply.escaped.length ? `, ${apply.escaped.length} escaped (validated)` : ""}`);
       } else {

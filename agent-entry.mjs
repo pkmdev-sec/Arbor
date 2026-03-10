@@ -284,8 +284,18 @@ async function main() {
     childArgs.push(args.task);
   }
 
-  // Environment: bypass nesting guard + avoid auth conflict
-  const env = { ...process.env };
+  // S2: Delta-only env — single-pass filter avoids spread + V8-deoptimizing deletes
+  const ENV_DELETES = new Set([
+    "CLAUDE_CODE_ALWAYS_ENABLE_EFFORT",
+    "CLAUDE_CODE_ENABLE_TASKS",
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS",
+    "CLAUDE_CODE_EMIT_TOOL_USE_SUMMARIES",
+    "CLAUDE_AUTO_BACKGROUND_TASKS",
+  ]);
+  const env = Object.create(null);
+  for (const key of Object.keys(process.env)) {
+    if (!ENV_DELETES.has(key)) env[key] = process.env[key];
+  }
 
   // Bypass nesting guard: provide the full team triple (--team-name + --agent-id + --agent-name)
   const agentId = randomUUID().slice(0, 12);
@@ -298,17 +308,8 @@ async function main() {
   );
   env.CLAUDECODE = ""; // Belt-and-suspenders: also clear the env guard
 
-  // Don't force effort on models that don't support it
-  delete env.CLAUDE_CODE_ALWAYS_ENABLE_EFFORT;
-
   // Point subprocess to minimal config (no hooks, no MCP, no taskmaster)
   env.CLAUDE_CONFIG_DIR = join(__dirname, "config");
-
-  // Disable non-essential features for research subprocess
-  delete env.CLAUDE_CODE_ENABLE_TASKS;
-  delete env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS;
-  delete env.CLAUDE_CODE_EMIT_TOOL_USE_SUMMARIES;
-  delete env.CLAUDE_AUTO_BACKGROUND_TASKS;
 
   // Status
   const taskPreview = (args.task || "(from context file)").slice(0, 80);
@@ -625,6 +626,9 @@ async function main() {
 
   const durationSec = (durationMs / 1000).toFixed(1);
 
+  // S1: Concat stderr ONCE after retry loop — avoids redundant 200MB allocations
+  const stderrFull = Buffer.concat(stderrChunks).toString("utf-8");
+
   // Status report
   if (exitCode === 124) {
     log(`\n${colors.yellow}Timed out after ${durationSec}s${colors.reset}`);
@@ -632,7 +636,7 @@ async function main() {
   } else if (exitCode !== 0) {
     log(`\n${colors.red}Failed after ${durationSec}s (exit ${exitCode})${colors.reset}`);
     // Show stderr on failure for diagnostics
-    const stderr = Buffer.concat(stderrChunks).toString("utf-8").trim();
+    const stderr = stderrFull.trim();
     if (stderr) {
       const lines = stderr.split("\n").slice(-5);
       log(`${colors.dim}${lines.join("\n")}${colors.reset}`);
@@ -644,8 +648,7 @@ async function main() {
   // Write result file if requested
   if (args.resultFile) {
     // Parse telemetry from stderr and stdout
-    const stderrText = Buffer.concat(stderrChunks).toString("utf-8");
-    const telemetry = parseTelemetry(stderrText, output);
+    const telemetry = parseTelemetry(stderrFull, output);
 
     // Quality signals — fast heuristic + optional AI analysis
     const elapsedSec = durationMs / 1000;
@@ -655,7 +658,7 @@ async function main() {
     // AI quality analysis for suspicious patterns (post-hoc, non-blocking)
     if (isAiClientAvailable() && telemetry.quality_signals.high_token_low_tools) {
       try {
-        const stderrSample = Buffer.concat(stderrChunks).toString("utf-8").slice(-3000);
+        const stderrSample = stderrFull.slice(-3000);
         const qa = await aiJsonDecision({
           model: "claude-sonnet-4-6",
           system: [
