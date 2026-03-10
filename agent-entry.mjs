@@ -431,12 +431,51 @@ async function main() {
       { pattern: /\bGlob\(/i, name: "Glob" },
     ];
 
+    // ── Stderr write queue — atomic line writes prevent interleaving ──
+    const writeQueue = [];
+    let writing = false;
+
+    function flushQueue() {
+      writing = true;
+      while (writeQueue.length > 0) {
+        process.stderr.write(writeQueue.shift());
+      }
+      writing = false;
+    }
+
+    function queueWrite(msg) {
+      writeQueue.push(msg);
+      if (!writing) flushQueue();
+    }
+
+    // Line buffer for stderr — accumulate partial chunks, flush only complete lines
+    let stderrLineBuffer = "";
+
+    function flushLines(buffer, prefix) {
+      const combined = stderrLineBuffer + buffer;
+      const lines = combined.split("\n");
+      // Last element is incomplete (no trailing newline) — keep in buffer
+      stderrLineBuffer = lines.pop() || "";
+      for (const line of lines) {
+        if (line.trim()) {
+          queueWrite(`${prefix}${line}\n`);
+        }
+      }
+    }
+
+    function flushRemainingLines(prefix) {
+      if (stderrLineBuffer.trim()) {
+        queueWrite(`${prefix}${stderrLineBuffer}\n`);
+        stderrLineBuffer = "";
+      }
+    }
+
     // Emit progress updates every 30s
     const progressInterval = setInterval(() => {
       const elapsedSec = ((Date.now() - startTime) / 1000).toFixed(0);
       const stdoutKB = (stdoutBytes / 1024).toFixed(0);
       const progressMsg = `[progress] ${elapsedSec}s | tools: ${progress.tool_calls_count} | last: ${progress.last_tool || "none"} | stdout: ${stdoutKB}KB`;
-      process.stderr.write(`${colors.dim}${progressMsg}${colors.reset}\n`);
+      queueWrite(`${colors.dim}${progressMsg}${colors.reset}\n`);
 
       // Write incremental progress file if result file is set
       if (args.resultFile) {
@@ -464,7 +503,7 @@ async function main() {
       // TASK 1: Write overflow to temp file when exceeding MAX_BUFFER_SIZE
       while (stderrBytes > MAX_BUFFER_SIZE && stderrChunks.length > 0) {
         if (!stderrBufferWarned) {
-          process.stderr.write(`${colors.yellow}Warning: Output buffer exceeded 50MB, truncating oldest chunks${colors.reset}\n`);
+          queueWrite(`${colors.yellow}Warning: Output buffer exceeded 50MB, truncating oldest chunks${colors.reset}\n`);
           stderrBufferWarned = true;
         }
         const dropped = stderrChunks.shift();
@@ -498,14 +537,9 @@ async function main() {
         }
       }
 
-      // Forward to parent stderr with optional agent prefix for live visibility
+      // Forward to parent stderr — line-buffered to prevent mid-line interleaving
       if (!args.quiet) {
-        const lines = text.split("\n");
-        for (const line of lines) {
-          if (line.trim()) {
-            process.stderr.write(`${stderrPrefix}${line}\n`);
-          }
-        }
+        flushLines(text, stderrPrefix);
       }
     });
 
@@ -539,6 +573,8 @@ async function main() {
       proc.on("close", (code, signal) => {
         clearTimeout(timer);
         clearInterval(progressInterval);
+        // Flush any remaining partial lines in the stderr buffer
+        if (!args.quiet) flushRemainingLines(stderrPrefix);
         // Exit code 124 indicates timeout/interruption
         const wasInterrupted = signal === "SIGTERM" || signal === "SIGKILL" || signal === "SIGINT" || timedOut;
         resolve(wasInterrupted ? 124 : (code ?? 1));
