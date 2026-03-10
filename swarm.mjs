@@ -137,6 +137,25 @@ async function main() {
   log(`${colors.dim}Task: ${args.task.slice(0, 80)}${args.task.length > 80 ? "..." : ""}${colors.reset}`);
   log("");
 
+  // ── TUI dashboard (read-only overlay — does NOT control execution) ──
+  let dashboard = null;
+  if (args.tui && process.stdout.isTTY) {
+    try {
+      const { startDashboard } = await import("./lib/tui/dashboard.mjs");
+      dashboard = startDashboard({ workDir, agents: [], mode, depth });
+      if (dashboard) {
+        setQuiet(true);
+        // Restore logging if TUI exits early (user pressed 'q')
+        dashboard.waitUntilExit().then(() => {
+          setQuiet(args.quiet);
+          dashboard = null;
+        });
+      }
+    } catch (err) {
+      process.stderr.write(`TUI: failed to start (${err.message}), falling back to plain output\n`);
+    }
+  }
+
   // bd task lifecycle: claim
   await claimBdTask(args.bdTask);
 
@@ -233,6 +252,12 @@ async function main() {
   }
 
   const totalMs = Date.now() - startTime;
+
+  // ── Unmount TUI before printing summary ──
+  if (dashboard) {
+    dashboard.unmount();
+    setQuiet(args.quiet);
+  }
 
   // Build contract with FULL agent outputs embedded
   const conflictReport = workerResults._conflictReport || null;
