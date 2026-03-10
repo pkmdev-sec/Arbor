@@ -189,6 +189,16 @@ async function main() {
       scoutProject(args.task, workDir, args.contextFile, projectTree),
     ]);
     scoutSummary = scoutOutput;
+
+    // Detect decomposition fallback to single-agent mode
+    if (subtasks.length === 1 && (subtasks[0].title === "Full task" || subtasks[0].title === "full task")) {
+      log(`\n${colors.bold}${colors.red}╔══════════════════════════════════════════════════════╗${colors.reset}`);
+      log(`${colors.bold}${colors.red}║  DEGRADED: Decomposition failed — single agent mode  ║${colors.reset}`);
+      log(`${colors.bold}${colors.red}║  Requested ${args.agents} agents, but running 1.            ║${colors.reset}`);
+      log(`${colors.bold}${colors.red}║  Quality may be lower than expected.                  ║${colors.reset}`);
+      log(`${colors.bold}${colors.red}╚══════════════════════════════════════════════════════════╝${colors.reset}\n`);
+    }
+
     workerResults = await executeParallel(subtasks, depth, args.contextFile, workDir, scoutSummary);
 
   } else if (mode === "pipeline") {
@@ -225,7 +235,8 @@ async function main() {
   const totalMs = Date.now() - startTime;
 
   // Build contract with FULL agent outputs embedded
-  const contract = buildContract(args.task, mode, workerResults, verifyResult, totalMs, workDir);
+  const conflictReport = workerResults._conflictReport || null;
+  const contract = buildContract(args.task, mode, workerResults, verifyResult, totalMs, workDir, conflictReport);
 
   // Write result file
   if (args.resultFile) {
