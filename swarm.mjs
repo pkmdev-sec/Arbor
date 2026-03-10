@@ -66,7 +66,7 @@ async function main() {
     process.exit(1);
   }
 
-  const mode = args.mode === "auto" ? autoMode(args.task) : args.mode;
+  const mode = args.mode === "auto" ? await autoMode(args.task) : args.mode;
   const depth = DEPTH[args.depth] ? args.depth : "normal";
   const shouldVerify = args.verify ?? (mode === "swarm" || mode === "pipeline" || mode === "review");
 
