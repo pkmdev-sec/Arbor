@@ -45,6 +45,7 @@ import { contextToSystemPrompt, writeResult } from "./lib/context-bridge.mjs";
 import { parseTelemetry, reportPeakBufferSize } from "./lib/telemetry.mjs";
 import { claimBdTask, closeBdTask, cleanupTeamDir } from "./lib/lifecycle.mjs";
 import { aiJsonDecision, isAiClientAvailable } from "./lib/ai-client.mjs";
+import { initIpcLogger, logIpc } from "./lib/tui/ipc-logger.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -317,6 +318,17 @@ async function main() {
   log(`${colors.dim}Task: ${taskPreview}${taskPreview.length >= 80 ? "..." : ""}${colors.reset}`);
   log("");
 
+  // Initialize IPC logger if running as part of a swarm (result file is in a workDir)
+  const agentLabel = process.env.SWARM_AGENT_ID || 'agent';
+  if (args.resultFile) {
+    try {
+      initIpcLogger(dirname(args.resultFile));
+      logIpc(agentLabel, 'orchestrator', 'lifecycle', `Agent started: ${args.model}, budget $${args.budget}`, { model: args.model, budget: args.budget, timeout: args.timeout, turns: args.maxTurns });
+    } catch {
+      // IPC init failure is non-fatal
+    }
+  }
+
   // ── bd task lifecycle: claim on start ──
   await claimBdTask(args.bdTask);
 
@@ -471,11 +483,20 @@ async function main() {
     }
 
     // Emit progress updates every 30s
+    let progressTick = 0;
     const progressInterval = setInterval(() => {
+      progressTick++;
       const elapsedSec = ((Date.now() - startTime) / 1000).toFixed(0);
       const stdoutKB = (stdoutBytes / 1024).toFixed(0);
       const progressMsg = `[progress] ${elapsedSec}s | tools: ${progress.tool_calls_count} | last: ${progress.last_tool || "none"} | stdout: ${stdoutKB}KB`;
       queueWrite(`${colors.dim}${progressMsg}${colors.reset}\n`);
+
+      // IPC progress: log every 60s (every other tick) to avoid spam
+      if (args.resultFile && progressTick % 2 === 0) {
+        try {
+          logIpc(agentLabel, 'orchestrator', 'progress', `${elapsedSec}s | tools: ${progress.tool_calls_count} | last: ${progress.last_tool || "none"}`, { elapsedSec: Number(elapsedSec), toolCalls: progress.tool_calls_count, lastTool: progress.last_tool });
+        } catch { /* non-fatal */ }
+      }
 
       // Write incremental progress file if result file is set
       if (args.resultFile) {
@@ -679,6 +700,14 @@ async function main() {
     }
   } else {
     log(`\n${colors.green}Completed in ${durationSec}s${colors.reset}`);
+  }
+
+  // IPC: Log agent completion
+  if (args.resultFile) {
+    const status = exitCode === 0 ? 'completed' : exitCode === 124 ? 'timeout' : 'failed';
+    try {
+      logIpc(agentLabel, 'orchestrator', exitCode === 0 ? 'result' : 'error', `Agent ${status} in ${durationSec}s (exit ${exitCode})`, { exitCode, durationMs, status, toolCalls: progress.tool_calls_count });
+    } catch { /* non-fatal */ }
   }
 
   // Write result file if requested
