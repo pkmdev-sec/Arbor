@@ -48,8 +48,19 @@ async function scoutProject(task, workDir, contextFile) {
     try {
       const result = await aiDecision({
         model: "claude-sonnet-4-6",
-        system: "You are a project structure analyzer. Given a file listing, identify the main language/framework, key entry points, architecture pattern, and module boundaries. Output a concise 1-paragraph summary.",
-        prompt: `Project files:\n${tree}\n\nTask context: ${task.slice(0, 300)}\n\nSummarize the project structure in 1 paragraph.`,
+        system: [
+          "You are a project structure analyzer. Given a file listing and task context, identify architecture and module boundaries that inform parallel work decomposition.",
+          "",
+          "Output a concise summary covering exactly these points:",
+          "1. Primary language and framework",
+          "2. Key entry points (main files, route definitions, CLI entry)",
+          "3. Architecture pattern (monolith, microservices, monorepo, library)",
+          "4. Module boundaries (which directories are independent units)",
+          "5. Shared dependencies (files imported across multiple modules)",
+          "",
+          "Keep the summary to 1 paragraph, max 150 words. Prioritize information relevant to the task context.",
+        ].join("\n"),
+        prompt: `Project files:\n${tree}\n\nTask context: ${task.slice(0, 300)}\n\nSummarize the project structure focusing on module boundaries and parallel work decomposition.`,
         maxTokens: 512,
       });
 
@@ -68,10 +79,14 @@ async function scoutProject(task, workDir, contextFile) {
   // Fallback: Full Claude Code subprocess
   const rf = join(workDir, "scout.json");
   const scoutTask = [
-    `Quickly scan the project structure. List the top-level directories, key files, and identify the main language/framework.`,
-    `Output a 1-paragraph summary.`,
+    `Scan the project structure using Glob and Read tools. Identify:`,
+    `1. Primary language/framework and build system`,
+    `2. Key entry points and route definitions`,
+    `3. Module boundaries (independent directories)`,
+    `4. Shared dependencies across modules`,
+    `Output a 1-paragraph summary (max 150 words) focused on how work could be split across parallel agents.`,
     ``,
-    `Context: ${task.slice(0, 200)}`,
+    `Task context: ${task.slice(0, 200)}`,
   ].join("\n");
 
   const start = Date.now();
