@@ -25,6 +25,8 @@ import { aiDecision, isAiClientAvailable } from "./lib/ai-client.mjs";
 import { autoMode, decompose, executeParallel, executePipeline, verify, buildContract } from "./lib/orchestration.mjs";
 import { prepareWorktree, validateAndApply, cleanupIsolation } from "./lib/isolation.mjs";
 import { claimBdTask, cleanOldRuns } from "./lib/lifecycle.mjs";
+import { generateApproaches } from "./lib/approach-generator.mjs";
+import { selectWinner } from "./lib/branch-selector.mjs";
 
 // Hierarchical mode — lazy-loaded for graceful fallback if modules are missing
 let hierarchyModules = null;
@@ -539,7 +541,7 @@ async function main() {
 
   const mode = args.mode === "auto" ? await autoMode(args.task, { smartRoute: args.smartRoute }) : args.mode;
   const depth = DEPTH[args.depth] ? args.depth : "normal";
-  const shouldVerify = args.verify ?? (mode === "swarm" || mode === "pipeline" || mode === "review" || mode === "hierarchical");
+  const shouldVerify = args.verify ?? (mode === "swarm" || mode === "pipeline" || mode === "review" || mode === "hierarchical" || mode === "fork-merge");
 
   // Create per-run work directory — all agent files go here
   const runId = randomUUID().slice(0, 8);
@@ -773,6 +775,127 @@ async function main() {
       workerResults = parallelResult2.results;
       conflictReport = parallelResult2.conflictReport;
     }
+
+  } else if (mode === "fork-merge") {
+    // F12: Fork-Merge — generate N approaches, execute in parallel worktrees, compare, apply winner
+    const forkCount = args.forks || 2;
+    log(`${colors.bold}${colors.cyan}[FORK-MERGE]${colors.reset} Generating ${forkCount} competing approaches...`);
+    logIpc('orchestrator', 'all', 'lifecycle', `Fork-merge: ${forkCount} forks`);
+
+    // Compute project tree for approach generation context
+    let projectTree = "";
+    try {
+      projectTree = execFileSync("git", ["ls-files"], {
+        encoding: "utf-8", timeout: 5000, cwd: process.cwd(),
+      }).split("\n").filter(Boolean).slice(0, 300).join("\n");
+    } catch {
+      try {
+        projectTree = execFileSync("find", [".", "-maxdepth", "2", "-type", "f", "-not", "-path", "*/.*", "-not", "-path", "*/node_modules/*"], {
+          encoding: "utf-8", timeout: 5000, cwd: process.cwd(),
+        }).split("\n").filter(Boolean).slice(0, 300).join("\n");
+      } catch {}
+    }
+
+    // Optional scout for richer context
+    scoutSummary = await scoutProject(args.task, workDir, args.contextFile, projectTree);
+
+    // Generate distinct approaches
+    const approaches = await generateApproaches(args.task, forkCount, {
+      projectTree,
+      scoutSummary: scoutSummary || "",
+    });
+
+    log(`\n${colors.bold}${colors.cyan}[EXECUTE]${colors.reset} Running ${approaches.length} approaches in parallel worktrees...`);
+    logIpc('orchestrator', 'all', 'lifecycle', `Executing ${approaches.length} approaches`);
+
+    // Execute each approach in its own worktree
+    const preset = DEPTH[depth];
+    const candidates = await Promise.all(approaches.map(async (approach, idx) => {
+      const agentId = `fork-${idx + 1}`;
+      const rf = join(workDir, `${agentId}-result.json`);
+      const isolation = await prepareWorktree(workDir, agentId, mainCwd);
+
+      const agentTask = [
+        `APPROACH: ${approach.title}`,
+        `STRATEGY: ${approach.strategy}`,
+        ``,
+        `INSTRUCTIONS:`,
+        approach.instructions,
+        ``,
+        `ORIGINAL TASK: ${args.task}`,
+      ].join("\n");
+
+      log(`  ${colors.dim}${agentId}: ${approach.title}${colors.reset}`);
+      logIpc('orchestrator', agentId, 'task_assign', approach.title, { strategy: approach.strategy });
+
+      const result = await spawnAgent({
+        task: agentTask,
+        role: "worker",
+        model: "sonnet",
+        turns: preset.turns,
+        budget: preset.budget,
+        resultFile: rf,
+        contextFile: args.contextFile,
+        agentId,
+        cwd: agentCwd(isolation.worktreePath),
+      });
+
+      const icon = result.exitCode === 0 ? `${colors.green}✓${colors.reset}` : `${colors.red}✗${colors.reset}`;
+      log(`  ${icon} ${agentId} (${approach.title}): ${(result.durationMs / 1000).toFixed(1)}s`);
+      logIpc(agentId, 'orchestrator', 'result', `exit ${result.exitCode} in ${(result.durationMs / 1000).toFixed(1)}s`, { exitCode: result.exitCode, durationMs: result.durationMs });
+
+      return {
+        id: agentId,
+        approach,
+        result,
+        worktreePath: isolation.worktreePath,
+        isolation,
+        resultFile: rf,
+      };
+    }));
+
+    // Compare and select winner
+    const selection = await selectWinner(candidates, args.task, { useAiJudge: true });
+    const winner = selection.winner;
+
+    log(`\n${colors.bold}${colors.green}[WINNER]${colors.reset} Applying "${winner.approach.title}" changes...`);
+    logIpc('orchestrator', winner.id, 'lifecycle', `Winner: ${winner.approach.title}`, { scores: selection.scores });
+
+    // Apply only the winner's worktree changes
+    if (winner.isolation.success) {
+      const apply = await validateAndApply(winner.isolation.worktreePath, mainCwd, winner.isolation.snapshot, winner.isolation.backupDir, winner.isolation.copiedUntracked);
+      if (apply.valid) {
+        log(`  ${colors.green}✓${colors.reset} ${winner.id}: applied ${apply.applied.length} files`);
+        logIpc('orchestrator', winner.id, 'lifecycle', `Applied ${apply.applied.length} files`);
+      } else {
+        log(`  ${colors.red}✗${colors.reset} ${winner.id}: REJECTED — ${apply.errors.join(", ")}`);
+        logIpc('orchestrator', winner.id, 'error', `REJECTED: ${apply.errors.join(", ")}`);
+      }
+    }
+
+    // Cleanup all worktrees (winner + losers)
+    for (const c of candidates) {
+      if (c.isolation.success) {
+        cleanupIsolation(c.isolation.worktreePath, c.isolation.backupDir);
+      }
+    }
+
+    // Build worker results for contract
+    workerResults = candidates.map(c => ({
+      id: c.id,
+      subtask: c.approach.title,
+      model: "sonnet",
+      ...c.result,
+      resultFile: c.resultFile,
+      worktreePath: c.worktreePath,
+    }));
+
+    // Attach fork-merge metadata
+    workerResults._forkMerge = {
+      approaches,
+      selection,
+      winnerId: winner.id,
+    };
   }
 
   // Write conflict data to workDir for TUI consumption (Go TUI + Node.js TUI both read it)

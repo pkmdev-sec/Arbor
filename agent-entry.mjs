@@ -42,6 +42,7 @@ import { colors, log, setQuiet } from "./lib/output.mjs";
 import { MAX_BUFFER_SIZE, TOOL_CALL_RE, resolveModel, ROLE_PROMPTS, ROLE_DISALLOWED_TOOLS, ROLE_THINKING_TOKENS, ROLE_OUTPUT_TOKENS, ROLE_BASH_LIMIT, DECOMPOSER_OUTPUT_SCHEMA } from "./lib/config.mjs";
 import { parseAgentArgs, showAgentHelp } from "./lib/cli.mjs";
 import { contextToSystemPrompt, writeResult } from "./lib/context-bridge.mjs";
+import { filterSystemPromptForRole, filteringStats } from "./lib/context-filter.mjs";
 import { parseTelemetry, reportPeakBufferSize } from "./lib/telemetry.mjs";
 import { claimBdTask, closeBdTask, cleanupTeamDir } from "./lib/lifecycle.mjs";
 import { aiJsonDecision, isAiClientAvailable } from "./lib/ai-client.mjs";
@@ -541,7 +542,17 @@ async function main() {
       systemParts.push(args.systemPrompt);
     }
     if (systemParts.length > 0) {
-      childArgs.push("--append-system-prompt", systemParts.join("\n\n"));
+      // F11: Semantic context filtering — strip irrelevant sections per role
+      let assembledPrompt = systemParts.join("\n\n");
+      if (args.role) {
+        const original = assembledPrompt;
+        assembledPrompt = filterSystemPromptForRole(assembledPrompt, args.role);
+        const stats = filteringStats(original, assembledPrompt);
+        if (stats.reductionPct > 0) {
+          log(`${colors.dim}F11: context filtered for ${args.role} (${stats.reductionPct}% reduction, ${stats.originalSize} → ${stats.filteredSize} chars)${colors.reset}`);
+        }
+      }
+      childArgs.push("--append-system-prompt", assembledPrompt);
     }
 
     // Task goes last — use "--" separator when variadic flags are present
