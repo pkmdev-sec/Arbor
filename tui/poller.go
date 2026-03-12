@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -18,7 +19,7 @@ import (
 type DataPoller struct {
 	interval time.Duration
 	resultCh chan PollResult
-	polling  bool
+	polling  atomic.Bool
 }
 
 // NewDataPoller creates a poller with the given interval.
@@ -37,7 +38,10 @@ type PollResult struct {
 	IPCEvents []IPCEvent
 }
 
-// IPCEvent represents a single IPC log event from ipc.jsonl
+// IPCEvent represents a single IPC log event from ipc.jsonl.
+// Two schemas coexist: the orchestrator emits {from, to, content, meta},
+// while the MCP coordinator emits {agentId, step, percent, files_touched}.
+// After normalization the from/to/content fields are always populated.
 type IPCEvent struct {
 	Timestamp int64                  `json:"ts"`
 	From      string                 `json:"from"`
@@ -45,6 +49,10 @@ type IPCEvent struct {
 	Type      string                 `json:"type"`
 	Content   string                 `json:"content"`
 	Meta      map[string]interface{} `json:"meta"`
+	// MCP coordinator fields (backward compat with old logs)
+	AgentId string `json:"agentId"`
+	Step    string `json:"step"`
+	Percent int    `json:"percent"`
 }
 
 // WorktreeInfo holds information about a git worktree.
@@ -62,9 +70,8 @@ type pollTickMsg struct {
 // The actual polling runs in a background goroutine to never block the TUI.
 func (p *DataPoller) PollTick() tea.Cmd {
 	return tea.Tick(p.interval, func(t time.Time) tea.Msg {
-		// Start background poll if not already running
-		if !p.polling {
-			p.polling = true
+		// Start background poll if not already running (atomic to avoid race)
+		if p.polling.CompareAndSwap(false, true) {
 			go func() {
 				result := p.Poll()
 				select {
@@ -72,7 +79,7 @@ func (p *DataPoller) PollTick() tea.Cmd {
 				default:
 					// Drop if channel full (previous result not consumed)
 				}
-				p.polling = false
+				p.polling.Store(false)
 			}()
 		}
 		// Return whatever is available (non-blocking)
@@ -153,7 +160,8 @@ func (p *DataPoller) Poll() PollResult {
 
 	// Try to read cost budget from policy-limits.json
 	costBudget := 25.0 // Default
-	if data, err := os.ReadFile("/path/to/user-home/.claude/policy-limits.json"); err == nil {
+	policyPath := filepath.Join(os.Getenv("HOME"), ".claude", "policy-limits.json")
+	if data, err := os.ReadFile(policyPath); err == nil {
 		var limits struct {
 			CostBudget float64 `json:"cost_budget"`
 		}
@@ -683,6 +691,16 @@ func pollIPCLogs() []IPCEvent {
 		}
 		var ev IPCEvent
 		if json.Unmarshal([]byte(line), &ev) == nil {
+			// Normalize MCP-schema events: fill From/To/Content from AgentId/Step
+			if ev.From == "" && ev.AgentId != "" {
+				ev.From = ev.AgentId
+			}
+			if ev.To == "" {
+				ev.To = "orchestrator"
+			}
+			if ev.Content == "" && ev.Step != "" {
+				ev.Content = fmt.Sprintf("%d%% — %s", ev.Percent, ev.Step)
+			}
 			events = append(events, ev)
 		}
 	}

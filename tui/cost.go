@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math"
+	"sort"
 	"strings"
 	"time"
 
@@ -152,14 +153,9 @@ func RenderCostDashboard(data CostData, width int, theme Theme) string {
 		for id, cost := range data.PerAgent {
 			sorted = append(sorted, agentCost{id, cost})
 		}
-		// Simple bubble sort
-		for i := 0; i < len(sorted); i++ {
-			for j := i + 1; j < len(sorted); j++ {
-				if sorted[j].cost > sorted[i].cost {
-					sorted[i], sorted[j] = sorted[j], sorted[i]
-				}
-			}
-		}
+		sort.Slice(sorted, func(i, j int) bool {
+			return sorted[i].cost > sorted[j].cost
+		})
 
 		// Show top 10 agents
 		limit := 10

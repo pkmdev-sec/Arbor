@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"sort"
 	"strings"
 	"time"
 
@@ -206,7 +208,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.worktrees = msg.result.Worktrees
 			m.resources = msg.result.Resources
 			m.ipcEvents = msg.result.IPCEvents
-			m.hierarchy = BuildHierarchy(m.agents)
+			m.hierarchy = BuildHierarchy()
 			if m.selectedAgent >= len(m.agents) {
 				m.selectedAgent = max(0, len(m.agents)-1)
 			}
@@ -466,10 +468,10 @@ func (m Model) handleHierarchyKeys(msg tea.KeyMsg) Model {
 // --- View ---
 
 func (m Model) View() string {
-	// Recover from any render panics to prevent TUI crash
+	// Recover from render panics to prevent TUI crash, but log them
 	defer func() {
 		if r := recover(); r != nil {
-			// Silently recover — next render will succeed
+			log.Printf("[TUI] render panic recovered: %v", r)
 		}
 	}()
 
@@ -583,7 +585,7 @@ func (m Model) viewContent(width, height int) string {
 	case tabInternals:
 		return RenderInternalsPanel(m.agents, m.ipcEvents, m.selectedInternal, width, height, m.theme)
 	case tabNetwork:
-		return RenderNetworkPanel(m.messages.All(), m.ipcEvents, m.agents, m.resources, m.ipcConnected, m.selectedNet, width, height, m.theme)
+		return RenderNetworkPanel(m.ipcEvents, m.agents, m.selectedNet, width, height, m.theme)
 	default:
 		return ""
 	}
@@ -1049,14 +1051,7 @@ func (m Model) viewAgents(width, height int) string {
 		for groupName := range groups {
 			groupOrder = append(groupOrder, groupName)
 		}
-		// Sort group names
-		for i := 0; i < len(groupOrder); i++ {
-			for j := i + 1; j < len(groupOrder); j++ {
-				if groupOrder[i] > groupOrder[j] {
-					groupOrder[i], groupOrder[j] = groupOrder[j], groupOrder[i]
-				}
-			}
-		}
+		sort.Strings(groupOrder)
 
 		for _, groupName := range groupOrder {
 			agents := groups[groupName]
@@ -1232,8 +1227,7 @@ func (m Model) handleInternalKeys(msg tea.KeyMsg) Model {
 
 // handleNetworkKeys handles navigation in the Network tab.
 func (m Model) handleNetworkKeys(msg tea.KeyMsg) Model {
-	entries := BuildNetworkEntries(m.ipcEvents, m.agents)
-	count := len(entries)
+	count := len(m.ipcEvents)
 	if count == 0 {
 		return m
 	}

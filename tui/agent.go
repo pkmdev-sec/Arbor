@@ -434,14 +434,9 @@ func RenderAgentDetail(a Agent, width int, theme Theme) string {
 		for name, count := range a.ToolBreakdown {
 			tools = append(tools, toolCount{name, count})
 		}
-		// Simple bubble sort (small data)
-		for i := 0; i < len(tools); i++ {
-			for j := i + 1; j < len(tools); j++ {
-				if tools[j].count > tools[i].count {
-					tools[i], tools[j] = tools[j], tools[i]
-				}
-			}
-		}
+		sort.Slice(tools, func(i, j int) bool {
+			return tools[i].count > tools[j].count
+		})
 
 		maxCount := tools[0].count
 		barWidth := 20

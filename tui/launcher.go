@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textarea"
@@ -37,6 +39,7 @@ type LauncherModel struct {
 func NewLauncherModel() LauncherModel {
 	ta := textarea.New()
 	ta.Placeholder = "Enter task description..."
+	ta.ShowLineNumbers = false
 	ta.SetWidth(60)
 	ta.SetHeight(5)
 	ta.Focus()
@@ -69,12 +72,12 @@ func (l LauncherModel) Update(msg tea.Msg) (LauncherModel, tea.Cmd) {
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, key.NewBinding(key.WithKeys("tab"))):
-			l.focused = (l.focused + 1) % 5
+			l.focused = (l.focused + 1) % 6
 			l.updateFocus()
 			return l, nil
 
 		case key.Matches(msg, key.NewBinding(key.WithKeys("shift+tab"))):
-			l.focused = (l.focused - 1 + 5) % 5
+			l.focused = (l.focused - 1 + 6) % 6
 			l.updateFocus()
 			return l, nil
 
@@ -82,7 +85,7 @@ func (l LauncherModel) Update(msg tea.Msg) (LauncherModel, tea.Cmd) {
 			return l, l.Launch()
 
 		case key.Matches(msg, key.NewBinding(key.WithKeys("enter"))):
-			if l.focused == 4 {
+			if l.focused == 5 { // Launch button
 				return l, l.Launch()
 			}
 		}
@@ -184,13 +187,18 @@ func (l *LauncherModel) Launch() tea.Cmd {
 		}
 
 		cmd := exec.Command("swarm", args...)
-		cmd.Dir = os.Getenv("HOME") + "/.claude/arbor"
+		// Use current working directory (swarm binary is on PATH)
+		if cwd, err := os.Getwd(); err == nil {
+			cmd.Dir = cwd
+		}
 
 		if err := cmd.Start(); err != nil {
 			return launchErrMsg{err: err}
 		}
 
-		return launchSuccessMsg{pid: cmd.Process.Pid, runDir: "/tmp/swarm"}
+		// Swarm creates /tmp/swarm/<random-8-char-id>/ — find the newest dir
+		runDir := findNewestRunDir("/tmp/swarm")
+		return launchSuccessMsg{pid: cmd.Process.Pid, runDir: runDir}
 	}
 }
 
@@ -334,15 +342,17 @@ func (l LauncherModel) View(width, height int, theme Theme) string {
 	b.WriteString(mutedStyle.Render("  seconds (60-3600)"))
 	b.WriteString("\n\n")
 
-	// Launch button
+	// Launch button (field 5)
 	launchBtn := "  [ Launch Swarm ]"
-	if l.focused == 4 {
+	if l.focused == 5 {
 		launchBtn = focusedStyle.Render(launchBtn)
+		b.WriteString(focusIndicator + launchBtn)
+		b.WriteString(mutedStyle.Render("  (press Enter)"))
 	} else {
 		launchBtn = mutedStyle.Render(launchBtn)
+		b.WriteString(" " + launchBtn)
+		b.WriteString(mutedStyle.Render("  (Ctrl+Enter from any field)"))
 	}
-	b.WriteString(launchBtn)
-	b.WriteString(mutedStyle.Render("  (press Enter or Ctrl+Enter)"))
 	b.WriteString("\n\n")
 
 	// Status
@@ -362,6 +372,37 @@ func (l LauncherModel) View(width, height int, theme Theme) string {
 	b.WriteString(mutedStyle.Render("  Navigation: Tab/Shift+Tab to move between fields"))
 
 	return b.String()
+}
+
+// findNewestRunDir polls for the newest directory under base, waiting briefly
+// for swarm to create its run directory after startup.
+func findNewestRunDir(base string) string {
+	for attempt := 0; attempt < 10; attempt++ {
+		entries, err := os.ReadDir(base)
+		if err == nil {
+			var newest string
+			var newestTime time.Time
+			for _, e := range entries {
+				if !e.IsDir() {
+					continue
+				}
+				info, err := e.Info()
+				if err != nil {
+					continue
+				}
+				if info.ModTime().After(newestTime) {
+					newestTime = info.ModTime()
+					newest = filepath.Join(base, e.Name())
+				}
+			}
+			// Accept if the directory was created in the last 5 seconds
+			if newest != "" && time.Since(newestTime) < 5*time.Second {
+				return newest
+			}
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	return base
 }
 
 // Bubble Tea messages for launch results.

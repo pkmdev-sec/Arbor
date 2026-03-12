@@ -63,7 +63,7 @@ func TestFullView(t *testing.T) {
 	model.worktrees = result.Worktrees
 	model.resources = result.Resources
 	model.ipcEvents = result.IPCEvents
-	model.hierarchy = BuildHierarchy(model.agents)
+	model.hierarchy = BuildHierarchy()
 
 	var m runtime.MemStats
 

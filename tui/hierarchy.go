@@ -228,7 +228,7 @@ func extractJSONArray(output string) string {
 }
 
 // BuildHierarchy constructs a tree from swarm run data (not flat agent list).
-func BuildHierarchy(agents []Agent) *TreeNode {
+func BuildHierarchy() *TreeNode {
 	runs := ScanSwarmRuns()
 
 	root := &TreeNode{

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -28,25 +27,39 @@ type NetworkEntry struct {
 func BuildNetworkEntries(ipcEvents []IPCEvent, agents []Agent) []NetworkEntry {
 	var entries []NetworkEntry
 
-	// IPC events from ipc.jsonl
 	for _, ev := range ipcEvents {
+		content := ev.Content
+		// Fallback: synthesize content from meta if empty (old-format events)
+		if content == "" && ev.Meta != nil {
+			if step, ok := ev.Meta["step"]; ok {
+				if pct, ok := ev.Meta["percent"]; ok {
+					content = fmt.Sprintf("%v%% — %v", pct, step)
+				} else {
+					content = fmt.Sprintf("%v", step)
+				}
+			} else if summary, ok := ev.Meta["summary"]; ok {
+				content = fmt.Sprintf("%v", summary)
+			} else if msg, ok := ev.Meta["message"]; ok {
+				content = fmt.Sprintf("%v", msg)
+			}
+		}
+
 		entry := NetworkEntry{
 			Timestamp: time.UnixMilli(ev.Timestamp),
 			TimeStr:   time.UnixMilli(ev.Timestamp).Format("15:04:05"),
 			From:      ev.From,
 			To:        ev.To,
 			Type:      ev.Type,
-			Content:   ev.Content,
+			Content:   content,
 			Meta:      ev.Meta,
-			Size:      len(ev.Content),
+			Size:      len(content),
 			Status:    "ok",
 		}
 
 		// Extract latency and tokens from meta
 		if ev.Meta != nil {
 			if lat, ok := ev.Meta["latencyMs"]; ok {
-				switch v := lat.(type) {
-				case float64:
+				if v, ok := lat.(float64); ok {
 					entry.Latency = fmt.Sprintf("%dms", int(v))
 				}
 			}
@@ -55,18 +68,22 @@ func BuildNetworkEntries(ipcEvents []IPCEvent, agents []Agent) []NetworkEntry {
 			}
 		}
 
-		// Determine status from type
+		// Determine status from type and content
 		switch ev.Type {
 		case "result":
-			if strings.Contains(ev.Content, "failed") || strings.Contains(ev.Content, "exit 1") {
+			if strings.Contains(strings.ToLower(content), "failed") || strings.Contains(content, "exit 1") {
 				entry.Status = "error"
 			}
 		case "verdict":
-			if strings.Contains(strings.ToLower(ev.Content), "fail") {
+			if strings.Contains(strings.ToLower(content), "fail") {
 				entry.Status = "error"
 			}
 		case "progress":
 			entry.Status = "pending"
+		case "log":
+			if strings.Contains(strings.ToLower(content), "error") {
+				entry.Status = "error"
+			}
 		}
 
 		entries = append(entries, entry)
@@ -76,7 +93,7 @@ func BuildNetworkEntries(ipcEvents []IPCEvent, agents []Agent) []NetworkEntry {
 }
 
 // RenderNetworkPanel renders the Network tab as a two-pane request inspector.
-func RenderNetworkPanel(messages []IPCMessage, ipcEvents []IPCEvent, agents []Agent, resources ResourceSnapshot, ipcConnected bool, selectedNet int, width, height int, theme Theme) string {
+func RenderNetworkPanel(ipcEvents []IPCEvent, agents []Agent, selectedNet int, width, height int, theme Theme) string {
 	entries := BuildNetworkEntries(ipcEvents, agents)
 
 	if len(entries) == 0 {
@@ -172,6 +189,10 @@ func RenderNetworkPanel(messages []IPCMessage, ipcEvents []IPCEvent, agents []Ag
 			typeClr = lipgloss.AdaptiveColor{Light: "#79c0ff", Dark: "#79c0ff"}
 		case "lifecycle":
 			typeClr = lipgloss.AdaptiveColor{Light: "#d29922", Dark: "#d29922"}
+		case "progress":
+			typeClr = lipgloss.AdaptiveColor{Light: "#8b949e", Dark: "#8b949e"}
+		case "log":
+			typeClr = lipgloss.AdaptiveColor{Light: "#bc8cff", Dark: "#bc8cff"}
 		}
 
 		prefix := "  "
@@ -229,23 +250,26 @@ func RenderNetworkPanel(messages []IPCMessage, ipcEvents []IPCEvent, agents []Ag
 		listLines = append(listLines, muted.Render(fmt.Sprintf("  ▼ %d more", remaining)))
 	}
 
-	// Summary footer
-	decisionCount := 0
+	// Summary footer — count actual event types from coordinator
+	progressCount := 0
 	resultCount := 0
+	lifecycleCount := 0
 	errorCount := 0
 	for _, e := range entries {
 		switch e.Type {
-		case "decision":
-			decisionCount++
+		case "progress":
+			progressCount++
 		case "result", "verdict":
 			resultCount++
+		case "lifecycle", "start", "shutdown":
+			lifecycleCount++
 		}
 		if e.Status == "error" {
 			errorCount++
 		}
 	}
-	footer := muted.Render(fmt.Sprintf("  %d events | %d decisions | %d results | %d errors | %d/%d",
-		len(entries), decisionCount, resultCount, errorCount, sel+1, len(entries)))
+	footer := muted.Render(fmt.Sprintf("  %d events | %d progress | %d results | %d lifecycle | %d errors | %d/%d",
+		len(entries), progressCount, resultCount, lifecycleCount, errorCount, sel+1, len(entries)))
 	listLines = append(listLines, "", footer)
 
 	list := strings.Join(listLines, "\n")
@@ -284,6 +308,10 @@ func renderNetworkDetail(entries []NetworkEntry, sel, width int, theme Theme) st
 		typeClr = lipgloss.AdaptiveColor{Light: "#79c0ff", Dark: "#79c0ff"}
 	case "lifecycle":
 		typeClr = lipgloss.AdaptiveColor{Light: "#d29922", Dark: "#d29922"}
+	case "progress":
+		typeClr = lipgloss.AdaptiveColor{Light: "#8b949e", Dark: "#8b949e"}
+	case "log":
+		typeClr = lipgloss.AdaptiveColor{Light: "#bc8cff", Dark: "#bc8cff"}
 	}
 
 	typeBadge := lipgloss.NewStyle().Bold(true).Padding(0, 1).Foreground(typeClr).Render(strings.ToUpper(e.Type))
@@ -412,14 +440,3 @@ func renderNetworkDetail(entries []NetworkEntry, sel, width int, theme Theme) st
 	return b.String()
 }
 
-// marshalMeta converts meta to a formatted JSON string.
-func marshalMeta(meta map[string]interface{}) string {
-	if meta == nil || len(meta) == 0 {
-		return "{}"
-	}
-	data, err := json.MarshalIndent(meta, "  ", "  ")
-	if err != nil {
-		return "{}"
-	}
-	return string(data)
-}

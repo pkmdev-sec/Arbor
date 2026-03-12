@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math"
+	"sort"
 	"strings"
 	"time"
 
@@ -222,13 +223,9 @@ func RenderResourcePanelExtended(rs ResourceSnapshot, agents []Agent, worktrees 
 		for name, count := range toolDist {
 			tools = append(tools, toolCount{name, count})
 		}
-		for i := 0; i < len(tools); i++ {
-			for j := i + 1; j < len(tools); j++ {
-				if tools[j].count > tools[i].count {
-					tools[i], tools[j] = tools[j], tools[i]
-				}
-			}
-		}
+		sort.Slice(tools, func(i, j int) bool {
+			return tools[i].count > tools[j].count
+		})
 
 		// Show top 6 tools
 		limit := 6
@@ -271,14 +268,9 @@ func RenderResourcePanelExtended(rs ResourceSnapshot, agents []Agent, worktrees 
 			costList = append(costList, agentCost{name, a.Cost})
 		}
 	}
-	// Sort by cost descending
-	for i := 0; i < len(costList); i++ {
-		for j := i + 1; j < len(costList); j++ {
-			if costList[j].cost > costList[i].cost {
-				costList[i], costList[j] = costList[j], costList[i]
-			}
-		}
-	}
+	sort.Slice(costList, func(i, j int) bool {
+		return costList[i].cost > costList[j].cost
+	})
 
 	if len(costList) > 0 {
 		var costSection strings.Builder
