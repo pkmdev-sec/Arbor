@@ -27,6 +27,8 @@ import { prepareWorktree, validateAndApply, cleanupIsolation } from "./lib/isola
 import { claimBdTask, cleanOldRuns } from "./lib/lifecycle.mjs";
 import { generateApproaches } from "./lib/approach-generator.mjs";
 import { selectWinner } from "./lib/branch-selector.mjs";
+import LearningStore from "./lib/learning.mjs";
+import OutputValidator from "./lib/output-validator.mjs";
 
 // Hierarchical mode — lazy-loaded for graceful fallback if modules are missing
 let hierarchyModules = null;
@@ -634,6 +636,15 @@ async function main() {
   // S4: Defer cleanup to background — runs after event loop starts actual work
   setTimeout(() => cleanOldRuns(SWARM_BASE), 100);
 
+  // Initialize learning store and output validator
+  const learningStore = new LearningStore();
+  const outputValidator = new OutputValidator();
+  const promoted = learningStore.promote();
+  const pruned = learningStore.prune();
+  if (promoted > 0 || pruned > 0) {
+    log(`${colors.dim}Learning store: promoted ${promoted}, pruned ${pruned} patterns${colors.reset}`);
+  }
+
   log(`${colors.bold}${colors.cyan}swarm${colors.reset} ${colors.dim}|${colors.reset} mode=${mode} ${colors.dim}|${colors.reset} agents=${args.agents} ${colors.dim}|${colors.reset} depth=${depth} ${colors.dim}|${colors.reset} verify=${shouldVerify}${args.bdTask ? ` ${colors.dim}|${colors.reset} bd=${args.bdTask}` : ""}`);
   log(`${colors.dim}Run: ${workDir}${colors.reset}`);
   log(`${colors.dim}Task: ${args.task.slice(0, 80)}${args.task.length > 80 ? "..." : ""}${colors.reset}`);
@@ -705,6 +716,17 @@ async function main() {
   const mainCwd = process.cwd();
 
   const agentCwd = computeAgentCwd(mainCwd);
+
+  // Query learning patterns for this task type
+  const taskType = mode;
+  const language = "javascript"; // Default, could be auto-detected
+  const framework = "node"; // Default, could be auto-detected
+  const patterns = learningStore.query(taskType, language, framework);
+  if (patterns.length > 0) {
+    log(`${colors.dim}[learning-store] Found ${patterns.length} relevant patterns (freshness: ${patterns[0].freshness.toFixed(2)})${colors.reset}`);
+    // Patterns could be injected into agent context via args.contextFile augmentation
+    // For now, just log them for visibility
+  }
 
   if (mode === "single") {
     const rf = join(workDir, "agent-01-result.json");
@@ -1032,6 +1054,52 @@ async function main() {
   const completed = workerResults.filter(r => r.exitCode === 0).length;
   const failed = workerResults.filter(r => r.exitCode !== 0).length;
   logIpc('system', 'user', 'lifecycle', 'Swarm complete: ' + completed + ' done, ' + failed + ' failed', { totalMs });
+
+  // Validate and record agent outputs
+  for (const result of workerResults) {
+    // Validate output
+    const validation = outputValidator.validateAgentOutput(
+      { description: result.subtask || args.task, targetFiles: result.targetFiles, targetDirs: result.targetDirs },
+      { output: result.output || "", toolCalls: result.toolCalls },
+      result.filesChanged || []
+    );
+
+    if (!validation.valid) {
+      log(`${colors.yellow}[output-validator] Agent ${result.id}: score ${validation.score.toFixed(2)} (${validation.checks.filter(c => !c.passed).length} failed checks)${colors.reset}`);
+      if (validation.score < 0.4) {
+        result._unreliable = true;
+        log(`${colors.red}[output-validator] Agent ${result.id} marked UNRELIABLE (score < 0.4)${colors.reset}`);
+      }
+    }
+
+    // Record learning patterns
+    const taskType = mode; // Use swarm mode as task type
+    const language = "javascript"; // Default, could be detected from file extensions
+    const framework = "node"; // Default, could be detected from package.json
+
+    if (result.exitCode === 0 && validation.score >= 0.7) {
+      // Record successful pattern
+      learningStore.record(taskType, language, framework, {
+        approach: result.model || "default",
+        success: true,
+        duration: result.durationMs,
+        filesChanged: (result.filesChanged || []).length,
+      });
+    } else if (result.exitCode !== 0) {
+      // Record dead end
+      learningStore.recordDeadEnd(
+        taskType,
+        `Agent ${result.id} failed with exit code ${result.exitCode}`,
+        ["retry_with_different_model", "decompose_further"]
+      );
+    } else if (validation.score < 0.7) {
+      // Record prompt hint for low-quality output
+      learningStore.recordPromptHint(
+        mode,
+        `Agent produced low-quality output (score ${validation.score.toFixed(2)}): ${validation.checks.filter(c => !c.passed).map(c => c.name).join(", ")}`
+      );
+    }
+  }
 
   // Build contract with FULL agent outputs embedded
   let contract;
