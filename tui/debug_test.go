@@ -49,7 +49,11 @@ func TestRenderOverview(t *testing.T) {
 	view := model.viewOverview(200, 40)
 	runtime.ReadMemStats(&m2)
 
-	fmt.Printf("Overview render: %d bytes, alloc delta: %d KB\n", len(view), (m2.Alloc-m1.Alloc)/1024)
+	var allocDelta int64
+	if m2.Alloc >= m1.Alloc {
+		allocDelta = int64((m2.Alloc - m1.Alloc) / 1024)
+	}
+	fmt.Printf("Overview render: %d bytes, alloc delta: %d KB\n", len(view), allocDelta)
 }
 
 func TestFullView(t *testing.T) {
@@ -75,7 +79,11 @@ func TestFullView(t *testing.T) {
 		before := m.Alloc
 		view := model.View()
 		runtime.ReadMemStats(&m)
-		fmt.Printf("Tab %d (%s): %d bytes output, alloc delta: %d KB\n", i+1, name, len(view), (m.Alloc-before)/1024)
+		var allocDelta int64
+		if m.Alloc >= before {
+			allocDelta = int64((m.Alloc - before) / 1024)
+		}
+		fmt.Printf("Tab %d (%s): %d bytes output, alloc delta: %d KB\n", i+1, name, len(view), allocDelta)
 		if len(view) > 10*1024*1024 {
 			t.Fatalf("Tab %s generated >10MB output: %d bytes", name, len(view))
 		}
@@ -97,5 +105,9 @@ func TestRenderAgents(t *testing.T) {
 	view := model.viewAgents(200, 40)
 	runtime.ReadMemStats(&m2)
 
-	fmt.Printf("Agents render: %d bytes, alloc delta: %d KB\n", len(view), (m2.Alloc-m1.Alloc)/1024)
+	var allocDelta int64
+	if m2.Alloc >= m1.Alloc {
+		allocDelta = int64((m2.Alloc - m1.Alloc) / 1024)
+	}
+	fmt.Printf("Agents render: %d bytes, alloc delta: %d KB\n", len(view), allocDelta)
 }
