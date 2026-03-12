@@ -4,7 +4,7 @@
 **Version:** 1.2
 **Date:** 2026-03-12
 **Author:** pkmdev-sec
-**Status:** VALIDATED -- Challenge agent findings incorporated
+**Status:** PHASE 1 COMPLETE (e944c97) -- F1-F7 + pre-fixes R10/R12/R13, 65/65 tests, 6/6 validators
 
 ---
 
@@ -71,12 +71,13 @@ Define the implementation scope for Arbor's optimization phase: closing performa
 
 ## 4. Feature Specifications
 
-### Phase 1: Performance Baseline (Week 1-2)
+### Phase 1: Performance Baseline (Week 1-2) — COMPLETE ✓
 
 #### F1: Non-Essential Traffic Suppression
 **Priority:** P0 | **Effort:** 30 min | **Impact:** 500ms-1s faster startup
 
-Set 9 env vars in agent-entry.mjs: DISABLE_TELEMETRY, DISABLE_ERROR_REPORTING, DISABLE_AUTOUPDATER, DISABLE_COST_WARNINGS, DISABLE_INSTALLATION_CHECKS, CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC, CLAUDE_CODE_DISABLE_AUTO_MEMORY, CLAUDE_CODE_DISABLE_TERMINAL_TITLE, CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY. Mirror in config/settings.json.
+Set 8 env vars in agent-entry.mjs: DISABLE_ERROR_REPORTING, DISABLE_AUTOUPDATER, DISABLE_COST_WARNINGS, DISABLE_INSTALLATION_CHECKS, CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC, CLAUDE_CODE_DISABLE_AUTO_MEMORY, CLAUDE_CODE_DISABLE_TERMINAL_TITLE, CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY. Mirror in config/settings.json. *(DISABLE_TELEMETRY excluded — not found in SDK.)*
+**Status:** IMPLEMENTED (e944c97)
 
 **Acceptance:** Zero telemetry HTTP, startup p50 improves >= 400ms, no regression.
 
@@ -86,11 +87,13 @@ Set 9 env vars in agent-entry.mjs: DISABLE_TELEMETRY, DISABLE_ERROR_REPORTING, D
 Set CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=95 for short tasks (<=25 turns), 85 for long tasks (>25 turns).
 
 **Acceptance:** 10-turn decomposer: 0 compaction. 50-turn worker: deferred compaction.
+**Status:** IMPLEMENTED (e944c97)
 
 #### F3: Small Model for Internal Calls
 **Priority:** P0 | **Effort:** 15 min | **Impact:** $0.01-0.03/agent savings
 
 Set ANTHROPIC_SMALL_FAST_MODEL=claude-haiku-4-5-20251001.
+**Status:** IMPLEMENTED (e944c97)
 
 #### F4: Role-Specific Resource Tuning
 **Priority:** P0 | **Effort:** 2.5h | **Impact:** 30% token waste reduction
@@ -101,21 +104,25 @@ Config constants in lib/config.mjs:
 - ROLE_BASH_LIMIT: worker=200000, verifier=200000, decomposer=50000
 
 Applied via MAX_THINKING_TOKENS, CLAUDE_CODE_MAX_OUTPUT_TOKENS, BASH_MAX_OUTPUT_LENGTH.
+**Status:** IMPLEMENTED (e944c97)
 
 #### F5: Context Persistence + Scope Trigger
 **Priority:** P1 | **Effort:** 15 min
 
 Expand: args.persistContext || args.maxTurns > 50 || args.scope
+**Status:** IMPLEMENTED (e944c97)
 
 #### F6: Debug Passthrough
 **Priority:** P1 | **Effort:** 30 min
 
 SWARM_DEBUG/DEBUG -> --debug flag + per-agent CLAUDE_CODE_DEBUG_LOGS_DIR.
+**Status:** IMPLEMENTED (e944c97)
 
 #### F7: Settings Sources Isolation
 **Priority:** P1 | **Effort:** 15 min
 
 Add --setting-sources user to child args.
+**Status:** IMPLEMENTED (e944c97)
 
 ---
 
@@ -195,7 +202,7 @@ Benchmarks: startup-latency.mjs, token-usage.mjs
 
 | Feature | Dependency | Risk | Status | Fallback |
 |---------|-----------|------|--------|----------|
-| F1 | 9 env vars | LOW | VERIFIED (all 9 found in SDK) | N/A |
+| F1 | 8 env vars | LOW | VERIFIED + IMPLEMENTED (DISABLE_TELEMETRY excluded — not in SDK) | N/A |
 | F2 | CLAUDE_AUTOCOMPACT_PCT_OVERRIDE | LOW | VERIFIED (1 match) | N/A |
 | F3 | ANTHROPIC_SMALL_FAST_MODEL | LOW | VERIFIED (4 matches) | Default model |
 | F4 | MAX_THINKING_TOKENS | LOW | VERIFIED (3 matches). Note: NOT CLAUDE_CODE_MAX_THINKING_TOKENS (0 matches) | N/A |
@@ -256,7 +263,7 @@ Benchmarks: startup-latency.mjs, token-usage.mjs
 
 ### 8.3 SDK Verification (Agent 2)
 All 15 env vars and 2 CLI flags VERIFIED in @anthropic-ai/claude-code SDK:
-- 9 traffic suppression vars: all found (1-12 matches each)
+- 8 traffic suppression vars: all found (1-12 matches each). DISABLE_TELEMETRY excluded (0 matches — false positive from substring grep).
 - CLAUDE_AUTOCOMPACT_PCT_OVERRIDE: found (1 match)
 - ANTHROPIC_SMALL_FAST_MODEL: found (4 matches)
 - MAX_THINKING_TOKENS: found (3 matches) -- **CRITICAL**: CLAUDE_CODE_MAX_THINKING_TOKENS has 0 matches, use MAX_THINKING_TOKENS
@@ -335,18 +342,19 @@ All 15 env vars and 2 CLI flags VERIFIED in @anthropic-ai/claude-code SDK:
 
 **Next Steps (Priority Order):**
 
-**Pre-implementation fixes (do before Phase 1):**
-1. Pin @anthropic-ai/claude-code to exact version "2.1.71" (remove ^)
-2. Add global `unhandledRejection` handler to agent-entry.mjs and swarm.mjs (R12)
-3. Make result file writes atomic: temp file + fs.renameSync in context-bridge.mjs (R13)
-4. Rename `remote-${agentId}` to `arbor-${agentId}` in agent-entry.mjs:258
+**COMPLETED — Pre-fixes + Phase 1 (commit e944c97):**
+- ~~Pin @anthropic-ai/claude-code to exact version "2.1.71"~~ DONE
+- ~~Add global `unhandledRejection` handler to agent-entry.mjs and swarm.mjs (R12)~~ DONE
+- ~~Make result file writes atomic: temp file + fs.renameSync in context-bridge.mjs (R13)~~ DONE
+- ~~Rename `remote-${agentId}` to `arbor-${agentId}` in agent-entry.mjs (R10)~~ DONE
+- ~~F1-F7 implemented and validated (8 env vars, adaptive compaction, role tuning, etc.)~~ DONE
 
-**Phase 1 implementation:**
-5. Build startup-latency benchmark BEFORE making changes (baseline measurement)
-6. Begin F1-F7 using verified env var names
-7. Add integration-test.mjs to test runner (currently excluded)
+**Phase 2 — Next:**
+1. F8: Decomposer JSON Schema Enforcement (--json-schema flag, 8-12h)
+2. F9: PostToolUse Progress Hook (hooks/progress-reporter.py, 4h)
+3. F10: PreCompact State Preservation (hooks/agent-precompact.py, 6h)
 
 **Before scaling beyond 5 agents:**
-8. Implement `arbor cleanup` command for orphaned worktree recovery (R11)
-9. Fix escape detection race condition with mainCwd locking (R14)
-10. Address R8/R9 (concurrent write safety) and R15 (OOM at max agents)
+4. Implement `arbor cleanup` command for orphaned worktree recovery (R11)
+5. Fix escape detection race condition with mainCwd locking (R14)
+6. Address R8/R9 (concurrent write safety) and R15 (OOM at max agents)
