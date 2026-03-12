@@ -445,8 +445,16 @@ async function main() {
       "--dangerously-skip-permissions",
       "--max-turns", String(args.maxTurns),
       "--max-budget-usd", String(args.budget),
-      "--output-format", args.outputFormat,
+      // When writing a result file, force stream-json to enable real-time tool call
+      // counting from NDJSON events. Claude Code in text mode doesn't emit tool call
+      // indicators to stderr, so the TOOL_CALL_RE-based counting was always 0.
+      "--output-format", args.resultFile ? "stream-json" : args.outputFormat,
     ];
+
+    // stream-json requires --verbose when used with --print
+    if (args.resultFile) {
+      childArgs.push("--verbose");
+    }
 
     // Session persistence: enable when retries are possible (session files needed for --resume)
     if (!canResume) {
@@ -613,6 +621,12 @@ async function main() {
     last_tool: null,
   };
 
+  // Stream-json parsing state — when --result-file forces stream-json output format,
+  // we parse NDJSON events from stdout to count tool calls and extract the final text.
+  const streamToolCounts = { Read: 0, Grep: 0, Bash: 0, Edit: 0, Write: 0, Glob: 0, WebSearch: 0, WebFetch: 0, total: 0 };
+  let streamResultText = null;    // Extracted from the "result" event
+  let stdoutNdjsonBuffer = "";    // Line buffer for incomplete NDJSON lines
+
   while (retryCount <= args.maxRetries) {
     // Check budget before retry (skip if insufficient)
     if (retryCount > 0) {
@@ -693,6 +707,42 @@ async function main() {
       if (!args.resultFile) {
         process.stdout.write(chunk);
       }
+
+      // Parse NDJSON events from stream-json output for real-time tool call counting.
+      // Only active when --result-file forces stream-json format.
+      if (args.resultFile) {
+        stdoutNdjsonBuffer += chunk.toString("utf-8");
+        const lines = stdoutNdjsonBuffer.split("\n");
+        stdoutNdjsonBuffer = lines.pop() || ""; // Keep incomplete last line
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const event = JSON.parse(line);
+
+            // Tool calls from assistant message content blocks.
+            // stream-json emits {"type":"assistant","message":{"content":[{"type":"tool_use","name":"Read",...}]}}
+            if (event.type === "assistant" && Array.isArray(event.message?.content)) {
+              for (const block of event.message.content) {
+                if (block.type === "tool_use" && block.name) {
+                  progress.tool_calls_count++;
+                  progress.last_tool = block.name;
+                  if (block.name in streamToolCounts) streamToolCounts[block.name]++;
+                  streamToolCounts.total++;
+                }
+              }
+            }
+
+            // Final text output from result event
+            if (event.type === "result") {
+              streamResultText = typeof event.result === "string"
+                ? event.result
+                : JSON.stringify(event.result);
+            }
+          } catch {
+            // Not valid JSON — skip (partial lines, non-JSON output)
+          }
+        }
+      }
     });
 
     // TASK 1: Stream stderr live with overflow
@@ -706,6 +756,11 @@ async function main() {
     // Reset progress tracking for this attempt (accumulates within a single attempt)
     progress.tool_calls_count = 0;
     progress.last_tool = null;
+
+    // Reset stream-json parsing state
+    for (const key of Object.keys(streamToolCounts)) streamToolCounts[key] = 0;
+    streamResultText = null;
+    stdoutNdjsonBuffer = "";
 
     // ── Stderr write queue — atomic line writes prevent interleaving ──
     const writeQueue = [];
@@ -877,7 +932,14 @@ async function main() {
     });
 
     durationMs = Date.now() - startTime;
-    output = Buffer.concat(stdoutChunks).toString("utf-8").trim();
+
+    // When stream-json was used (--result-file mode), extract the human-readable text
+    // from the parsed result event. The raw buffer contains NDJSON, not readable text.
+    if (args.resultFile && streamResultText !== null) {
+      output = streamResultText.trim();
+    } else {
+      output = Buffer.concat(stdoutChunks).toString("utf-8").trim();
+    }
 
     // TASK 1: Close overflow streams and clean up temp directory
     if (stdoutOverflowStream) {
@@ -1001,6 +1063,14 @@ async function main() {
   if (args.resultFile) {
     // Parse telemetry from stderr and stdout
     const telemetry = parseTelemetry(stderrFull, output);
+
+    // Override stderr-based tool counts with accurate stream-json counts.
+    // Claude Code in -p mode doesn't emit tool call indicators to stderr,
+    // so the TOOL_CALL_RE-based counting from parseTelemetry is always 0.
+    // The stream-json NDJSON parser counts tool calls from content_block_start events.
+    if (streamToolCounts.total > 0) {
+      telemetry.tool_calls = { ...streamToolCounts };
+    }
 
     // Quality signals — fast heuristic + optional AI analysis
     const elapsedSec = durationMs / 1000;
