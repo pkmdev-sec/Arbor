@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * swarm — Parallel remote-agent orchestrator with verification
+ * arbor-swarm — Parallel Arbor orchestrator with verification
  *
- * Sits between the main Claude session and individual remote-agent calls.
+ * Sits between the main Claude session and individual arbor calls.
  * Handles: task decomposition → parallel execution → verification → reporting.
  *
  * All orchestration logic lives in lib/ modules. This file is the slim
@@ -11,7 +11,9 @@
  * Catch blocks: 3 total, 3 fixed (added error logging to silent catches)
  */
 
-import { execFileSync } from "node:child_process";
+import { execFileSync, execFile } from "node:child_process";
+import { promisify } from "node:util";
+const execFileAsync = promisify(execFile);
 import { writeFileSync, existsSync, readdirSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -35,13 +37,15 @@ async function scoutProject(task, workDir, contextFile, projectTree = "") {
   if (!tree) {
     try {
       try {
-        tree = execFileSync("git", ["ls-files"], {
+        const { stdout } = await execFileAsync("git", ["ls-files"], {
           encoding: "utf-8", timeout: 5000, cwd: process.cwd(),
-        }).split("\n").filter(Boolean).slice(0, 300).join("\n");
+        });
+        tree = stdout.split("\n").filter(Boolean).slice(0, 300).join("\n");
       } catch {
-        tree = execFileSync("find", [".", "-maxdepth", "2", "-type", "f", "-not", "-path", "*/.*", "-not", "-path", "*/node_modules/*"], {
+        const { stdout } = await execFileAsync("find", [".", "-maxdepth", "2", "-type", "f", "-not", "-path", "*/.*", "-not", "-path", "*/node_modules/*"], {
           encoding: "utf-8", timeout: 5000, cwd: process.cwd(),
-        }).split("\n").filter(Boolean).slice(0, 300).join("\n");
+        });
+        tree = stdout.split("\n").filter(Boolean).slice(0, 300).join("\n");
       }
     } catch {}
   }
@@ -120,11 +124,7 @@ async function main() {
 
   // ── Monitor mode: observe all active runs (no task needed) ──
   if (args.monitor) {
-    const { startMonitor } = await import("./lib/tui/monitor.mjs");
-    const instance = startMonitor();
-    if (instance) {
-      await instance.waitUntilExit();
-    }
+    log(`${colors.yellow}Monitor mode is handled by the external TUI. Use the Go-based monitor.${colors.reset}`);
     process.exit(0);
   }
 
@@ -142,34 +142,15 @@ async function main() {
   const workDir = join(SWARM_BASE, runId);
   mkdirSync(workDir, { recursive: true });
   initIpcLogger(workDir);
-  logIpc('system', 'user', 'lifecycle', 'Swarm started: mode=' + mode + ' agents=' + args.agents, { workDir, depth });
+  logIpc('system', 'user', 'lifecycle', 'Arbor-swarm started: mode=' + mode + ' agents=' + args.agents, { workDir, depth });
   logIpc('orchestrator', 'all', 'decision', 'Mode: ' + mode + ' (depth: ' + depth + ')', {});
   // S4: Defer cleanup to background — runs after event loop starts actual work
   setTimeout(() => cleanOldRuns(SWARM_BASE), 100);
 
-  log(`${colors.bold}${colors.cyan}swarm${colors.reset} ${colors.dim}|${colors.reset} mode=${mode} ${colors.dim}|${colors.reset} agents=${args.agents} ${colors.dim}|${colors.reset} depth=${depth} ${colors.dim}|${colors.reset} verify=${shouldVerify}${args.bdTask ? ` ${colors.dim}|${colors.reset} bd=${args.bdTask}` : ""}`);
+  log(`${colors.bold}${colors.cyan}arbor-swarm${colors.reset} ${colors.dim}|${colors.reset} mode=${mode} ${colors.dim}|${colors.reset} agents=${args.agents} ${colors.dim}|${colors.reset} depth=${depth} ${colors.dim}|${colors.reset} verify=${shouldVerify}${args.bdTask ? ` ${colors.dim}|${colors.reset} bd=${args.bdTask}` : ""}`);
   log(`${colors.dim}Run: ${workDir}${colors.reset}`);
   log(`${colors.dim}Task: ${args.task.slice(0, 80)}${args.task.length > 80 ? "..." : ""}${colors.reset}`);
   log("");
-
-  // ── TUI dashboard (read-only overlay — does NOT control execution) ──
-  let dashboard = null;
-  if (args.tui && process.stdout.isTTY) {
-    try {
-      const { startDashboard } = await import("./lib/tui/dashboard.mjs");
-      dashboard = startDashboard({ workDir, agents: [], mode, depth });
-      if (dashboard) {
-        setQuiet(true);
-        // Restore logging if TUI exits early (user pressed 'q')
-        dashboard.waitUntilExit().then(() => {
-          setQuiet(args.quiet);
-          dashboard = null;
-        });
-      }
-    } catch (err) {
-      process.stderr.write(`TUI: failed to start (${err.message}), falling back to plain output\n`);
-    }
-  }
 
   // bd task lifecycle: claim
   await claimBdTask(args.bdTask);
@@ -178,6 +159,7 @@ async function main() {
   let workerResults = [];
   let verifyResult = null;
   let scoutSummary = null;
+  let conflictReport = null;
   const mainCwd = process.cwd();
 
   if (mode === "single") {
@@ -194,7 +176,13 @@ async function main() {
     logIpc('agent-01', 'orchestrator', 'result', 'Completed in ' + (result.durationMs / 1000).toFixed(1) + 's (exit ' + result.exitCode + ')', { exitCode: result.exitCode, durationMs: result.durationMs });
     log(`  ${result.exitCode === 0 ? `${colors.green}✓${colors.reset}` : `${colors.red}✗${colors.reset}`} ${(result.durationMs / 1000).toFixed(1)}s`);
     if (isolation.success) {
-      const apply = await validateAndApply(isolation.worktreePath, mainCwd, isolation.snapshot, isolation.backupDir, isolation.copiedUntracked);
+      const apply = await validateAndApply({
+        worktreePath: isolation.worktreePath,
+        mainCwd,
+        preSnapshot: isolation.snapshot,
+        backupDir: isolation.backupDir,
+        copiedUntracked: isolation.copiedUntracked,
+      });
       if (apply.valid) {
         logIpc('orchestrator', 'agent-01', 'lifecycle', 'Applied ' + apply.applied.length + ' files' + (apply.escaped.length ? ', ' + apply.escaped.length + ' escaped' : ''), {});
         log(`  ${colors.green}✓${colors.reset} agent-01: applied ${apply.applied.length} files${apply.escaped.length ? `, ${apply.escaped.length} escaped (validated)` : ""}`);
@@ -209,14 +197,16 @@ async function main() {
     // S3: Compute file tree ONCE, pass to both decompose and scoutProject
     let projectTree = "";
     try {
-      projectTree = execFileSync("git", ["ls-files"], {
+      const { stdout } = await execFileAsync("git", ["ls-files"], {
         encoding: "utf-8", timeout: 5000, cwd: process.cwd(),
-      }).split("\n").filter(Boolean).slice(0, 300).join("\n");
+      });
+      projectTree = stdout.split("\n").filter(Boolean).slice(0, 300).join("\n");
     } catch {
       try {
-        projectTree = execFileSync("find", [".", "-maxdepth", "2", "-type", "f", "-not", "-path", "*/.*", "-not", "-path", "*/node_modules/*"], {
+        const { stdout } = await execFileAsync("find", [".", "-maxdepth", "2", "-type", "f", "-not", "-path", "*/.*", "-not", "-path", "*/node_modules/*"], {
           encoding: "utf-8", timeout: 5000, cwd: process.cwd(),
-        }).split("\n").filter(Boolean).slice(0, 300).join("\n");
+        });
+        projectTree = stdout.split("\n").filter(Boolean).slice(0, 300).join("\n");
       } catch {}
     }
 
@@ -237,7 +227,9 @@ async function main() {
       log(`${colors.bold}${colors.red}╚══════════════════════════════════════════════════════════╝${colors.reset}\n`);
     }
 
-    workerResults = await executeParallel(subtasks, depth, args.contextFile, workDir, scoutSummary);
+    const parallelResult = await executeParallel(subtasks, depth, args.contextFile, workDir, scoutSummary);
+    workerResults = parallelResult.results;
+    conflictReport = parallelResult.conflictReport;
 
   } else if (mode === "pipeline") {
     workerResults = await executePipeline(args.task, depth, args.contextFile, workDir);
@@ -256,7 +248,13 @@ async function main() {
     logIpc('reviewer', 'orchestrator', 'result', 'Completed in ' + (result.durationMs / 1000).toFixed(1) + 's (exit ' + result.exitCode + ')', { exitCode: result.exitCode, durationMs: result.durationMs });
     log(`  ${result.exitCode === 0 ? `${colors.green}✓${colors.reset}` : `${colors.red}✗${colors.reset}`} ${(result.durationMs / 1000).toFixed(1)}s`);
     if (isolation.success) {
-      const apply = await validateAndApply(isolation.worktreePath, mainCwd, isolation.snapshot, isolation.backupDir, isolation.copiedUntracked);
+      const apply = await validateAndApply({
+        worktreePath: isolation.worktreePath,
+        mainCwd,
+        preSnapshot: isolation.snapshot,
+        backupDir: isolation.backupDir,
+        copiedUntracked: isolation.copiedUntracked,
+      });
       if (apply.valid) {
         logIpc('orchestrator', 'reviewer', 'lifecycle', 'Applied ' + apply.applied.length + ' files' + (apply.escaped.length ? ', ' + apply.escaped.length + ' escaped' : ''), {});
         log(`  ${colors.green}✓${colors.reset} reviewer: applied ${apply.applied.length} files${apply.escaped.length ? `, ${apply.escaped.length} escaped (validated)` : ""}`);
@@ -279,20 +277,13 @@ async function main() {
 
   const totalMs = Date.now() - startTime;
 
-  // ── Unmount TUI before printing summary ──
-  if (dashboard) {
-    dashboard.unmount();
-    setQuiet(args.quiet);
-  }
-
   // Log swarm completion to IPC
   const completed = workerResults.filter(r => r.exitCode === 0).length;
   const failed = workerResults.filter(r => r.exitCode !== 0).length;
-  logIpc('system', 'user', 'lifecycle', 'Swarm complete: ' + completed + ' done, ' + failed + ' failed', { totalMs });
+  logIpc('system', 'user', 'lifecycle', 'Arbor-swarm complete: ' + completed + ' done, ' + failed + ' failed', { totalMs });
 
   // Build contract with FULL agent outputs embedded
-  const conflictReport = workerResults._conflictReport || null;
-  const contract = buildContract(args.task, mode, workerResults, verifyResult, totalMs, workDir, conflictReport);
+  const contract = buildContract(args.task, mode, workerResults, verifyResult, totalMs, workDir, conflictReport, depth);
 
   // Write result file
   if (args.resultFile) {
@@ -301,7 +292,7 @@ async function main() {
   }
 
   // Summary
-  log(`\n${colors.bold}═══ SWARM COMPLETE ═══${colors.reset}`);
+  log(`\n${colors.bold}═══ ARBOR-SWARM COMPLETE ═══${colors.reset}`);
   log(`Mode: ${mode} | Agents: ${contract.summary.total_agents} | Duration: ${(totalMs / 1000).toFixed(1)}s`);
   log(`Completed: ${contract.summary.completed} | Failed: ${contract.summary.failed}`);
   log(`Work dir: ${workDir}`);

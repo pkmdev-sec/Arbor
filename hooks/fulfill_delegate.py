@@ -7,7 +7,7 @@ Fixes from audit:
   #14 — Fail-closed on exceptions
 
 Transitions DELEGATE → FULFILLED only when:
-  1. Bash command starts with remote-agent/swarm
+  1. Bash command starts with arbor/arbor-swarm
   2. Command includes --result-file (actual work, not --help)
   3. The command was not a trivial no-op
 """
@@ -36,10 +36,10 @@ def main() -> None:
         tool_input = event.get("tool_input", {})
         command = (tool_input.get("command", "") or "").strip()
 
-        # Only fulfill when the command is a real swarm/remote-agent invocation
+        # Only fulfill when the command is a real arbor/arbor-swarm invocation
         is_real_invocation = (
-            (command.startswith("remote-agent") or command.startswith("swarm") or
-             "| remote-agent" in command or "| swarm" in command) and
+            (command.startswith("arbor") or command.startswith("arbor-swarm") or
+             "| arbor" in command or "| arbor-swarm" in command) and
             "--result-file" in command and       # Must produce output (not --help)
             "--help" not in command and           # Not a help check
             "--version" not in command            # Not a version check
@@ -64,8 +64,11 @@ def main() -> None:
         state["fulfilled_command"] = command[:200]
         STATE_FILE.write_text(json.dumps(state), encoding="utf-8")
 
-    except Exception:
-        pass  # PostToolUse hooks should not interfere with tool execution
+    except Exception as e:
+        # Fail-closed: errors must block, not pass through silently
+        result = {"result": "error", "value": f"Hook error: {e}"}
+        sys.stdout.write(json.dumps(result))
+        sys.stdout.flush()
 
 
 if __name__ == "__main__":

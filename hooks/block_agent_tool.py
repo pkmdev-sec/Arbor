@@ -13,7 +13,7 @@ Fixes applied from adversarial audit:
 
 State lifecycle:
   DELEGATE  → Only allowlisted Bash commands pass. Everything else blocked.
-  FULFILLED → All tools allowed (swarm/remote-agent completed)
+  FULFILLED → All tools allowed (arbor-swarm/arbor completed)
   DIRECT    → All tools allowed (simple task, no delegation)
 """
 
@@ -29,8 +29,8 @@ LOG = Path.home() / ".claude" / "hooks" / ".acontext_state" / "blocker.log"
 # Bash ALLOWLIST — only these commands are permitted during DELEGATE mode.
 # Everything not matching is blocked. This closes infinite bypass vectors.
 BASH_ALLOW_PREFIXES = (
-    "remote-agent",     # The delegation tool
-    "swarm",            # The swarm orchestrator
+    "arbor",            # The delegation tool (arbor and arbor-swarm both match)
+    "arbor-swarm",      # The parallel orchestrator
     "bd ",              # Beads task management
     "bd\t",             # bd with tab
     "git status",       # Git read commands
@@ -124,32 +124,86 @@ def main() -> None:
             # Check against allowlist
             for prefix in BASH_ALLOW_PREFIXES:
                 if cmd.startswith(prefix):
+                    # Additional safety checks for dangerous commands
+                    if prefix in ("rm ", "/bin/rm "):
+                        # Block rm with dangerous flags (check tokens, not substrings)
+                        parts = cmd.split()
+                        dangerous_rm_flags = {"-r", "-f", "-rf", "-fr", "--recursive", "--force"}
+                        if dangerous_rm_flags & set(parts):
+                            _blog(f"BLOCK tool=Bash (dangerous rm flags in: {cmd[:60]})")
+                            result = {
+                                "decision": "block",
+                                "reason": (
+                                    "[Orchestrator] rm with -r/-f flags blocked during delegation.\n"
+                                    "Recursive or force removal is not permitted for safety."
+                                ),
+                            }
+                            print(json.dumps(result), flush=True)
+                            return
+
+                    elif prefix == "curl ":
+                        # Block curl with dangerous flags (data exfiltration, output to files)
+                        parts = cmd.split()
+                        single_flags = {"-d", "--data", "--data-raw", "--data-binary",
+                                        "-o", "--output", "-F", "--form",
+                                        "-T", "--upload-file", "-K", "--config"}
+                        has_dangerous_single = bool(single_flags & set(parts))
+                        # Check -X with method (two adjacent tokens)
+                        has_dangerous_method = False
+                        for i, p in enumerate(parts):
+                            if p == "-X" and i + 1 < len(parts) and parts[i + 1] in ("POST", "PUT", "DELETE", "PATCH"):
+                                has_dangerous_method = True
+                                break
+                        if has_dangerous_single or has_dangerous_method:
+                            _blog(f"BLOCK tool=Bash (dangerous curl flags in: {cmd[:60]})")
+                            result = {
+                                "decision": "block",
+                                "reason": (
+                                    "[Orchestrator] curl with POST/PUT/data/output flags blocked during delegation.\n"
+                                    "Only safe GET requests are permitted."
+                                ),
+                            }
+                            print(json.dumps(result), flush=True)
+                            return
+
                     _blog(f"ALLOW tool=Bash (allowlisted: {prefix})")
                     return
 
             # Not in allowlist — block
-            command = state.get("command", "swarm <task>")
+            command = state.get("command", "arbor-swarm <task>")
             _blog(f"BLOCK tool=Bash cmd={cmd[:60]}")
             result = {
                 "decision": "block",
                 "reason": (
                     f"[Orchestrator] Bash command blocked during delegation.\n"
-                    f"Only remote-agent, swarm, bd, git, and test commands are allowed.\n"
+                    f"Only arbor, arbor-swarm, bd, git, and test commands are allowed.\n"
                     f"RUN: {command}"
                 ),
             }
             print(json.dumps(result), flush=True)
             return
 
-        # All other tools during DELEGATE — block with redirect
+        # All other tools during DELEGATE — block with tool-specific suggestions
         if tool_name in BLOCKED_DURING_DELEGATE:
-            command = state.get("command", "swarm <task>")
+            command = state.get("command", "arbor-swarm <task>")
             _blog(f"BLOCK tool={tool_name}")
+
+            # Tool-specific suggestions so the user sees actionable hints
+            hints = {
+                "Read": "Use arbor to read files:\n    arbor -m sonnet 'read <file>'",
+                "Glob": "Use arbor to search for files:\n    arbor -m sonnet 'find files matching <pattern>'",
+                "Grep": "Use arbor to search content:\n    arbor -m sonnet 'search for <pattern> in <scope>'",
+                "Agent": "Task already delegated — run the arbor-swarm command below.",
+                "Write": "Task delegated — arbor agents handle file writes.\n    RUN: " + command,
+                "Edit": "Task delegated — arbor agents handle file edits.\n    RUN: " + command,
+            }
+            hint = hints.get(tool_name, f"RUN via Bash: {command}")
+
             result = {
                 "decision": "block",
                 "reason": (
-                    f"[Orchestrator] {tool_name} blocked — task delegated to remote-agent.\n"
-                    f"RUN via Bash: {command}"
+                    f"[Orchestrator] {tool_name} blocked — delegation active (session-scoped).\n"
+                    f"{hint}"
                 ),
             }
             print(json.dumps(result), flush=True)
@@ -159,7 +213,7 @@ def main() -> None:
         _blog(f"BLOCK tool={tool_name} (unknown, fail-closed)")
         result = {
             "decision": "block",
-            "reason": f"[Orchestrator] {tool_name} blocked during delegation. Use remote-agent via Bash.",
+            "reason": f"[Orchestrator] {tool_name} blocked during delegation. Use arbor or arbor-swarm via Bash.",
         }
         print(json.dumps(result), flush=True)
 

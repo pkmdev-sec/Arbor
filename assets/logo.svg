@@ -1,38 +1,83 @@
-<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-  <!-- Pitch black background -->
-  <rect width="512" height="512" fill="#000000"/>
-  <circle cx="256" cy="256" r="250" fill="#000000"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4"/>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <radialGradient id="bg" cx="50%" cy="45%" r="55%">
+      <stop offset="0%" stop-color="#1a1f35"/>
+      <stop offset="100%" stop-color="#0F172A"/>
+    </radialGradient>
+    <linearGradient id="trunk" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#F59E0B"/>
+      <stop offset="40%" stop-color="#D97706"/>
+      <stop offset="100%" stop-color="#B45309"/>
+    </linearGradient>
+    <linearGradient id="branch" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#06B6D4"/>
+      <stop offset="100%" stop-color="#0891B2"/>
+    </linearGradient>
+  </defs>
 
-  <!-- Isolation ring (dashed boundary at ~80% radius) -->
-  <circle cx="256" cy="256" r="200" fill="none" stroke="#333333" stroke-width="1.5" stroke-dasharray="8 5" opacity="0.4"/>
+  <circle cx="256" cy="256" r="248" fill="url(#bg)" stroke="#1e293b" stroke-width="2"/>
+  <circle cx="256" cy="256" r="210" fill="none" stroke="#334155" stroke-width="1" stroke-dasharray="8 6" opacity="0.3"/>
 
-  <!-- Connection lines from center hexagon to agent circles -->
-  <line x1="256" y1="256" x2="256" y2="106" stroke="#06B6D4" stroke-width="1.5" opacity="0.5"/>
-  <line x1="256" y1="256" x2="399" y2="210" stroke="#06B6D4" stroke-width="1.5" opacity="0.5"/>
-  <line x1="256" y1="256" x2="344" y2="377" stroke="#06B6D4" stroke-width="1.5" opacity="0.5"/>
-  <line x1="256" y1="256" x2="168" y2="377" stroke="#06B6D4" stroke-width="1.5" opacity="0.5"/>
-  <line x1="256" y1="256" x2="113" y2="210" stroke="#06B6D4" stroke-width="1.5" opacity="0.5"/>
+  <!-- Roots -->
+  <g opacity="0.4">
+    <path d="M256,380 L240,410 L225,430" stroke="#1e293b" stroke-width="3" stroke-linecap="round"/>
+    <path d="M256,380 L256,420" stroke="#1e293b" stroke-width="4" stroke-linecap="round"/>
+    <path d="M256,380 L272,410 L287,430" stroke="#1e293b" stroke-width="3" stroke-linecap="round"/>
+  </g>
 
-  <!-- 5 agent nodes (outer cyan circles) -->
-  <circle cx="256" cy="106" r="22" fill="#06B6D4"/>
-  <circle cx="399" cy="210" r="22" fill="#06B6D4"/>
-  <circle cx="344" cy="377" r="22" fill="#06B6D4"/>
-  <circle cx="168" cy="377" r="22" fill="#06B6D4"/>
-  <circle cx="113" cy="210" r="22" fill="#06B6D4"/>
+  <!-- Trunk -->
+  <g filter="url(#glow)">
+    <path d="M236,380 L232,320 L235,260 L240,200 L245,160" stroke="url(#trunk)" stroke-width="24" stroke-linecap="round" fill="none"/>
+    <path d="M276,380 L280,320 L277,260 L272,200 L267,160" stroke="url(#trunk)" stroke-width="24" stroke-linecap="round" fill="none"/>
+    <path d="M256,380 L256,160" stroke="#F59E0B" stroke-width="18" stroke-linecap="round" opacity="0.9"/>
+  </g>
 
-  <!-- Agent highlight specks -->
-  <circle cx="250" cy="100" r="5" fill="#FFFFFF" opacity="0.5"/>
-  <circle cx="393" cy="204" r="5" fill="#FFFFFF" opacity="0.5"/>
-  <circle cx="338" cy="371" r="5" fill="#FFFFFF" opacity="0.5"/>
-  <circle cx="162" cy="371" r="5" fill="#FFFFFF" opacity="0.5"/>
-  <circle cx="107" cy="204" r="5" fill="#FFFFFF" opacity="0.5"/>
+  <circle cx="256" cy="200" r="8" fill="#F59E0B" opacity="0.8"/>
+  <circle cx="256" cy="200" r="12" fill="none" stroke="#F59E0B" stroke-width="1.5" opacity="0.4"/>
 
-  <!-- Central orchestrator hexagon (amber) -->
-  <polygon points="256,206 299,231 299,281 256,306 213,281 213,231" fill="#F59E0B"/>
+  <!-- Branches -->
+  <g filter="url(#glow)">
+    <path d="M256,200 Q220,180 190,140 Q180,125 175,105" stroke="url(#branch)" stroke-width="8" stroke-linecap="round" fill="none"/>
+    <path d="M256,210 Q210,200 175,175 Q160,165 150,145" stroke="url(#branch)" stroke-width="7" stroke-linecap="round" fill="none"/>
+    <path d="M256,215 Q230,210 210,190 Q200,180 195,165" stroke="url(#branch)" stroke-width="7" stroke-linecap="round" fill="none"/>
+    <path d="M256,215 Q282,210 302,190 Q312,180 317,165" stroke="url(#branch)" stroke-width="7" stroke-linecap="round" fill="none"/>
+    <path d="M256,210 Q302,200 337,175 Q352,165 362,145" stroke="url(#branch)" stroke-width="7" stroke-linecap="round" fill="none"/>
+    <path d="M256,200 Q292,180 322,140 Q332,125 337,105" stroke="url(#branch)" stroke-width="8" stroke-linecap="round" fill="none"/>
+  </g>
 
-  <!-- Inner hexagon glow -->
-  <polygon points="256,218 288,237 288,275 256,294 224,275 224,237" fill="#FFFFFF" opacity="0.1"/>
+  <!-- Agent nodes -->
+  <g filter="url(#glow)">
+    <circle cx="175" cy="105" r="6" fill="#06B6D4"/>
+    <circle cx="175" cy="105" r="9" fill="none" stroke="#06B6D4" stroke-width="1" opacity="0.4"/>
+    <circle cx="150" cy="145" r="5" fill="#06B6D4"/>
+    <circle cx="150" cy="145" r="8" fill="none" stroke="#06B6D4" stroke-width="1" opacity="0.4"/>
+    <circle cx="195" cy="165" r="5" fill="#06B6D4"/>
+    <circle cx="195" cy="165" r="8" fill="none" stroke="#06B6D4" stroke-width="1" opacity="0.4"/>
+    <circle cx="317" cy="165" r="5" fill="#06B6D4"/>
+    <circle cx="317" cy="165" r="8" fill="none" stroke="#06B6D4" stroke-width="1" opacity="0.4"/>
+    <circle cx="362" cy="145" r="5" fill="#06B6D4"/>
+    <circle cx="362" cy="145" r="8" fill="none" stroke="#06B6D4" stroke-width="1" opacity="0.4"/>
+    <circle cx="337" cy="105" r="6" fill="#06B6D4"/>
+    <circle cx="337" cy="105" r="9" fill="none" stroke="#06B6D4" stroke-width="1" opacity="0.4"/>
+  </g>
 
-  <!-- Center accent dot -->
-  <circle cx="256" cy="256" r="8" fill="#FFFFFF" opacity="0.25"/>
+  <!-- Merge paths -->
+  <g opacity="0.6">
+    <path d="M175,105 Q200,115 220,140" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-dasharray="4 3" fill="none" opacity="0.5"/>
+    <path d="M150,145 Q175,155 195,165" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-dasharray="4 3" fill="none" opacity="0.5"/>
+    <path d="M337,105 Q312,115 292,140" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-dasharray="4 3" fill="none" opacity="0.5"/>
+    <path d="M362,145 Q337,155 317,165" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-dasharray="4 3" fill="none" opacity="0.5"/>
+    <circle cx="256" cy="160" r="5" fill="#10B981" opacity="0.7"/>
+    <circle cx="256" cy="160" r="8" fill="none" stroke="#10B981" stroke-width="1" opacity="0.5"/>
+  </g>
+
+  <!-- Fork symbol -->
+  <path d="M250,194 L256,188 L262,194" stroke="#F59E0B" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.3"/>
 </svg>

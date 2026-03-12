@@ -9,7 +9,7 @@
   </defs>
 
   <!-- Background -->
-  <rect width="800" height="440" fill="#000000"/>
+  <rect width="800" height="440" fill="#0F172A"/>
 
   <!-- Separator lines between rows -->
   <line x1="20" y1="88" x2="780" y2="88" stroke="#1E293B" stroke-width="1"/>

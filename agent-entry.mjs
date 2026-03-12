@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * remote-agent — Claude Code supervisor for isolated research
+ * arbor — Claude Code supervisor for isolated research
  *
  * Spawns a fresh Claude Code subprocess with its own context window.
  * This is a SUPERVISOR, not a wrapper — cli.js runs as a child process.
@@ -121,13 +121,13 @@ if (existsSync(localPath)) {
   try {
     const resolved = await import.meta.resolve("@anthropic-ai/claude-code/cli.js");
     CLI_JS = fileURLToPath(resolved);
-    process.stderr.write(`[remote-agent] CLI resolved via fallback: ${CLI_JS}\n`);
+    process.stderr.write(`[arbor] CLI resolved via fallback: ${CLI_JS}\n`);
   } catch {
-    process.stderr.write(`[remote-agent] ERROR: Cannot find @anthropic-ai/claude-code CLI.\n`);
-    process.stderr.write(`[remote-agent] Tried:\n`);
-    process.stderr.write(`[remote-agent]   1. Local: ${localPath}\n`);
-    process.stderr.write(`[remote-agent]   2. import.meta.resolve (failed)\n`);
-    process.stderr.write(`[remote-agent] Run: npm install\n`);
+    process.stderr.write(`[arbor] ERROR: Cannot find @anthropic-ai/claude-code CLI.\n`);
+    process.stderr.write(`[arbor] Tried:\n`);
+    process.stderr.write(`[arbor]   1. Local: ${localPath}\n`);
+    process.stderr.write(`[arbor]   2. import.meta.resolve (failed)\n`);
+    process.stderr.write(`[arbor] Run: npm install\n`);
     process.exit(1);
   }
 }
@@ -154,7 +154,7 @@ try {
 
   if (mainVersion && mainVersion !== remoteVersion) {
     process.stderr.write(
-      `Warning: remote-agent uses claude-code ${remoteVersion} but main session may use different version (detected: ${mainVersion})\n`
+      `Warning: arbor uses claude-code ${remoteVersion} but main session may use different version (detected: ${mainVersion})\n`
     );
   }
 } catch (err) {
@@ -172,11 +172,11 @@ async function main() {
   if (args.version) {
     try {
       const pkg = JSON.parse(readFileSync(join(dirname(CLI_JS), "..", "package.json"), "utf-8"));
-      process.stdout.write(`remote-agent 1.0.0 (claude-code ${pkg.version})\n`);
+      process.stdout.write(`arbor 1.0.0 (claude-code ${pkg.version})\n`);
     } catch (err) {
       // TASK 4: Error logging - package.json read failure
       console.error("[agent-entry:main] Error reading package.json:", err.message || err);
-      process.stdout.write("remote-agent 1.0.0\n");
+      process.stdout.write("arbor 1.0.0\n");
     }
     process.exit(0);
   }
@@ -241,7 +241,7 @@ async function main() {
 
   if (!args.task && !args.contextFile) {
     log(`${colors.red}Error: No task provided.${colors.reset}`);
-    log("Usage: remote-agent \"your task\" or remote-agent --context-file ctx.json");
+    log("Usage: arbor \"your task\" or arbor --context-file ctx.json");
     process.exit(1);
   }
 
@@ -305,7 +305,7 @@ async function main() {
   childArgs.splice(1, 0,
     "--team-name", teamName,
     "--agent-id", agentId,
-    "--agent-name", "remote-agent",
+    "--agent-name", "arbor",
   );
   env.CLAUDECODE = ""; // Belt-and-suspenders: also clear the env guard
 
@@ -314,7 +314,7 @@ async function main() {
 
   // Status
   const taskPreview = (args.task || "(from context file)").slice(0, 80);
-  log(`${colors.bold}${colors.cyan}remote-agent${colors.reset} ${colors.dim}|${colors.reset} ${args.model} ${colors.dim}|${colors.reset} budget $${args.budget} ${colors.dim}|${colors.reset} timeout ${args.timeout}s ${colors.dim}|${colors.reset} turns ${args.maxTurns}`);
+  log(`${colors.bold}${colors.cyan}Arbor${colors.reset} ${colors.dim}|${colors.reset} ${args.model} ${colors.dim}|${colors.reset} budget $${args.budget} ${colors.dim}|${colors.reset} timeout ${args.timeout}s ${colors.dim}|${colors.reset} turns ${args.maxTurns}`);
   log(`${colors.dim}Task: ${taskPreview}${taskPreview.length >= 80 ? "..." : ""}${colors.reset}`);
   log("");
 
@@ -360,7 +360,7 @@ async function main() {
     startTime = Date.now();
 
     // TASK 1: Create temp directory for overflow files
-    const tempDir = mkdtempSync(join(tmpdir(), "remote-agent-"));
+    const tempDir = mkdtempSync(join(tmpdir(), "arbor-"));
     let stdoutOverflowPath = null;
     let stdoutOverflowStream = null;
     let stderrOverflowPath = null;

@@ -12,7 +12,7 @@
   </defs>
 
   <!-- Background -->
-  <rect width="800" height="520" fill="#000000"/>
+  <rect width="800" height="520" fill="#0F172A"/>
 
   <!-- Row 1: Main Claude Session (y=30) -->
   <rect x="300" y="30" width="200" height="60" rx="8" ry="8" fill="#111111" stroke="#F59E0B" stroke-width="2"/>

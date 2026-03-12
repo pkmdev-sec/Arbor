@@ -1,0 +1,85 @@
+<svg viewBox="0 0 1200 300" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#0F172A;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1E293B;stop-opacity:1" />
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="300" rx="16" fill="url(#bgGradient)" stroke="#1E293B" stroke-width="1"/>
+
+  <!-- Subtle background grid -->
+  <g opacity="0.03">
+    <line x1="0" y1="75" x2="1200" y2="75" stroke="#E2E8F0" stroke-width="1"/>
+    <line x1="0" y1="150" x2="1200" y2="150" stroke="#E2E8F0" stroke-width="1"/>
+    <line x1="0" y1="225" x2="1200" y2="225" stroke="#E2E8F0" stroke-width="1"/>
+    <line x1="300" y1="0" x2="300" y2="300" stroke="#E2E8F0" stroke-width="1"/>
+    <line x1="600" y1="0" x2="600" y2="300" stroke="#E2E8F0" stroke-width="1"/>
+    <line x1="900" y1="0" x2="900" y2="300" stroke="#E2E8F0" stroke-width="1"/>
+  </g>
+
+  <!-- Faint branch pattern background -->
+  <g opacity="0.05">
+    <path d="M 50 150 L 250 150 M 150 150 L 150 80 L 200 50 M 150 150 L 150 220 L 200 250" stroke="#06B6D4" stroke-width="2" fill="none"/>
+    <path d="M 950 150 L 1150 150 M 1050 150 L 1050 80 L 1100 50 M 1050 150 L 1050 220 L 1100 250" stroke="#06B6D4" stroke-width="2" fill="none"/>
+  </g>
+
+  <!-- Tree logo mark (left side) -->
+  <g transform="translate(120, 150)">
+    <!-- Trunk (amber) -->
+    <path d="M -8 30 L -8 60 L 8 60 L 8 30 Z" fill="#F59E0B"/>
+    <path d="M -12 55 L -12 65 L 12 65 L 12 55 Z" fill="#F59E0B" opacity="0.8"/>
+
+    <!-- Main branches (cyan) -->
+    <path d="M 0 30 L -25 0 L -35 -10" stroke="#06B6D4" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M 0 30 L 25 0 L 35 -10" stroke="#06B6D4" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <!-- Secondary branches -->
+    <path d="M -25 0 L -45 -20 L -55 -30" stroke="#06B6D4" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <path d="M -25 0 L -30 10 L -40 20" stroke="#06B6D4" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <path d="M 25 0 L 45 -20 L 55 -30" stroke="#06B6D4" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <path d="M 25 0 L 30 10 L 40 20" stroke="#06B6D4" stroke-width="4" fill="none" stroke-linecap="round"/>
+
+    <!-- Agent node dots (glowing cyan) -->
+    <circle cx="-55" cy="-30" r="4" fill="#06B6D4" filter="url(#glow)" opacity="0.9"/>
+    <circle cx="-40" cy="20" r="4" fill="#06B6D4" filter="url(#glow)" opacity="0.9"/>
+    <circle cx="55" cy="-30" r="4" fill="#06B6D4" filter="url(#glow)" opacity="0.9"/>
+    <circle cx="40" cy="20" r="4" fill="#06B6D4" filter="url(#glow)" opacity="0.9"/>
+
+    <!-- Emerald accent dots -->
+    <circle cx="-35" cy="-10" r="3" fill="#10B981" opacity="0.6"/>
+    <circle cx="35" cy="-10" r="3" fill="#10B981" opacity="0.6"/>
+  </g>
+
+  <!-- Isolation ring fragment (dashed arc) -->
+  <g opacity="0.3">
+    <circle cx="120" cy="150" r="90" stroke="#06B6D4" stroke-width="2" fill="none" stroke-dasharray="8 12"/>
+  </g>
+
+  <!-- Decorative horizontal lines -->
+  <line x1="240" y1="150" x2="320" y2="150" stroke="#1E293B" stroke-width="2" opacity="0.5"/>
+  <line x1="1050" y1="150" x2="1150" y2="150" stroke="#1E293B" stroke-width="2" opacity="0.5"/>
+
+  <!-- Small decorative dots -->
+  <circle cx="330" cy="150" r="3" fill="#10B981" opacity="0.4"/>
+  <circle cx="345" cy="150" r="2" fill="#06B6D4" opacity="0.4"/>
+  <circle cx="1040" cy="150" r="3" fill="#10B981" opacity="0.4"/>
+  <circle cx="1025" cy="150" r="2" fill="#06B6D4" opacity="0.4"/>
+
+  <!-- Title text "Arbor" -->
+  <text x="370" y="155" font-family="system-ui, -apple-system, sans-serif" font-size="72" font-weight="700" fill="#F59E0B" letter-spacing="-1">Arbor</text>
+
+  <!-- Subtitle -->
+  <text x="370" y="195" font-family="system-ui, -apple-system, sans-serif" font-size="22" font-weight="400" fill="#E2E8F0" letter-spacing="2" opacity="0.85">Multi-agent orchestration with worktree isolation</text>
+
+  <!-- Small accent line under title -->
+  <line x1="370" y1="168" x2="480" y2="168" stroke="#06B6D4" stroke-width="3" opacity="0.6"/>
+</svg>

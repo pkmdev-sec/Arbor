@@ -6,7 +6,7 @@ Reason: All task management goes through `bd` (beads) for persistent,
 dependency-aware tracking. Internal tasks are ephemeral and session-scoped.
 
 bd provides: persistent storage (Dolt), cross-session state, dependency graphs,
-ready-work detection, and integration with remote-agent/swarm.
+ready-work detection, and integration with arbor/arbor-swarm.
 """
 
 from __future__ import annotations
@@ -50,8 +50,13 @@ def main() -> None:
         }
         print(json.dumps(result), flush=True)
 
-    except Exception:
-        pass  # Fail open
+    except Exception as e:
+        # Fail-closed: errors must block, not pass through silently
+        result = {
+            "decision": "block",
+            "reason": f"[Orchestrator] Hook error: {e}. Tool blocked for safety.",
+        }
+        print(json.dumps(result), flush=True)
 
 
 if __name__ == "__main__":

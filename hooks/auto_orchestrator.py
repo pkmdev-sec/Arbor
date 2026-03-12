@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""Auto-Orchestrator v4: AI-powered routing with remote-agent enforcement.
+"""Auto-Orchestrator v4: AI-powered routing with Arbor enforcement.
 
 Fires at UserPromptSubmit. Uses Claude API (haiku) for semantic task classification
-instead of regex heuristics. Produces pre-computed swarm/remote-agent commands
+instead of regex heuristics. Produces pre-computed arbor-swarm/arbor commands
 with bd task tickets.
 
 Flow:
   1. AI classifies task (Claude API call, ~1-2s)
   2. Estimate context pressure (budget.db, ~5ms)
   3. Create bd task with full spec
-  4. Pre-compute swarm command with bd task ID embedded
+  4. Pre-compute arbor-swarm command with bd task ID embedded
   5. Write DELEGATE state for PreToolUse enforcement
   6. Emit directive with ready-to-run command
 
@@ -38,8 +38,8 @@ ROUTING_HISTORY = STATE_DIR / "routing_history.json"
 LOG_FILE = STATE_DIR / "bridge.log"
 
 EFFECTIVE_CONTEXT = 200_000
-RA = "remote-agent"
-SWARM = "swarm"
+RA = "arbor"
+SWARM = "arbor-swarm"
 DELEGATE_STATE = STATE_DIR / "delegate_mode.json"
 
 # AI classifier model — haiku for speed (~1s), sonnet as fallback
@@ -331,7 +331,7 @@ def _create_bd_task(
              "--description", description,
              "--priority", priority,
              "--type", bd_type,
-             "--labels", f"{task_type.lower()},remote-agent",
+             "--labels", f"{task_type.lower()},arbor",
              ],
             capture_output=True, text=True, timeout=10,
             cwd=cwd,
@@ -400,7 +400,7 @@ def generate_directive(
         return None
 
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    # DELEGATE — all substantial work goes to swarm/remote-agent
+    # DELEGATE — all substantial work goes to arbor-swarm/arbor
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     # Create bd task with full spec
@@ -420,13 +420,13 @@ def generate_directive(
     if mode == "review":
         cmd = _swarm_cmd(
             effective_task, mode="review", agents=agents, depth=depth,
-            result_file="/tmp/swarm-result.json", verify=verify,
+            result_file="/tmp/arbor-swarm-result.json", verify=verify,
             stdin_pipe="git diff HEAD~1", bd_task=task_id,
         )
     else:
         cmd = _swarm_cmd(
             effective_task, mode=mode, agents=agents, depth=depth,
-            result_file="/tmp/swarm-result.json", verify=verify,
+            result_file="/tmp/arbor-swarm-result.json", verify=verify,
             bd_task=task_id,
         )
 
@@ -440,13 +440,13 @@ def generate_directive(
     lines.append("YOUR FIRST AND ONLY ACTION: Run this Bash command. All other tools are blocked.")
     lines.append(f"RUN: `{cmd}`")
     lines.append("")
-    lines.append("THEN: Read /tmp/swarm-result.json → present findings/results to user.")
+    lines.append("THEN: Read /tmp/arbor-swarm-result.json → present findings/results to user.")
 
     if pressure in ("HIGH", "CRITICAL"):
         lines.append(f"NOTE: Context at {pct:.0f}%. Run /compact FIRST.")
 
     if task_id:
-        lines.append(f"BD TASK: {task_id} (auto-created, swarm will claim+close)")
+        lines.append(f"BD TASK: {task_id} (auto-created, arbor-swarm will claim+close)")
 
     return "\n".join(lines)
 
@@ -473,7 +473,7 @@ def main() -> None:
             STATE_DIR.mkdir(parents=True, exist_ok=True)
             DELEGATE_STATE.write_text(json.dumps({
                 "mode": "DELEGATE",
-                "command": "swarm (classifying...)",
+                "command": "arbor-swarm (classifying...)",
                 "task_type": "PENDING",
                 "timestamp": dt.datetime.now(dt.timezone.utc).isoformat(),
             }), encoding="utf-8")

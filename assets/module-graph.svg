@@ -12,7 +12,7 @@
   </defs>
 
   <!-- Background -->
-  <rect width="800" height="500" fill="#000000"/>
+  <rect width="800" height="500" fill="#0F172A"/>
 
   <!-- Layer labels -->
   <text x="15" y="45" font-family="monospace" font-size="9" fill="#333333">ENTRY</text>

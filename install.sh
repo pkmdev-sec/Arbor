@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# remote-agent installer — sets up everything from scratch
+# Arbor installer — sets up everything from scratch
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLAUDE_DIR="${HOME}/.claude"
 
-echo "=== remote-agent installer ==="
+echo "=== Arbor installer ==="
 echo ""
 
 # 1. Check prerequisites
@@ -33,10 +33,10 @@ echo ""
 echo "[3/6] Creating symlinks..."
 LOCAL_BIN="${HOME}/.local/bin"
 mkdir -p "$LOCAL_BIN"
-ln -sf "${SCRIPT_DIR}/agent-entry.mjs" "${LOCAL_BIN}/remote-agent"
-ln -sf "${SCRIPT_DIR}/swarm.mjs" "${LOCAL_BIN}/swarm"
-echo "  ${LOCAL_BIN}/remote-agent → agent-entry.mjs"
-echo "  ${LOCAL_BIN}/swarm → swarm.mjs"
+ln -sf "${SCRIPT_DIR}/agent-entry.mjs" "${LOCAL_BIN}/arbor"
+ln -sf "${SCRIPT_DIR}/swarm.mjs" "${LOCAL_BIN}/arbor-swarm"
+echo "  ${LOCAL_BIN}/arbor → agent-entry.mjs"
+echo "  ${LOCAL_BIN}/arbor-swarm → swarm.mjs"
 
 # 4. Install hooks into Claude Code settings
 echo ""
@@ -64,7 +64,7 @@ cp "${SCRIPT_DIR}/hooks/block_task_tools.py" "$HOOKS_DIR/"
 chmod +x "$HOOKS_DIR"/*.py
 echo "  Hooks copied to ${HOOKS_DIR}/"
 
-# Create isolated config for remote-agent subprocess
+# Create isolated config for arbor subprocess
 REMOTE_CONFIG="${SCRIPT_DIR}/config"
 mkdir -p "$REMOTE_CONFIG"
 if [ ! -f "${REMOTE_CONFIG}/settings.json" ]; then
@@ -140,12 +140,12 @@ echo '{"mode":"DIRECT"}' > "${CLAUDE_DIR}/hooks/.acontext_state/delegate_mode.js
 echo ""
 echo "=== Installation complete ==="
 echo ""
-remote-agent --version 2>/dev/null || echo "Warning: remote-agent not on PATH. Add ~/.local/bin to PATH."
+arbor --version 2>/dev/null || echo "Warning: arbor not on PATH. Add ~/.local/bin to PATH."
 echo ""
 echo "Quick test:"
-echo "  remote-agent --help"
-echo "  swarm --help"
+echo "  arbor --help"
+echo "  arbor-swarm --help"
 echo ""
 echo "Usage from Claude Code session:"
-echo '  remote-agent -m sonnet "explore this codebase"'
-echo '  swarm --mode parallel --agents 3 "analyze the project"'
+echo '  arbor -m sonnet "explore this codebase"'
+echo '  arbor-swarm --mode parallel --agents 3 "analyze the project"'
