@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
-"""PostToolUse hook v3: DELEGATE fulfillment + nonce-based skill recording.
+"""PostToolUse hook v4: DELEGATE fulfillment + nonce-based skill recording.
 
-Changes from v2:
-  - Records Skill tool invocations with session nonce for anti-injection
-  - Nonce-stamped files in /tmp/taskmaster/<session>/verified_skills/
-  - Prevents transcript marker injection (pkmdev-6v9)
+Changes from v3:
+  - Only fulfill on exit code 0 — failed arbor commands keep DELEGATE active
+  - Logs failures to blocker log for debugging
+  - Prevents Claude Code from bypassing delegation after swarm failures
 
 Transitions DELEGATE → FULFILLED only when:
   1. Bash command starts with arbor/arbor-swarm
   2. Command includes --result-file (actual work, not --help)
   3. The command was not a trivial no-op
+  4. The command exited successfully (exit code 0)
 """
 
 from __future__ import annotations
@@ -24,6 +25,20 @@ STATE_FILE = (
 )
 SESSION_LOCK = Path("/tmp/.claude-orchestrator-lock")
 READ_BUDGET_FILE = Path("/tmp/.claude-orchestrator-reads")
+BLOCKER_LOG = Path.home() / ".claude" / "hooks" / ".acontext_state" / "blocker.log"
+
+
+def _log(msg: str) -> None:
+    """Append a timestamped line to the blocker log."""
+    try:
+        import datetime as dt
+
+        ts = dt.datetime.now(dt.timezone.utc).strftime("%H:%M:%S")
+        BLOCKER_LOG.parent.mkdir(parents=True, exist_ok=True)
+        with BLOCKER_LOG.open("a", encoding="utf-8") as f:
+            f.write(f"[{ts}] fulfill: {msg}\n")
+    except OSError:
+        pass
 
 
 def _record_skill_invocation(event: dict) -> None:
@@ -93,6 +108,32 @@ def main() -> None:
         if not is_real_invocation:
             return
 
+        # ── Exit code gate: only fulfill on success ──
+        tool_result = event.get("tool_result", {})
+        if isinstance(tool_result, str):
+            try:
+                tool_result = json.loads(tool_result)
+            except (json.JSONDecodeError, TypeError):
+                tool_result = {}
+        exit_code = tool_result.get("exit_code")
+
+        if exit_code is None:
+            # Fallback: also check tool_output (schema varies by CC version)
+            tool_output = event.get("tool_output", {})
+            if isinstance(tool_output, str):
+                try:
+                    tool_output = json.loads(tool_output)
+                except (json.JSONDecodeError, TypeError):
+                    tool_output = {}
+            exit_code = tool_output.get("exit_code")
+
+        if exit_code is not None and exit_code != 0:
+            _log(
+                f"DELEGATION FAILED (exit_code={exit_code}): {command[:120]} "
+                f"— keeping DELEGATE state, session lock preserved"
+            )
+            return  # Do NOT fulfill — keep DELEGATE + lock active
+
         # Read current state
         if not STATE_FILE.exists():
             return
@@ -108,7 +149,10 @@ def main() -> None:
         state["mode"] = "FULFILLED"
         state["fulfilled_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
         state["fulfilled_command"] = command[:200]
+        state["exit_code"] = exit_code
         STATE_FILE.write_text(json.dumps(state), encoding="utf-8")
+
+        _log(f"FULFILLED (exit_code={exit_code}): {command[:120]}")
 
         # Remove session lock and read budget so post-delegation tools
         # (Read, Grep, etc.) are allowed for reviewing arbor output.
