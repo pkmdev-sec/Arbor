@@ -557,6 +557,11 @@ async function main() {
   log(`${colors.dim}Task: ${args.task.slice(0, 80)}${args.task.length > 80 ? "..." : ""}${colors.reset}`);
   log("");
 
+  // F9: Propagate TUI flag to child agents for PostToolUse progress hooks
+  if (args.tui) {
+    process.env.ARBOR_TUI = "1";
+  }
+
   // ── TUI dashboard (read-only overlay — does NOT control execution) ──
   let dashboard = null;
   if (args.tui && process.stdout.isTTY) {

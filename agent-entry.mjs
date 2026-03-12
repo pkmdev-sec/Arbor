@@ -39,7 +39,7 @@ import { tmpdir } from "node:os";
 import { createWriteStream } from "node:fs";
 
 import { colors, log, setQuiet } from "./lib/output.mjs";
-import { MAX_BUFFER_SIZE, TOOL_CALL_RE, resolveModel, ROLE_PROMPTS, ROLE_DISALLOWED_TOOLS, ROLE_THINKING_TOKENS, ROLE_OUTPUT_TOKENS, ROLE_BASH_LIMIT } from "./lib/config.mjs";
+import { MAX_BUFFER_SIZE, TOOL_CALL_RE, resolveModel, ROLE_PROMPTS, ROLE_DISALLOWED_TOOLS, ROLE_THINKING_TOKENS, ROLE_OUTPUT_TOKENS, ROLE_BASH_LIMIT, DECOMPOSER_OUTPUT_SCHEMA } from "./lib/config.mjs";
 import { parseAgentArgs, showAgentHelp } from "./lib/cli.mjs";
 import { contextToSystemPrompt, writeResult } from "./lib/context-bridge.mjs";
 import { parseTelemetry, reportPeakBufferSize } from "./lib/telemetry.mjs";
@@ -299,30 +299,65 @@ async function main() {
   const sessionUUID = randomUUID();
   const canResume = args.maxRetries > 0;
 
-  // ── Scope guard: per-agent config with PreToolUse hook ─────────
-  // When scope is provided, create a per-agent config directory with a hook that
-  // blocks Write/Edit/Bash operations targeting files outside the scope.
+  // ── Hooks: scope guard, progress reporting, pre-compact state ──
+  // Create a per-agent config when any hook is needed: scope → PreToolUse,
+  // TUI → PostToolUse, long-running/persistent → PreCompact.
   let scopeConfigDir = null;
-  if (args.scope) {
+  const tuiActive = process.env.ARBOR_TUI === "1";
+  const needsPreCompact = args.persistContext || args.maxTurns > 50 || args.scope;
+  const needsHooks = args.scope || (tuiActive && args.resultFile) || needsPreCompact;
+  if (needsHooks) {
     scopeConfigDir = mkdtempSync(join(tmpdir(), "ra-scope-"));
+    const hooks = {};
+
+    // PreToolUse: scope guard — block writes outside assigned scope
+    if (args.scope) {
+      hooks.PreToolUse = [{
+        matcher: "{Write,Edit,Bash}",
+        hooks: [{
+          type: "command",
+          command: `python3 ${join(__dirname, "hooks", "scope-guard.py")}`,
+          timeout: 3,
+        }]
+      }];
+      env.ARBOR_SCOPE = args.scope;
+      log(`${colors.dim}Scope guard active: ${args.scope}${colors.reset}`);
+    }
+
+    // F9: PostToolUse — progress reporter for TUI real-time display
+    if (tuiActive && args.resultFile) {
+      hooks.PostToolUse = [{
+        matcher: "*",
+        hooks: [{
+          type: "command",
+          command: `python3 ${join(__dirname, "hooks", "progress-reporter.py")}`,
+          timeout: 3,
+        }]
+      }];
+      env.ARBOR_PROGRESS_IPC_DIR = dirname(args.resultFile);
+      env.ARBOR_AGENT_ID = process.env.SWARM_AGENT_ID || agentId;
+    }
+
+    // F10: PreCompact — save agent state before context compaction
+    if (needsPreCompact) {
+      hooks.PreCompact = [{
+        matcher: "*",
+        hooks: [{
+          type: "command",
+          command: `python3 ${join(__dirname, "hooks", "agent-precompact.py")}`,
+          timeout: 5,
+        }]
+      }];
+      if (args.role) env.ARBOR_ROLE = args.role;
+    }
+
     const scopeSettings = {
       "$schema": "https://json.schemastore.org/claude-code-settings.json",
       permissions: { allow: ["*"], deny: [], defaultMode: "dontAsk" },
       includeCoAuthoredBy: false,
-      hooks: {
-        PreToolUse: [{
-          matcher: "{Write,Edit,Bash}",
-          hooks: [{
-            type: "command",
-            command: `python3 ${join(__dirname, "hooks", "scope-guard.py")}`,
-            timeout: 3,
-          }]
-        }]
-      }
+      hooks,
     };
     writeFileSync(join(scopeConfigDir, "settings.json"), JSON.stringify(scopeSettings, null, 2), "utf-8");
-    env.ARBOR_SCOPE = args.scope;
-    log(`${colors.dim}Scope guard active: ${args.scope}${colors.reset}`);
   }
 
   // Point subprocess to config (scope-guarded or minimal)
@@ -369,6 +404,8 @@ async function main() {
     if (systemParts.length > 0) {
       persistContextDir = mkdtempSync(join(tmpdir(), "ra-ctx-"));
       writeFileSync(join(persistContextDir, "CLAUDE.md"), systemParts.join("\n\n"), "utf-8");
+      // F10: Expose persist dir to PreCompact hook for state preservation
+      env.ARBOR_PERSIST_DIR = persistContextDir;
       log(`${colors.dim}Context persisted to ${persistContextDir}/CLAUDE.md (survives compaction)${colors.reset}`);
     }
   }
@@ -437,6 +474,11 @@ async function main() {
 
     // F7: Settings isolation — prevent child from reading user's global settings
     childArgs.push("--setting-sources", "user");
+
+    // F8: Decomposer JSON schema enforcement — structured output via --json-schema
+    if (args.role === "decomposer") {
+      childArgs.push("--json-schema", JSON.stringify(DECOMPOSER_OUTPUT_SCHEMA));
+    }
 
     // Change 4: Use built-in verifier agent instead of custom role prompt
     if (args.role === "verifier") {
