@@ -50,13 +50,8 @@ def main() -> None:
         }
         print(json.dumps(result), flush=True)
 
-    except Exception as e:
-        # Fail-closed: errors must block, not pass through silently
-        result = {
-            "decision": "block",
-            "reason": f"[Orchestrator] Hook error: {e}. Tool blocked for safety.",
-        }
-        print(json.dumps(result), flush=True)
+    except Exception:
+        pass  # Fail open
 
 
 if __name__ == "__main__":

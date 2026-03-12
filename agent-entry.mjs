@@ -186,11 +186,6 @@ async function main() {
     process.exit(1);
   }
 
-  if (isNaN(args.timeout) || args.timeout < 10 || args.timeout > 3600) {
-    process.stderr.write(`Error: Invalid timeout ${args.timeout}. Must be >= 10 and <= 3600.\n`);
-    process.exit(1);
-  }
-
   if (isNaN(args.maxTurns) || args.maxTurns < 1 || args.maxTurns > 200) {
     process.stderr.write(`Error: Invalid maxTurns ${args.maxTurns}. Must be >= 1 and <= 200.\n`);
     process.exit(1);
@@ -313,7 +308,7 @@ async function main() {
 
   // Status
   const taskPreview = (args.task || "(from context file)").slice(0, 80);
-  log(`${colors.bold}${colors.cyan}Arbor${colors.reset} ${colors.dim}|${colors.reset} ${args.model} ${colors.dim}|${colors.reset} budget $${args.budget} ${colors.dim}|${colors.reset} timeout ${args.timeout}s ${colors.dim}|${colors.reset} turns ${args.maxTurns}`);
+  log(`${colors.bold}${colors.cyan}Arbor${colors.reset} ${colors.dim}|${colors.reset} ${args.model} ${colors.dim}|${colors.reset} budget $${args.budget} ${colors.dim}|${colors.reset} turns ${args.maxTurns}`);
   log(`${colors.dim}Task: ${taskPreview}${taskPreview.length >= 80 ? "..." : ""}${colors.reset}`);
   log("");
 
@@ -322,7 +317,7 @@ async function main() {
   if (args.resultFile) {
     try {
       initIpcLogger(dirname(args.resultFile));
-      logIpc(agentLabel, 'orchestrator', 'lifecycle', `Agent started: ${args.model}, budget $${args.budget}`, { model: args.model, budget: args.budget, timeout: args.timeout, turns: args.maxTurns });
+      logIpc(agentLabel, 'orchestrator', 'lifecycle', `Agent started: ${args.model}, budget $${args.budget}`, { model: args.model, budget: args.budget, turns: args.maxTurns });
       logIpc(agentLabel, 'orchestrator', 'lifecycle', 'Task: ' + taskPreview, { model: args.model });
     } catch {
       // IPC init failure is non-fatal
@@ -516,7 +511,36 @@ async function main() {
       }
     }, 30000);
 
+    // ── Inactivity watchdog — kill agent after 5min of stderr silence ──
+    let lastStderrActivity = Date.now();
+    const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+    const inactivityWatchdog = setInterval(() => {
+      const silenceMs = Date.now() - lastStderrActivity;
+      if (silenceMs >= INACTIVITY_TIMEOUT_MS) {
+        clearInterval(inactivityWatchdog);
+        const silenceSec = (silenceMs / 1000).toFixed(0);
+        queueWrite(`${colors.yellow}[watchdog] No activity for ${silenceSec}s — sending SIGINT${colors.reset}\n`);
+        try { proc.kill("SIGINT"); } catch { /* already dead */ }
+        // Escalate: SIGTERM after 10s, SIGKILL after 20s
+        setTimeout(() => {
+          try {
+            process.kill(proc.pid, 0); // alive check
+            queueWrite(`${colors.yellow}[watchdog] Still alive — sending SIGTERM${colors.reset}\n`);
+            proc.kill("SIGTERM");
+          } catch { /* dead */ }
+        }, 10_000);
+        setTimeout(() => {
+          try {
+            process.kill(proc.pid, 0);
+            queueWrite(`${colors.red}[watchdog] Force killing — SIGKILL${colors.reset}\n`);
+            proc.kill("SIGKILL");
+          } catch { /* dead */ }
+        }, 20_000);
+      }
+    }, 30_000); // Check every 30s
+
     proc.stderr.on("data", (chunk) => {
+      lastStderrActivity = Date.now(); // Reset watchdog on any stderr activity
       stderrChunks.push(chunk);
       stderrBytes += chunk.length;
       peakStderrBytes = Math.max(peakStderrBytes, stderrBytes);
@@ -569,44 +593,16 @@ async function main() {
       }
     });
 
-    // Timeout handler - progressive signal escalation
-    let timedOut = false;
-    const timer = setTimeout(() => {
-      timedOut = true;
-      clearInterval(progressInterval);
-      log(`\n${colors.yellow}Timeout (${args.timeout}s) — sending SIGINT${colors.reset}`);
-      proc.kill("SIGINT");
-
-      // Escalate to SIGTERM after 10s
-      setTimeout(() => {
-        if (!proc.killed) {
-          log(`${colors.yellow}Escalating to SIGTERM${colors.reset}`);
-          proc.kill("SIGTERM");
-
-          // Final escalation to SIGKILL after 5s more
-          setTimeout(() => {
-            if (!proc.killed) {
-              log(`${colors.yellow}Force killing with SIGKILL${colors.reset}`);
-              try { proc.kill("SIGKILL"); } catch {}
-            }
-          }, 5000);
-        }
-      }, 10000);
-    }, args.timeout * 1000);
-
-    // Wait for exit
+    // Wait for exit (no timeout — agents run until natural completion)
     exitCode = await new Promise((resolve) => {
       proc.on("close", (code, signal) => {
-        clearTimeout(timer);
         clearInterval(progressInterval);
-        // Flush any remaining partial lines in the stderr buffer
+        clearInterval(inactivityWatchdog);
         if (!args.quiet) flushRemainingLines(stderrPrefix);
-        // Exit code 124 indicates timeout/interruption
-        const wasInterrupted = signal === "SIGTERM" || signal === "SIGKILL" || signal === "SIGINT" || timedOut;
+        const wasInterrupted = signal === "SIGTERM" || signal === "SIGKILL" || signal === "SIGINT";
         resolve(wasInterrupted ? 124 : (code ?? 1));
       });
       proc.on("error", (err) => {
-        clearTimeout(timer);
         clearInterval(progressInterval);
         log(`${colors.red}Spawn error: ${err.message}${colors.reset}`);
         resolve(1);
@@ -693,8 +689,7 @@ async function main() {
 
   // Status report
   if (exitCode === 124) {
-    log(`\n${colors.yellow}Timed out after ${durationSec}s${colors.reset}`);
-    log(`${colors.dim}Tip: use --timeout 900 or split into smaller scoped tasks${colors.reset}`);
+    log(`\n${colors.yellow}Interrupted after ${durationSec}s${colors.reset}`);
   } else if (exitCode !== 0) {
     log(`\n${colors.red}Failed after ${durationSec}s (exit ${exitCode})${colors.reset}`);
     // Show stderr on failure for diagnostics
@@ -709,7 +704,7 @@ async function main() {
 
   // IPC: Log agent completion
   if (args.resultFile) {
-    const status = exitCode === 0 ? 'completed' : exitCode === 124 ? 'timeout' : 'failed';
+    const status = exitCode === 0 ? 'completed' : exitCode === 124 ? 'interrupted' : 'failed';
     try {
       logIpc(agentLabel, 'orchestrator', exitCode === 0 ? 'result' : 'error', `Agent ${status} in ${durationSec}s (exit ${exitCode})`, { exitCode, durationMs, status, toolCalls: progress.tool_calls_count });
     } catch { /* non-fatal */ }
@@ -769,7 +764,7 @@ async function main() {
 
     const result = {
       version: 1,
-      status: exitCode === 0 ? "completed" : exitCode === 124 ? "timeout" : "failed",
+      status: exitCode === 0 ? "completed" : exitCode === 124 ? "interrupted" : "failed",
       output: output.slice(0, 500_000), // 500KB cap
       duration_ms: durationMs,
       exit_code: exitCode,

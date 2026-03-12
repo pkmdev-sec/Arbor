@@ -169,7 +169,7 @@ async function main() {
     const result = await spawnAgent({
       task: args.task, role: "worker", model: "sonnet",
       turns: DEPTH[depth].turns, budget: DEPTH[depth].budget,
-      timeout: args.timeout, resultFile: rf, contextFile: args.contextFile,
+      resultFile: rf, contextFile: args.contextFile,
       agentId: "agent-01", cwd: isolation.worktreePath || mainCwd,
     });
     workerResults = [{ id: "agent-01", subtask: args.task.slice(0, 80), model: "sonnet", ...result, resultFile: rf, worktreePath: isolation.worktreePath }];
@@ -241,7 +241,7 @@ async function main() {
     const result = await spawnAgent({
       task: args.task, role: "worker", model: "opus",
       turns: 15, budget: DEPTH[depth].budget,
-      timeout: args.timeout, resultFile: rf, contextFile: args.contextFile,
+      resultFile: rf, contextFile: args.contextFile,
       agentId: "reviewer", cwd: isolation.worktreePath || mainCwd,
     });
     workerResults = [{ id: "reviewer", subtask: args.task.slice(0, 80), model: "opus", ...result, resultFile: rf, worktreePath: isolation.worktreePath }];

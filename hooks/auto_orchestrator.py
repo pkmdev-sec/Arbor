@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Auto-Orchestrator v4: AI-powered routing with Arbor enforcement.
 
-Fires at UserPromptSubmit. Uses Claude API (haiku) for semantic task classification
+Fires at UserPromptSubmit. Uses Claude API (sonnet) for semantic task classification
 instead of regex heuristics. Produces pre-computed arbor-swarm/arbor commands
 with bd task tickets.
 
@@ -9,7 +9,7 @@ Flow:
   1. AI classifies task (Claude API call, ~1-2s)
   2. Estimate context pressure (budget.db, ~5ms)
   3. Create bd task with full spec
-  4. Pre-compute arbor-swarm command with bd task ID embedded
+  4. Pre-compute swarm command with bd task ID embedded
   5. Write DELEGATE state for PreToolUse enforcement
   6. Emit directive with ready-to-run command
 
@@ -38,13 +38,12 @@ ROUTING_HISTORY = STATE_DIR / "routing_history.json"
 LOG_FILE = STATE_DIR / "bridge.log"
 
 EFFECTIVE_CONTEXT = 200_000
-RA = "arbor"
 SWARM = "arbor-swarm"
 DELEGATE_STATE = STATE_DIR / "delegate_mode.json"
 
-# AI classifier model — haiku for speed (~1s), sonnet as fallback
-CLASSIFIER_MODEL = "claude-haiku-4-5-20251001"
-API_TIMEOUT_SEC = 8  # Must fit within hook timeout (20s)
+# AI classifier model — sonnet for quality classification (~2s)
+CLASSIFIER_MODEL = "claude-sonnet-4-20250514"
+API_TIMEOUT_SEC = 12  # Sonnet needs slightly more headroom (hook timeout 25s)
 
 # ── AI Classifier ──────────────────────────────────────────────────
 
@@ -55,7 +54,7 @@ Return ONLY valid JSON — no markdown, no explanation, just the JSON object.
 {
   "execution": "DELEGATE" or "DIRECT",
   "task_type": "RESEARCH" or "IMPLEMENTATION" or "DEBUG" or "REVIEW" or "REFACTOR" or "QUESTION" or "FOLLOWUP",
-  "mode": "parallel" or "swarm" or "pipeline" or "single" or "review",
+  "mode": "parallel" or "swarm" or "pipeline" or "single" or "review" or "hierarchical",
   "agents": 1 to 5,
   "depth": "shallow" or "normal" or "thorough",
   "model": "sonnet" or "opus",
@@ -74,10 +73,11 @@ Rules for "mode":
 - pipeline: refactoring — sequential stages: research → implement → test → review
 - single: debugging/focused fixes — one agent investigates and fixes
 - review: code review — opus reviewer + verifier cross-check
+- hierarchical: large multi-module tasks that span 5+ files across multiple directories, have deep dependency trees, or require >5 distinct subtasks with ordering constraints. Uses a governor for resource budgeting and sub-coordinators for scoped sub-swarms. Prefer this over swarm when the task has natural module boundaries or tiered dependencies.
 
-Rules for "agents": more agents for broader scope, fewer for focused tasks
+Rules for "agents": more agents for broader scope, fewer for focused tasks. Hierarchical mode uses 4-5 agents.
 Rules for "depth": thorough for production-critical work, normal for standard tasks, shallow for quick scans
-Rules for "model": opus for reviews and deep analysis, sonnet for everything else
+Rules for "model": opus for reviews, deep analysis, and hierarchical coordination. Sonnet for everything else.
 Rules for "verify": true for any task that modifies code, false for read-only research"""
 
 
@@ -87,13 +87,18 @@ def _classify_with_ai(prompt: str) -> dict[str, Any] | None:
     if not api_key:
         return None
 
-    body = json.dumps({
-        "model": CLASSIFIER_MODEL,
-        "max_tokens": 300,
-        "messages": [
-            {"role": "user", "content": f"{CLASSIFIER_PROMPT}\n\nUser request:\n{prompt[:2000]}"}
-        ],
-    }).encode("utf-8")
+    body = json.dumps(
+        {
+            "model": CLASSIFIER_MODEL,
+            "max_tokens": 300,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": f"{CLASSIFIER_PROMPT}\n\nUser request:\n{prompt[:2000]}",
+                }
+            ],
+        }
+    ).encode("utf-8")
 
     req = urllib.request.Request(
         "https://api.anthropic.com/v1/messages",
@@ -126,10 +131,21 @@ def _classify_with_ai(prompt: str) -> dict[str, Any] | None:
 
 _FOLLOWUP = re.compile(
     r"^(yes|no|ok|sure|go\s+ahead|do\s+it|proceed|continue|looks\s+good|lgtm|"
-    r"that's\s+right|correct|exactly|perfect|thanks|great|approved|accepted)\b", re.I
+    r"that's\s+right|correct|exactly|perfect|thanks|great|approved|accepted)\b",
+    re.I,
 )
 _QUESTION = re.compile(
     r"^(what|how|why|when|where|which|can\s+you|is\s+it|does|do\s+you|could)\b", re.I
+)
+
+_HIERARCHICAL_SIGNALS = re.compile(
+    r"(across\s+(all|every|multiple)\s+(modules?|packages?|services?|directories|folders)|"
+    r"entire\s+(codebase|project|repo)|"
+    r"end.to.end|full.stack|"
+    r"refactor.*(everything|all\s+\w+)|"
+    r"migrate\s|"
+    r"(\d+)\s+(files?|modules?|components?|services?))",
+    re.I,
 )
 
 
@@ -138,19 +154,63 @@ def _classify_with_regex(prompt: str) -> dict[str, Any]:
     text = prompt.strip()
 
     if len(text) < 80 and _FOLLOWUP.search(text):
-        return {"execution": "DIRECT", "task_type": "FOLLOWUP", "mode": "single",
-                "agents": 1, "depth": "shallow", "model": "sonnet", "verify": False,
-                "task_summary": text, "reasoning": "short followup"}
+        return {
+            "execution": "DIRECT",
+            "task_type": "FOLLOWUP",
+            "mode": "single",
+            "agents": 1,
+            "depth": "shallow",
+            "model": "sonnet",
+            "verify": False,
+            "task_summary": text,
+            "reasoning": "short followup",
+        }
 
     if _QUESTION.match(text) and len(text) < 200:
-        return {"execution": "DIRECT", "task_type": "QUESTION", "mode": "single",
-                "agents": 1, "depth": "shallow", "model": "sonnet", "verify": False,
-                "task_summary": text, "reasoning": "question"}
+        return {
+            "execution": "DIRECT",
+            "task_type": "QUESTION",
+            "mode": "single",
+            "agents": 1,
+            "depth": "shallow",
+            "model": "sonnet",
+            "verify": False,
+            "task_summary": text,
+            "reasoning": "question",
+        }
+
+    # Detect very large tasks that warrant hierarchical mode
+    hier_match = _HIERARCHICAL_SIGNALS.search(text)
+    if hier_match:
+        # Check if a numeric file/module count was captured (group 6)
+        count_str = hier_match.group(6)
+        count = int(count_str) if count_str and count_str.isdigit() else 0
+        # Route to hierarchical if explicit large count or strong cross-module signal
+        if count >= 5 or len(text) > 500 or not count_str:
+            return {
+                "execution": "DELEGATE",
+                "task_type": "IMPLEMENTATION",
+                "mode": "hierarchical",
+                "agents": 4,
+                "depth": "thorough",
+                "model": "opus",
+                "verify": True,
+                "task_summary": text[:200],
+                "reasoning": "regex fallback — large multi-module task, hierarchical mode",
+            }
 
     # Default: delegate everything substantial
-    return {"execution": "DELEGATE", "task_type": "IMPLEMENTATION", "mode": "swarm",
-            "agents": 3, "depth": "normal", "model": "sonnet", "verify": True,
-            "task_summary": text[:200], "reasoning": "regex fallback — delegating to be safe"}
+    return {
+        "execution": "DELEGATE",
+        "task_type": "IMPLEMENTATION",
+        "mode": "swarm",
+        "agents": 3,
+        "depth": "normal",
+        "model": "sonnet",
+        "verify": True,
+        "task_summary": text[:200],
+        "reasoning": "regex fallback — delegating to be safe",
+    }
 
 
 def classify_task(prompt: str) -> dict[str, Any]:
@@ -161,7 +221,9 @@ def classify_task(prompt: str) -> dict[str, Any]:
     # Try AI first
     result = _classify_with_ai(prompt)
     if result and "execution" in result:
-        _log(f"AI classified: {result.get('task_type')} mode={result.get('mode')} agents={result.get('agents')}")
+        _log(
+            f"AI classified: {result.get('task_type')} mode={result.get('mode')} agents={result.get('agents')}"
+        )
         return result
 
     # Fallback to regex
@@ -172,10 +234,16 @@ def classify_task(prompt: str) -> dict[str, Any]:
 
 # ── Helpers ────────────────────────────────────────────────────────
 
+
 def _log(msg: str) -> None:
     try:
         STATE_DIR.mkdir(parents=True, exist_ok=True)
-        ts = dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        ts = (
+            dt.datetime.now(dt.timezone.utc)
+            .replace(microsecond=0)
+            .isoformat()
+            .replace("+00:00", "Z")
+        )
         with LOG_FILE.open("a", encoding="utf-8") as f:
             f.write(f"[{ts}][orchestrator] {msg[:500]}\n")
     except Exception:
@@ -189,7 +257,7 @@ def _get_session_tokens(session_id: str) -> tuple[int, int]:
         conn = sqlite3.connect(str(BUDGET_DB), timeout=3.0)
         cursor = conn.execute(
             "SELECT total_tokens, tool_count FROM session_summary WHERE session_id = ?",
-            (session_id,)
+            (session_id,),
         )
         row = cursor.fetchone()
         conn.close()
@@ -253,7 +321,7 @@ def _swarm_cmd(
         parts.extend(["--result-file", result_file])
     if context_file:
         parts.extend(["--context-file", context_file])
-    if bd_task:
+    if bd_task is not None:
         parts.extend(["--bd-task", bd_task])
     if verify:
         parts.append("--verify")
@@ -278,8 +346,11 @@ def estimate_pressure(tokens: int) -> str:
 
 # ── BD Task Creation ───────────────────────────────────────────────
 
+
 def _create_bd_task(
-    classification: dict[str, Any], prompt: str, cwd: str,
+    classification: dict[str, Any],
+    prompt: str,
+    cwd: str,
 ) -> str | None:
     """Create a bd task with AI-determined spec. Returns task ID or None."""
     task_type = classification.get("task_type", "IMPLEMENTATION")
@@ -326,27 +397,50 @@ def _create_bd_task(
 
     try:
         import subprocess
+
         result = subprocess.run(
-            ["bd", "create", short_title,
-             "--description", description,
-             "--priority", priority,
-             "--type", bd_type,
-             "--labels", f"{task_type.lower()},arbor",
-             ],
-            capture_output=True, text=True, timeout=10,
+            [
+                "bd",
+                "create",
+                short_title,
+                "--description",
+                description,
+                "--priority",
+                priority,
+                "--type",
+                bd_type,
+                "--labels",
+                f"{task_type.lower()},arbor",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
             cwd=cwd,
         )
-        if result.returncode == 0:
-            match = re.search(r"Created issue:\s+(\S+)", result.stdout)
-            if match:
-                return match.group(1)
-    except Exception:
-        pass
+        if result.returncode != 0:
+            _log(
+                f"bd create failed: returncode={result.returncode} stderr={result.stderr[:200]}"
+            )
+            return None
 
-    return None
+        match = re.search(r"Created issue:\s+(\S+)", result.stdout)
+        if match:
+            return match.group(1)
+        else:
+            _log(
+                f"bd create succeeded but regex failed to match stdout: {result.stdout[:200]}"
+            )
+            return None
+    except subprocess.TimeoutExpired:
+        _log(f"bd create timed out after 10s")
+        return None
+    except Exception as e:
+        _log(f"bd create exception: {e}")
+        return None
 
 
 # ── Directive Generator ────────────────────────────────────────────
+
 
 def generate_directive(
     classification: dict[str, Any],
@@ -367,22 +461,30 @@ def generate_directive(
     def _set_delegate_mode(mode: str, command: str = "") -> None:
         try:
             STATE_DIR.mkdir(parents=True, exist_ok=True)
-            DELEGATE_STATE.write_text(json.dumps({
-                "mode": mode,
-                "command": command,
-                "task_type": task_type,
-                "timestamp": dt.datetime.now(dt.timezone.utc).isoformat(),
-            }), encoding="utf-8")
+            DELEGATE_STATE.write_text(
+                json.dumps(
+                    {
+                        "mode": mode,
+                        "command": command,
+                        "task_type": task_type,
+                        "timestamp": dt.datetime.now(dt.timezone.utc).isoformat(),
+                    }
+                ),
+                encoding="utf-8",
+            )
         except Exception:
             pass
 
     # ── DIRECT execution (questions, follow-ups, trivial) ──
     if execution == "DIRECT":
         # FIX #17: FOLLOWUP inherits parent DELEGATE mode — don't clear state
-        if task_type == "FOLLOWUP" and last_routing and last_routing.get("execution") == "DELEGATE":
+        if (
+            task_type == "FOLLOWUP"
+            and last_routing
+            and last_routing.get("execution") == "DELEGATE"
+        ):
             # Keep DELEGATE active — the follow-up is continuing delegated work
-            _blog_msg = "FOLLOWUP inherits DELEGATE from parent"
-            _log(_blog_msg) if '_log' in dir() else None
+            _log("FOLLOWUP inherits DELEGATE from parent")
             return None  # No directive needed — DELEGATE state already active
 
         _set_delegate_mode("DIRECT")
@@ -405,6 +507,10 @@ def generate_directive(
 
     # Create bd task with full spec
     task_id = _create_bd_task(classification, prompt, cwd)
+    if task_id is None:
+        _log(
+            f"WARN: bd task creation failed for {task_type} — directive will lack task tracking"
+        )
 
     # Build swarm command from AI classification
     mode = classification.get("mode", "swarm")
@@ -419,14 +525,23 @@ def generate_directive(
 
     if mode == "review":
         cmd = _swarm_cmd(
-            effective_task, mode="review", agents=agents, depth=depth,
-            result_file="/tmp/arbor-swarm-result.json", verify=verify,
-            stdin_pipe="git diff HEAD~1", bd_task=task_id,
+            effective_task,
+            mode="review",
+            agents=agents,
+            depth=depth,
+            result_file="/tmp/arbor-swarm-result.json",
+            verify=verify,
+            stdin_pipe="git diff HEAD~1",
+            bd_task=task_id,
         )
     else:
         cmd = _swarm_cmd(
-            effective_task, mode=mode, agents=agents, depth=depth,
-            result_file="/tmp/arbor-swarm-result.json", verify=verify,
+            effective_task,
+            mode=mode,
+            agents=agents,
+            depth=depth,
+            result_file="/tmp/arbor-swarm-result.json",
+            verify=verify,
             bd_task=task_id,
         )
 
@@ -434,13 +549,19 @@ def generate_directive(
 
     # Enforcement header
     lines.append(f"[AUTO-ROUTE] type={task_type} mode=DELEGATE pressure={pressure}")
-    lines.append(f"AI routing: {mode} mode, {agents} agents, depth={depth}, verify={verify}")
+    lines.append(
+        f"AI routing: {mode} mode, {agents} agents, depth={depth}, verify={verify}"
+    )
     lines.append(f"Reasoning: {classification.get('reasoning', 'n/a')}")
     lines.append("")
-    lines.append("YOUR FIRST AND ONLY ACTION: Run this Bash command. All other tools are blocked.")
+    lines.append(
+        "YOUR FIRST AND ONLY ACTION: Run this Bash command. All other tools are blocked."
+    )
     lines.append(f"RUN: `{cmd}`")
     lines.append("")
-    lines.append("THEN: Read /tmp/arbor-swarm-result.json → present findings/results to user.")
+    lines.append(
+        "THEN: Read /tmp/arbor-swarm-result.json → present findings/results to user."
+    )
 
     if pressure in ("HIGH", "CRITICAL"):
         lines.append(f"NOTE: Context at {pct:.0f}%. Run /compact FIRST.")
@@ -452,6 +573,7 @@ def generate_directive(
 
 
 # ── Main ───────────────────────────────────────────────────────────
+
 
 def main() -> None:
     try:
@@ -466,22 +588,30 @@ def main() -> None:
         if not session_id or not prompt:
             return
 
-        # FIX #3: Write preliminary DELEGATE state BEFORE the AI call.
-        # This closes the TOCTOU race where Claude's first tool fires
-        # before the orchestrator finishes classifying.
-        try:
-            STATE_DIR.mkdir(parents=True, exist_ok=True)
-            DELEGATE_STATE.write_text(json.dumps({
-                "mode": "DELEGATE",
-                "command": "arbor-swarm (classifying...)",
-                "task_type": "PENDING",
-                "timestamp": dt.datetime.now(dt.timezone.utc).isoformat(),
-            }), encoding="utf-8")
-        except Exception:
-            pass
-
-        # AI-powered classification
+        # Classify FIRST, then set state based on result.
+        # Previous approach wrote DELEGATE before classification, which blocked
+        # all tools even when the task was DIRECT — causing a catch-22 where
+        # investigation/debugging tasks couldn't read files.
         classification = classify_task(prompt)
+
+        # Only write DELEGATE state if the classifier says to delegate.
+        # DIRECT tasks get DIRECT state immediately — no blocking.
+        if classification.get("execution") == "DELEGATE":
+            try:
+                STATE_DIR.mkdir(parents=True, exist_ok=True)
+                DELEGATE_STATE.write_text(
+                    json.dumps(
+                        {
+                            "mode": "DELEGATE",
+                            "command": "arbor-swarm (classifying...)",
+                            "task_type": classification.get("task_type", "PENDING"),
+                            "timestamp": dt.datetime.now(dt.timezone.utc).isoformat(),
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+            except Exception:
+                pass
 
         # Context pressure
         tokens, tool_count = _get_session_tokens(session_id)
@@ -491,24 +621,33 @@ def main() -> None:
         # Generate directive
         cwd = event.get("cwd", os.getcwd())
         directive = generate_directive(
-            classification, pressure, tokens, last_routing,
-            prompt=prompt, cwd=cwd,
+            classification,
+            pressure,
+            tokens,
+            last_routing,
+            prompt=prompt,
+            cwd=cwd,
         )
 
         # Persist routing
-        _save_routing(session_id, {
-            "task_type": classification.get("task_type"),
-            "execution": classification.get("execution"),
-            "mode": classification.get("mode"),
-            "pressure": pressure,
-            "tokens": tokens,
-            "tool_count": tool_count,
-            "timestamp": dt.datetime.now(dt.timezone.utc).isoformat(),
-        })
+        _save_routing(
+            session_id,
+            {
+                "task_type": classification.get("task_type"),
+                "execution": classification.get("execution"),
+                "mode": classification.get("mode"),
+                "pressure": pressure,
+                "tokens": tokens,
+                "tool_count": tool_count,
+                "timestamp": dt.datetime.now(dt.timezone.utc).isoformat(),
+            },
+        )
 
         if directive:
             print(directive, flush=True)
-            _log(f"ROUTE type={classification.get('task_type')} exec={classification.get('execution')} mode={classification.get('mode')} agents={classification.get('agents')}")
+            _log(
+                f"ROUTE type={classification.get('task_type')} exec={classification.get('execution')} mode={classification.get('mode')} agents={classification.get('agents')}"
+            )
         else:
             _log(f"PASS type={classification.get('task_type')} exec=DIRECT")
 

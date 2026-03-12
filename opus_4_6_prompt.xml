@@ -1,5 +1,5 @@
 <opus_prompt agent="opus-4.6">
-    <targetDirectory>/path/to/user-home/remote-agent</targetDirectory>
+    <targetDirectory>/path/to/Arbor</targetDirectory>
     <instruction>
         Perform a deep, critical analysis of the codebase within the target directory. Read all relevant files to understand the current architecture and implementation details.
         
