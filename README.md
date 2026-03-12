@@ -4,7 +4,7 @@
 
 ---
 
-Arbor spawns isolated Claude Code agents — each with a fresh 1M token context window and its own git worktree — then merges their work back together.
+Arbor spawns isolated Claude Code agents in separate git worktrees, each with a fresh 1M token context, and merges their work back when they're done.
 
 ## Architecture
 
@@ -46,9 +46,9 @@ git diff | arbor-swarm --stdin --mode review --verify
 
 Three layers of protection per agent:
 
-1. **Worktree isolation** — `git worktree add` gives each agent a full repo copy
-2. **Snapshot validation** — SHA-256 hashing before/after; mismatches outside scope flag an escape
-3. **Syntax-gated merge** — Changes land only if they parse cleanly; failures trigger rollback
+1. **Worktree isolation**: `git worktree add` gives each agent a full repo copy
+2. **Snapshot validation**: SHA-256 hashing before and after execution. Mismatches outside the declared scope flag an escape.
+3. **Syntax-gated merge**: changes only land if they parse cleanly. Failures trigger rollback.
 
 ## Data flow
 
@@ -109,7 +109,7 @@ arbor/
 
 ## Hooks
 
-Arbor ships four Claude Code hooks:
+Four Claude Code hooks handle routing:
 
 | Hook | Trigger | Purpose |
 |------|---------|---------|

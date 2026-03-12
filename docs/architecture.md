@@ -6,8 +6,8 @@
 
 Arbor is a two-layer system:
 
-- **Supervisor** (`agent-entry.mjs`) — manages one Claude Code subprocess: spawning, output capture, retry, result extraction
-- **Orchestrator** (`swarm.mjs`) — coordinates multiple supervisors: decomposition, parallel execution, verification, merge
+- **Supervisor** (`agent-entry.mjs`): manages one Claude Code subprocess. Handles spawning, output capture, retry, and result extraction.
+- **Orchestrator** (`swarm.mjs`): coordinates multiple supervisors. Handles decomposition, parallel execution, verification, and merge.
 
 Neither layer knows the other's internals. The supervisor exposes a contract: task string + config in, JSON result out. The orchestrator consumes that contract to run multiple supervisors concurrently.
 
@@ -47,11 +47,13 @@ Neither layer knows the other's internals. The supervisor exposes a contract: ta
 
 ## Process isolation
 
-Every agent subprocess runs with:
+Every agent subprocess runs with these guarantees:
 
-- **Fresh 1M context** — no bleed-through from parent or other agents
-- **No hooks** — `disableAllHooks: true` prevents recursive orchestration
-- **Clean env** — `Object.create(null)` base prevents variable leakage
-- **Own worktree** — `git worktree add` provides a full repo copy
-- **Scoped file access** — each task specifies allowed files
-- **Budget + timeout caps** — hard limits prevent runaway execution
+| Guarantee | How |
+|-----------|-----|
+| Fresh 1M context | No bleed-through from parent or other agents |
+| No hooks | `disableAllHooks: true` prevents recursive orchestration |
+| Clean env | `Object.create(null)` base prevents variable leakage |
+| Own worktree | `git worktree add` provides a full repo copy |
+| Scoped file access | Each task specifies allowed files |
+| Budget + timeout caps | Hard limits prevent runaway execution |

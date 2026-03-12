@@ -2,7 +2,7 @@
 
 <img src="../assets/modes.svg" width="800" alt="All execution modes">
 
-Five modes. The orchestrator picks one automatically via `autoMode()`, or force with `--mode`.
+Five modes. `autoMode()` picks one based on your task, or force a specific one with `--mode`.
 
 ## Auto-detection
 

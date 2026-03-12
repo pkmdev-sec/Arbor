@@ -4,7 +4,7 @@
 
 <img src="../assets/modes.svg" width="800" alt="Fork-join in execution modes">
 
-The decomposer splits work by **file scope** — each subtask gets files it may modify, and no two subtasks share a file. This eliminates data races by design.
+The decomposer splits work by **file scope**: each subtask gets files it may modify, and no two subtasks share a file. No shared files means no data races.
 
 When agents finish, the orchestrator joins: merging file changes, collecting output, resolving conflicts from overlapping reads.
 
@@ -12,7 +12,7 @@ When agents finish, the orchestrator joins: merging file changes, collecting out
 
 <img src="../assets/isolation.svg" width="800" alt="Isolation model">
 
-Each agent gets its own worktree via `git worktree add` — a full checkout at a separate path. The agent reads, writes, builds, and tests without affecting the main directory or other agents.
+Each agent gets its own worktree via `git worktree add`. That's a full checkout at a separate path where the agent can read, write, build, and test without touching the main directory or other agents.
 
 After the agent finishes, Arbor copies changed files back (if they pass validation) and removes the worktree.
 
@@ -50,9 +50,9 @@ When an agent fails, Arbor classifies the error before deciding on retry:
 
 | Class | Examples | Retry? |
 |-------|----------|--------|
-| **Transient** | Network timeout, rate limit, API error | Yes — safe to retry immediately |
-| **Deterministic** | Syntax error in task, missing file, bad config | No — retrying won't help |
-| **Resource** | Context exhaustion, budget exceeded | No — may need scope reduction |
+| **Transient** | Network timeout, rate limit, API error | Yes, safe to retry |
+| **Deterministic** | Syntax error in task, missing file, bad config | No, retrying won't help |
+| **Resource** | Context exhaustion, budget exceeded | No, reduce scope instead |
 
 Retry is opt-in via `--max-retries`. Only transient failures are retried.
 

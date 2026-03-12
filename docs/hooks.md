@@ -1,6 +1,6 @@
 # Hooks
 
-Arbor uses Claude Code's hook system to intercept and route tasks. Four hooks ship with Arbor, installed into `~/.claude/hooks/`.
+Four hooks installed into `~/.claude/hooks/` intercept and route tasks to Arbor.
 
 ## Overview
 

@@ -3,8 +3,8 @@
 ## Prerequisites
 
 - **Node.js 18+**
-- **Claude Code** — `curl -fsSL https://claude.ai/install.sh | bash`
-- **Git 2.15+** — required for worktree isolation
+- **Claude Code** (`curl -fsSL https://claude.ai/install.sh | bash`)
+- **Git 2.15+** (needed for `git worktree`)
 
 ## Installation
 
@@ -88,12 +88,12 @@ In `swarm` and `review` modes, a verifier extracts claims from worker outputs, c
 
 ## Troubleshooting
 
-**"arbor not found"** — Add `~/.local/bin` to PATH: `export PATH="$HOME/.local/bin:$PATH"`
+**"arbor not found"**: add `~/.local/bin` to PATH. `export PATH="$HOME/.local/bin:$PATH"`
 
-**"context window exhausted"** — Reduce scope: `arbor -n 15 "smaller task"` or `arbor-swarm --depth shallow`
+**"context window exhausted"**: reduce scope. `arbor -n 15 "smaller task"` or `arbor-swarm --depth shallow`
 
-**Merge conflicts** — Decomposer assigned overlapping scopes. Re-run with explicit file boundaries or `--agents 2`.
+**Merge conflicts**: the decomposer assigned overlapping scopes. Re-run with `--agents 2` or explicit file boundaries.
 
-**Hooks not firing** — Check: `cat ~/.claude/settings.json | python3 -m json.tool | grep auto_orchestrator`. Re-run `./install.sh` if missing.
+**Hooks not firing**: check `cat ~/.claude/settings.json | python3 -m json.tool | grep auto_orchestrator`. Re-run `./install.sh` if missing.
 
-**Stale worktrees** — `git worktree list && git worktree prune`
+**Stale worktrees**: `git worktree list && git worktree prune`
