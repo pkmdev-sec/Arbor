@@ -4,7 +4,7 @@
 **Version:** 1.2
 **Date:** 2026-03-12
 **Author:** pkmdev-sec
-**Status:** PHASE 1 COMPLETE (e944c97) -- F1-F7 + pre-fixes R10/R12/R13, 65/65 tests, 6/6 validators
+**Status:** PHASE 2 COMPLETE (a5d5150) -- F1-F10 + pre-fixes R10/R12/R13, 65/65 tests
 
 ---
 
@@ -131,18 +131,20 @@ Add --setting-sources user to child args.
 #### F8: Decomposer JSON Schema Enforcement
 **Priority:** P0 | **Effort:** 8-12h (revised from 2h) | **Risk:** LOW (verified)
 
-Add --json-schema for decomposer role. Schema: array of {title, task, scope, turns, model}.
-**Status:** --json-schema flag VERIFIED in SDK. Effort revised upward: schema design + fallback retry + edge cases.
+Add --json-schema for decomposer role. Schema: `{subtasks: [{title, task, scope, turns, model, effort?, depends_on?}]}`.
+**Status:** ✅ IMPLEMENTED (a5d5150) — DECOMPOSER_OUTPUT_SCHEMA in config.mjs, --json-schema wired in agent-entry.mjs, orchestration.mjs parsing handles both wrapper and bare array.
 
 #### F9: PostToolUse Progress Hook
 **Priority:** P1 | **Effort:** 4h
 
 New hooks/progress-reporter.py: tool events -> IPC -> TUI. Only when --tui set.
+**Status:** ✅ IMPLEMENTED (a5d5150) — hooks/progress-reporter.py created, ARBOR_TUI env propagated from swarm.mjs, PostToolUse wired via needsHooks block.
 
 #### F10: PreCompact State Preservation
 **Priority:** P1 | **Effort:** 6h
 
 New hooks/agent-precompact.py: saves modified files, progress, errors to persistContextDir.
+**Status:** ✅ IMPLEMENTED (a5d5150) — hooks/agent-precompact.py created, ARBOR_PERSIST_DIR set after persistContextDir, PreCompact wired for long-running/scoped/persistent agents.
 
 ---
 
@@ -349,10 +351,15 @@ All 15 env vars and 2 CLI flags VERIFIED in @anthropic-ai/claude-code SDK:
 - ~~Rename `remote-${agentId}` to `arbor-${agentId}` in agent-entry.mjs (R10)~~ DONE
 - ~~F1-F7 implemented and validated (8 env vars, adaptive compaction, role tuning, etc.)~~ DONE
 
-**Phase 2 — Next:**
-1. F8: Decomposer JSON Schema Enforcement (--json-schema flag, 8-12h)
-2. F9: PostToolUse Progress Hook (hooks/progress-reporter.py, 4h)
-3. F10: PreCompact State Preservation (hooks/agent-precompact.py, 6h)
+**COMPLETED — Phase 2 (commit a5d5150):**
+- ~~F8: Decomposer JSON Schema Enforcement (--json-schema, DECOMPOSER_OUTPUT_SCHEMA)~~ DONE
+- ~~F9: PostToolUse Progress Hook (hooks/progress-reporter.py, ARBOR_TUI propagation)~~ DONE
+- ~~F10: PreCompact State Preservation (hooks/agent-precompact.py, ARBOR_PERSIST_DIR)~~ DONE
+
+**Phase 3 — Next:**
+1. F11: Semantic Context Filtering (lib/context-filter.mjs, per-role rules)
+2. F12: Branch & Merge Strategy (git-based isolation improvements)
+3. F13: Documentation & Benchmarks
 
 **Before scaling beyond 5 agents:**
 4. Implement `arbor cleanup` command for orphaned worktree recovery (R11)
