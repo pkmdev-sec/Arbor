@@ -128,6 +128,10 @@ Four Claude Code hooks handle routing:
 | [Modes](docs/modes.md) | Execution mode details and flow diagrams |
 | [Hooks](docs/hooks.md) | Hook system, state machine, customization |
 
+## Why Arbor?
+
+Arbor is Latin for tree. The name reflects the tool's architecture — a rooted trunk (the orchestrator) that branches into isolated worktrees, each growing independently before merging back. Like a real tree, the system is grounded in proven methodology (git) while branching into parallel intelligence.
+
 ## Contributors
 
 <a href="https://github.com/pkmdev-sec">

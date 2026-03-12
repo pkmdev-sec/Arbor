@@ -1,42 +1,151 @@
-<svg viewBox="0 0 700 200" xmlns="http://www.w3.org/2000/svg">
-  <rect width="700" height="200" fill="#0d0d14" rx="12"/>
-
+<svg viewBox="0 0 800 480" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <marker id="arr" viewBox="0 0 8 6" refX="7" refY="3" markerWidth="6" markerHeight="4" orient="auto">
-      <path d="M0,0 L8,3 L0,6z" fill="#4a4a6a"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#000000"/>
+      <stop offset="100%" stop-color="#000000"/>
+    </linearGradient>
+    <linearGradient id="boxAmber" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#F59E0B" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#F59E0B" stop-opacity="0.01"/>
+    </linearGradient>
+    <linearGradient id="boxCyan" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#06B6D4" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#06B6D4" stop-opacity="0.01"/>
+    </linearGradient>
+    <linearGradient id="boxEmerald" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#10B981" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#10B981" stop-opacity="0.01"/>
+    </linearGradient>
+    <linearGradient id="boxViolet" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#8B5CF6" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#8B5CF6" stop-opacity="0.01"/>
+    </linearGradient>
+    <filter id="shadow" x="-2%" y="-4%" width="104%" height="114%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000" flood-opacity="0.35"/>
+    </filter>
+    <filter id="glow-amber" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#F59E0B" flood-opacity="0.12"/>
+    </filter>
+    <filter id="glow-cyan" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#06B6D4" flood-opacity="0.12"/>
+    </filter>
+    <filter id="glow-emerald" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#10B981" flood-opacity="0.12"/>
+    </filter>
+    <filter id="glow-violet" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#8B5CF6" flood-opacity="0.12"/>
+    </filter>
+    <!-- Arrow markers -->
+    <marker id="arr" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto">
+      <path d="M0,0.6 L6,2.5 L0,4.4" fill="#3b4563"/>
     </marker>
-    <marker id="arr-g" viewBox="0 0 8 6" refX="7" refY="3" markerWidth="6" markerHeight="4" orient="auto">
-      <path d="M0,0 L8,3 L0,6z" fill="#10B981"/>
+    <marker id="arrA" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto">
+      <path d="M0,0.6 L6,2.5 L0,4.4" fill="#F59E0B"/>
+    </marker>
+    <marker id="arrC" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto">
+      <path d="M0,0.6 L6,2.5 L0,4.4" fill="#06B6D4"/>
+    </marker>
+    <marker id="arrE" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto">
+      <path d="M0,0.6 L6,2.5 L0,4.4" fill="#10B981"/>
+    </marker>
+    <marker id="arrV" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto">
+      <path d="M0,0.6 L6,2.5 L0,4.4" fill="#8B5CF6"/>
     </marker>
   </defs>
 
-  <!-- State: DIRECT -->
-  <rect x="40" y="65" width="150" height="50" rx="8" fill="#252535"/>
-  <text x="115" y="95" font-family="system-ui, -apple-system, sans-serif" font-size="15" font-weight="bold" fill="#e2e8f0" text-anchor="middle">DIRECT</text>
-  <text x="115" y="135" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#6b7280" text-anchor="middle">normal operation</text>
-
-  <!-- Arrow: DIRECT → DELEGATE -->
-  <line x1="190" y1="90" x2="265" y2="90" stroke="#4a4a6a" stroke-width="1.5" marker-end="url(#arr)"/>
-  <text x="228" y="82" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#6b7280" text-anchor="middle">prompt classified</text>
-
-  <!-- State: DELEGATE -->
-  <rect x="270" y="65" width="150" height="50" rx="8" fill="#252535"/>
-  <text x="345" y="95" font-family="system-ui, -apple-system, sans-serif" font-size="15" font-weight="bold" fill="#F59E0B" text-anchor="middle">DELEGATE</text>
-  <text x="345" y="135" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#6b7280" text-anchor="middle">routed to arbor/swarm</text>
-
-  <!-- Arrow: DELEGATE → FULFILLED -->
-  <line x1="420" y1="90" x2="495" y2="90" stroke="#4a4a6a" stroke-width="1.5" marker-end="url(#arr)"/>
-  <text x="458" y="82" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#6b7280" text-anchor="middle">command runs</text>
-
-  <!-- State: FULFILLED -->
-  <rect x="500" y="65" width="150" height="50" rx="8" fill="#252535"/>
-  <text x="575" y="95" font-family="system-ui, -apple-system, sans-serif" font-size="15" font-weight="bold" fill="#10B981" text-anchor="middle">FULFILLED</text>
-  <text x="575" y="135" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#6b7280" text-anchor="middle">command completed</text>
-
-  <!-- Return arrow: FULFILLED → DIRECT (curved below) -->
-  <path d="M575,115 Q575,170 345,170 Q115,170 115,115" fill="none" stroke="#10B981" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arr-g)"/>
-  <text x="345" y="185" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#10B981" text-anchor="middle" opacity="0.7">resets to DIRECT</text>
+  <!-- Background -->
+  <rect width="800" height="480" fill="url(#bg)" rx="16"/>
 
   <!-- Title -->
-  <text x="350" y="30" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#6b7280" text-anchor="middle" letter-spacing="2">HOOK STATE MACHINE</text>
+  <text x="400" y="30" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#64748b" text-anchor="middle" letter-spacing="2.5">HOOK STATE MACHINE</text>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- STATE NODES (top row)                          -->
+  <!-- ═══════════════════════════════════════════════ -->
+
+  <!-- State: DIRECT -->
+  <rect x="44" y="56" width="200" height="72" rx="12" fill="url(#boxAmber)" stroke="#F59E0B" stroke-opacity="0.3" stroke-width="1" filter="url(#glow-amber)"/>
+  <circle cx="68" cy="78" r="6" fill="#F59E0B" opacity="0.5"/>
+  <text x="144" y="82" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="700" fill="#F59E0B" text-anchor="middle">DIRECT</text>
+  <text x="144" y="102" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#94a3b8" text-anchor="middle">normal operation &middot; all tools allowed</text>
+
+  <!-- State: DELEGATE -->
+  <rect x="300" y="56" width="200" height="72" rx="12" fill="url(#boxCyan)" stroke="#06B6D4" stroke-opacity="0.3" stroke-width="1" filter="url(#glow-cyan)"/>
+  <circle cx="324" cy="78" r="6" fill="#06B6D4" opacity="0.5"/>
+  <text x="400" y="82" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="700" fill="#06B6D4" text-anchor="middle">DELEGATE</text>
+  <text x="400" y="102" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#94a3b8" text-anchor="middle">routed to arbor / arbor-swarm</text>
+
+  <!-- State: FULFILLED -->
+  <rect x="556" y="56" width="200" height="72" rx="12" fill="url(#boxEmerald)" stroke="#10B981" stroke-opacity="0.3" stroke-width="1" filter="url(#glow-emerald)"/>
+  <circle cx="580" cy="78" r="6" fill="#10B981" opacity="0.5"/>
+  <text x="656" y="82" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="700" fill="#10B981" text-anchor="middle">FULFILLED</text>
+  <text x="656" y="102" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#94a3b8" text-anchor="middle">command completed &middot; resets</text>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- TRANSITION ARROWS                              -->
+  <!-- ═══════════════════════════════════════════════ -->
+
+  <!-- DIRECT → DELEGATE -->
+  <line x1="244" y1="92" x2="294" y2="92" stroke="#F59E0B" stroke-width="1.5" stroke-opacity="0.5" marker-end="url(#arrA)"/>
+
+  <!-- DELEGATE → FULFILLED -->
+  <line x1="500" y1="92" x2="550" y2="92" stroke="#06B6D4" stroke-width="1.5" stroke-opacity="0.5" marker-end="url(#arrC)"/>
+
+  <!-- FULFILLED → DIRECT (curved return arrow below) -->
+  <path d="M656,128 Q656,155 400,155 Q144,155 144,128" fill="none" stroke="#10B981" stroke-width="1.5" stroke-opacity="0.4" stroke-dasharray="6 4" marker-end="url(#arrE)"/>
+  <text x="400" y="170" font-family="system-ui, -apple-system, sans-serif" font-size="9" fill="#10B981" text-anchor="middle" opacity="0.6">resets to DIRECT</text>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- HOOK CARDS (bottom section)                    -->
+  <!-- ═══════════════════════════════════════════════ -->
+
+  <text x="46" y="210" font-family="system-ui, -apple-system, sans-serif" font-size="10" font-weight="600" fill="#64748b" letter-spacing="1.5">HOOKS</text>
+
+  <!-- Hook 1: auto_orchestrator (UserPromptSubmit) -->
+  <rect x="24" y="224" width="370" height="104" rx="12" fill="#0c1222" stroke="#1c2640" stroke-width="0.75" filter="url(#shadow)"/>
+  <rect x="40" y="238" width="8" height="76" rx="4" fill="#F59E0B" opacity="0.6"/>
+  <text x="62" y="256" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600" fill="#F59E0B">auto_orchestrator.py</text>
+  <rect x="248" y="243" width="130" height="18" rx="9" fill="#F59E0B" fill-opacity="0.1" stroke="#F59E0B" stroke-opacity="0.2" stroke-width="0.5"/>
+  <text x="313" y="255" font-family="system-ui, -apple-system, sans-serif" font-size="9" fill="#F59E0B" text-anchor="middle">UserPromptSubmit</text>
+  <text x="62" y="276" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#94a3b8">AI-powered task classification via Claude API</text>
+  <text x="62" y="292" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#64748b">Creates bd task &middot; pre-computes swarm command</text>
+  <text x="62" y="308" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#F59E0B" opacity="0.6">DIRECT &rarr; DELEGATE</text>
+
+  <!-- Hook 2: block_agent_tool (PreToolUse) -->
+  <rect x="406" y="224" width="370" height="104" rx="12" fill="#0c1222" stroke="#1c2640" stroke-width="0.75" filter="url(#shadow)"/>
+  <rect x="422" y="238" width="8" height="76" rx="4" fill="#06B6D4" opacity="0.6"/>
+  <text x="444" y="256" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600" fill="#06B6D4">block_agent_tool.py</text>
+  <rect x="624" y="243" width="136" height="18" rx="9" fill="#06B6D4" fill-opacity="0.1" stroke="#06B6D4" stroke-opacity="0.2" stroke-width="0.5"/>
+  <text x="692" y="255" font-family="system-ui, -apple-system, sans-serif" font-size="9" fill="#06B6D4" text-anchor="middle">PreToolUse</text>
+  <text x="444" y="276" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#94a3b8">Enforces allowlist during DELEGATE state</text>
+  <text x="444" y="292" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#64748b">Session lock &middot; protected-path guard</text>
+  <text x="444" y="308" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#06B6D4" opacity="0.6">Blocks non-allowlisted tools</text>
+
+  <!-- Hook 3: fulfill_delegate (PostToolUse) -->
+  <rect x="24" y="342" width="370" height="104" rx="12" fill="#0c1222" stroke="#1c2640" stroke-width="0.75" filter="url(#shadow)"/>
+  <rect x="40" y="356" width="8" height="76" rx="4" fill="#10B981" opacity="0.6"/>
+  <text x="62" y="374" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600" fill="#10B981">fulfill_delegate.py</text>
+  <rect x="248" y="361" width="130" height="18" rx="9" fill="#10B981" fill-opacity="0.1" stroke="#10B981" stroke-opacity="0.2" stroke-width="0.5"/>
+  <text x="313" y="373" font-family="system-ui, -apple-system, sans-serif" font-size="9" fill="#10B981" text-anchor="middle">PostToolUse</text>
+  <text x="62" y="394" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#94a3b8">Detects arbor command completion</text>
+  <text x="62" y="410" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#64748b">Validates --result-file &middot; nonce verification</text>
+  <text x="62" y="426" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#10B981" opacity="0.6">DELEGATE &rarr; FULFILLED</text>
+
+  <!-- Hook 4: scope-guard (PreToolUse) -->
+  <rect x="406" y="342" width="370" height="104" rx="12" fill="#0c1222" stroke="#1c2640" stroke-width="0.75" filter="url(#shadow)"/>
+  <rect x="422" y="356" width="8" height="76" rx="4" fill="#8B5CF6" opacity="0.6"/>
+  <text x="444" y="374" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600" fill="#8B5CF6">scope-guard.py</text>
+  <rect x="624" y="361" width="136" height="18" rx="9" fill="#8B5CF6" fill-opacity="0.1" stroke="#8B5CF6" stroke-opacity="0.2" stroke-width="0.5"/>
+  <text x="692" y="373" font-family="system-ui, -apple-system, sans-serif" font-size="9" fill="#8B5CF6" text-anchor="middle">PreToolUse</text>
+  <text x="444" y="394" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#94a3b8">Blocks writes outside allowed scope</text>
+  <text x="444" y="410" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#64748b">ARBOR_SCOPE env &middot; path normalization</text>
+  <text x="444" y="426" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#8B5CF6" opacity="0.6">Enforces file-level isolation</text>
+
+  <!-- Connector lines from hooks to states -->
+  <!-- auto_orchestrator → DIRECT/DELEGATE transition -->
+  <path d="M209,224 Q209,198 230,180" fill="none" stroke="#F59E0B" stroke-width="1" stroke-opacity="0.2" stroke-dasharray="3 3"/>
+  <!-- block_agent_tool → DELEGATE state -->
+  <path d="M591,224 Q591,180 500,148 Q440,128 400,128" fill="none" stroke="#06B6D4" stroke-width="1" stroke-opacity="0.2" stroke-dasharray="3 3"/>
+  <!-- fulfill_delegate → DELEGATE/FULFILLED transition -->
+  <path d="M209,342 Q209,198 480,148 Q520,140 530,100" fill="none" stroke="#10B981" stroke-width="1" stroke-opacity="0.2" stroke-dasharray="3 3"/>
 </svg>
