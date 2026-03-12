@@ -79,6 +79,7 @@ func init() {
 	themes["catppuccin"] = newCatppuccinTheme()
 	themes["dracula"] = newDraculaTheme()
 	themes["neon"] = newNeonTheme()
+	themes["light"] = newLightTheme()
 }
 
 func newDarkTheme() Theme {
@@ -305,6 +306,62 @@ func newNeonTheme() Theme {
 	}
 }
 
+func newLightTheme() Theme {
+	bg := lipgloss.AdaptiveColor{Light: "#ffffff", Dark: "#f5f5f5"}
+	fg := lipgloss.AdaptiveColor{Light: "#1a1a1a", Dark: "#24292f"}
+	accent := lipgloss.AdaptiveColor{Light: "#0969da", Dark: "#0969da"}
+	border := lipgloss.AdaptiveColor{Light: "#d0d7de", Dark: "#d0d7de"}
+	success := lipgloss.AdaptiveColor{Light: "#1a7f37", Dark: "#1a7f37"}
+	warning := lipgloss.AdaptiveColor{Light: "#9a6700", Dark: "#9a6700"}
+	errColor := lipgloss.AdaptiveColor{Light: "#cf222e", Dark: "#cf222e"}
+	muted := lipgloss.AdaptiveColor{Light: "#6e7781", Dark: "#6e7781"}
+
+	return Theme{
+		Name:    "light",
+		BG:      bg,
+		FG:      fg,
+		Accent:  accent,
+		Border:  border,
+		Success: success,
+		Warning: warning,
+		Error:   errColor,
+		Muted:   muted,
+		HeaderStyle: lipgloss.NewStyle().
+			Bold(true).
+			Foreground(accent).
+			BorderStyle(lipgloss.DoubleBorder()).
+			BorderForeground(accent),
+		PanelStyle: lipgloss.NewStyle().
+			BorderStyle(lipgloss.RoundedBorder()).
+			BorderForeground(border),
+		ActivePanel: lipgloss.NewStyle().
+			BorderStyle(lipgloss.RoundedBorder()).
+			BorderForeground(accent),
+		PanelTitle: lipgloss.NewStyle().
+			Bold(true).
+			Foreground(accent).
+			BorderBottom(true).
+			BorderForeground(accent),
+		Divider: lipgloss.NewStyle().
+			Foreground(muted),
+		SuccessBadge: lipgloss.NewStyle().
+			Foreground(bg).
+			Background(success).
+			Bold(true).
+			Padding(0, 1),
+		ErrorBadge: lipgloss.NewStyle().
+			Foreground(bg).
+			Background(errColor).
+			Bold(true).
+			Padding(0, 1),
+		WarnBadge: lipgloss.NewStyle().
+			Foreground(bg).
+			Background(warning).
+			Bold(true).
+			Padding(0, 1),
+	}
+}
+
 // GetTheme returns a theme by name, falling back to "dark".
 func GetTheme(name string) Theme {
 	if t, ok := themes[name]; ok {
@@ -315,7 +372,7 @@ func GetTheme(name string) Theme {
 
 // ThemeNames returns the ordered list of available theme names.
 func ThemeNames() []string {
-	return []string{"dark", "catppuccin", "dracula", "neon"}
+	return []string{"dark", "catppuccin", "dracula", "neon", "light"}
 }
 
 // CycleTheme returns the next theme name after the given one.
