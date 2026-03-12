@@ -285,4 +285,115 @@ describe("LearningStore", () => {
     assert.ok(store.store);
     assert.equal(store.store.version, 1);
   });
+
+  it("records pattern with projectType", () => {
+    if (existsSync(STORE_PATH)) {
+      unlinkSync(STORE_PATH);
+    }
+
+    const store = new LearningStore();
+    store.record("refactor", "javascript", "react", { approach: "hooks" }, "web_app");
+
+    const key = "refactor:javascript:react:web_app";
+    assert.ok(store.store.patterns[key]);
+    assert.equal(store.store.patterns[key].projectType, "web_app");
+    assert.equal(store.store.patterns[key].count, 1);
+    assert.equal(store.store.patterns[key].status, "staged");
+  });
+
+  it("queryWithFallback returns exact projectType match", () => {
+    if (existsSync(STORE_PATH)) {
+      unlinkSync(STORE_PATH);
+    }
+
+    const store = new LearningStore();
+
+    // Record pattern with projectType
+    store.record("feature", "typescript", "express", { approach: "middleware" }, "web_app");
+
+    // Manually add second project and promote to active
+    const key = "feature:typescript:express:web_app";
+    store.store.patterns[key].projects.add("other-project");
+    store.promote();
+
+    // Query with projectType should return exact match
+    const results = store.queryWithFallback("feature", "typescript", "express", "web_app");
+
+    assert.equal(results.length, 1);
+    assert.equal(results[0].projectType, "web_app");
+    assert.ok(results[0].freshness > 0.9);
+  });
+
+  it("queryWithFallback falls back to base key when no exact projectType match", () => {
+    if (existsSync(STORE_PATH)) {
+      unlinkSync(STORE_PATH);
+    }
+
+    const store = new LearningStore();
+
+    // Record pattern without projectType (base key)
+    store.record("bugfix", "python", "flask", { fix: "validation" });
+
+    // Manually add second project and promote to active
+    const key = "bugfix:python:flask";
+    store.store.patterns[key].projects.add("other-project");
+    store.promote();
+
+    // Query with projectType should fall back to base key
+    const results = store.queryWithFallback("bugfix", "python", "flask", "cli_tool");
+
+    assert.equal(results.length, 1);
+    assert.equal(results[0].projectType, ""); // Base key has empty projectType
+    assert.ok(results[0].freshness > 0.9);
+  });
+
+  it("cross-project-type isolation: web_app pattern does not appear in cli_tool query", () => {
+    if (existsSync(STORE_PATH)) {
+      unlinkSync(STORE_PATH);
+    }
+
+    const store = new LearningStore();
+
+    // Record pattern for web_app projectType
+    store.record("optimization", "go", "gin", { strategy: "caching" }, "web_app");
+
+    // Manually add second project and promote to active
+    const webKey = "optimization:go:gin:web_app";
+    store.store.patterns[webKey].projects.add("other-project");
+    store.promote();
+
+    // Query with different projectType should not return web_app pattern
+    // (no fallback because there's no base key pattern)
+    const results = store.queryWithFallback("optimization", "go", "gin", "cli_tool");
+
+    assert.equal(results.length, 0);
+  });
+
+  it("queryWithFallback prefers exact projectType match over base key", () => {
+    if (existsSync(STORE_PATH)) {
+      unlinkSync(STORE_PATH);
+    }
+
+    const store = new LearningStore();
+
+    // Record base pattern (no projectType)
+    store.record("deploy", "javascript", "node", { approach: "docker" });
+    const baseKey = "deploy:javascript:node";
+    store.store.patterns[baseKey].projects.add("other-project");
+
+    // Record specific pattern for web_app
+    store.record("deploy", "javascript", "node", { approach: "kubernetes" }, "web_app");
+    const specificKey = "deploy:javascript:node:web_app";
+    store.store.patterns[specificKey].projects.add("other-project");
+
+    // Promote both
+    store.promote();
+
+    // Query with projectType should return the specific match, not base
+    const results = store.queryWithFallback("deploy", "javascript", "node", "web_app");
+
+    assert.equal(results.length, 1);
+    assert.equal(results[0].projectType, "web_app");
+    assert.equal(results[0].pattern.approach, "kubernetes");
+  });
 });
