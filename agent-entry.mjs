@@ -1060,6 +1060,14 @@ async function main() {
       log(`${colors.yellow}WARNING: Agent produced no text output despite ${progress.tool_calls_count} tool calls — activity summary injected into result${colors.reset}`);
     }
 
+    // Detect zero-tool-call hallucination: agent generated text claiming success
+    // but made 0 tool calls — the output is fabricated, not based on actual work.
+    // Prepend a warning so the parent session doesn't trust the hallucinated output.
+    if (effectiveOutput && progress.tool_calls_count === 0 && exitCode === 0 && durationMs > 10000) {
+      effectiveOutput = `[arbor: WARNING — agent completed in ${durationSec}s with 0 tool calls. Output is likely hallucinated — no files were actually read or written. Do NOT trust the output below without verifying independently.]\n\n${effectiveOutput}`;
+      log(`${colors.yellow}WARNING: Zero tool calls with text output — possible hallucination${colors.reset}`);
+    }
+
     const result = {
       version: 1,
       status: exitCode === 0 ? "completed" : exitCode === 124 ? "interrupted" : "failed",
@@ -1082,7 +1090,21 @@ async function main() {
       console.error("[agent-entry:main] Error deleting progress file:", err.message || err);
     }
 
-    // Also write output to stdout so caller can see it
+    // Always write a status summary to stdout so the parent Bash tool never shows "(No output)".
+    // This is critical: the parent Claude decides what to do next based on what it sees in stdout.
+    // Without this, it blindly retries or hallucinates that the task failed.
+    const toolTotal = telemetry.tool_calls.total;
+    const statusLine = [
+      `[arbor] ${result.status} in ${durationSec}s`,
+      `model=${args.model}`,
+      `tools=${toolTotal}`,
+      changesApplied ? `files_changed=${filesChanged.length}` : null,
+      toolTotal === 0 && exitCode === 0 ? "WARNING:zero-tool-calls" : null,
+      `result=${args.resultFile}`,
+    ].filter(Boolean).join(" | ");
+    process.stdout.write(statusLine + "\n");
+
+    // Write full output after summary line
     if (output) process.stdout.write(output + "\n");
   }
 
@@ -1103,7 +1125,10 @@ async function main() {
     try { rmSync(dirname(mcpConfigPath), { recursive: true, force: true }); } catch {}
   }
 
-  process.exit(exitCode);
+  // Use process.exitCode instead of process.exit() to allow stdout to flush.
+  // process.exit() can terminate before async stdout.write() completes (piped stdout is async),
+  // which is the root cause of the parent seeing "(No output)".
+  process.exitCode = exitCode;
 }
 
 main().catch((err) => {
