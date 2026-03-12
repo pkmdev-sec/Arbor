@@ -604,6 +604,7 @@ async function main() {
       });
       proc.on("error", (err) => {
         clearInterval(progressInterval);
+        clearInterval(inactivityWatchdog);
         log(`${colors.red}Spawn error: ${err.message}${colors.reset}`);
         resolve(1);
       });
@@ -631,7 +632,7 @@ async function main() {
 
     // ── Retry decision (AI-powered error classification) ───────────
     if (exitCode === 0 || exitCode === 124) {
-      break; // Success or timeout — don't retry
+      break; // Success or interrupted — don't retry
     }
 
     // Classify error before deciding to retry
