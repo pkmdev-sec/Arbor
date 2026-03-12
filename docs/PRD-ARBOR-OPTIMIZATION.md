@@ -1,7 +1,7 @@
 # Arbor Optimization & Innovation PRD
 
 **Document:** PRD-ARBOR-OPT-001
-**Version:** 1.1
+**Version:** 1.2
 **Date:** 2026-03-12
 **Author:** pkmdev-sec
 **Status:** VALIDATED -- Challenge agent findings incorporated
@@ -122,10 +122,10 @@ Add --setting-sources user to child args.
 ### Phase 2: Structured Output & Observability (Week 3)
 
 #### F8: Decomposer JSON Schema Enforcement
-**Priority:** P0 | **Effort:** 2h | **Risk:** HIGH
+**Priority:** P0 | **Effort:** 8-12h (revised from 2h) | **Risk:** LOW (verified)
 
 Add --json-schema for decomposer role. Schema: array of {title, task, scope, turns, model}.
-**Risk:** --json-schema flag unverified. Fallback: structured prompting + retry.
+**Status:** --json-schema flag VERIFIED in SDK. Effort revised upward: schema design + fallback retry + edge cases.
 
 #### F9: PostToolUse Progress Hook
 **Priority:** P1 | **Effort:** 4h
@@ -210,12 +210,12 @@ Benchmarks: startup-latency.mjs, token-usage.mjs
 |------|----------|-------|------|
 | 1 | F1-F7 | 5h | p50 startup < 2s |
 | 2 | Benchmarks | 8h | Metrics captured |
-| 3 | F8, F9, F10 | 12h | 0 retries, TUI events |
+| 3 | F8, F9, F10 | 22h | 0 retries, TUI events |
 | 4-5 | F11 | 40h | Role-filtered context |
 | 6-7 | F12 | 40h | Fork-merge winner |
 | 8 | F13 | 16h | Regression-free release |
 
-**Total: ~121 hours** (revised from roadmap 200h)
+**Total: ~131 hours** (revised from roadmap 200h, F8 effort corrected 2h->10h)
 
 ---
 
@@ -233,6 +233,11 @@ Benchmarks: startup-latency.mjs, token-usage.mjs
 | R8 | Concurrent file writes in parallel mode | MEDIUM | writeFileSync is atomic per-call, but appendFile in ipc-logger.mjs can race. Add write queue or per-agent log files. |
 | R9 | No file locking in shared paths | MEDIUM | No flock/lockfile patterns found. IPC log and context-bridge writes could corrupt under >5 parallel agents. |
 | R10 | Stale "remote-" branding in runtime | LOW | agent-entry.mjs:258 still uses `remote-${agentId}` for teamName. Rename to `arbor-${agentId}`. |
+| R11 | Orphaned worktrees on hard crash | CRITICAL | No cleanup on SIGKILL/power loss. Need `arbor cleanup` command. |
+| R12 | No unhandledRejection handler | HIGH | agent-entry.mjs:970 and swarm.mjs:906 miss fire-and-forget promises. Add global handler. |
+| R13 | Non-atomic result file writes | HIGH | context-bridge.mjs:78 can corrupt on mid-write crash. Use temp+rename pattern. |
+| R14 | Escape detection race condition | HIGH | isolation.mjs:476 snapshots after exit. Parallel agents can cause false positives. Lock mainCwd during snapshot. |
+| R15 | OOM at max agent count | MEDIUM | 20 agents x 256MB = 5.1GB > 4GB governor limit. Reduce maxTotalAgents or increase limit. |
 
 ---
 
@@ -265,15 +270,41 @@ All 15 env vars and 2 CLI flags VERIFIED in @anthropic-ai/claude-code SDK:
 - agent-entry.mjs:258 still uses `remote-${agentId}` for teamName -- rename to `arbor-`
 - References ROLE_DISALLOWED_TOOLS -- needs verification
 
-### 8.5 Blind Spots (Agent 4)
-- **Dependency pinning**: ^2.1.71 allows breaking updates. Pin exact version.
-- **Concurrent writes**: ipc-logger.mjs uses async appendFile without locks. Safe for <=3 agents, risks corruption at >5.
-- **No file locking**: No flock/lockfile patterns in any shared write path.
-- **Scope guard latency**: scope-guard.py spawns Python per Write/Edit/Bash call. Cold Python start ~50-100ms per tool invocation.
-- **Error recovery**: swarm.mjs has 41 error-handling patterns (good coverage), but worktree cleanup on SIGKILL is untested.
-- **IPC scalability**: Unix socket message bus untested beyond 5 concurrent agents.
-- **Crash recovery**: No automatic worktree cleanup after unclean exit (orphaned worktrees accumulate).
-- **Branding cleanup**: docs still reference "remote-agent" in several places.
+### 8.5 Codebase Audit (Agent 4) -- 25 findings, 9 categories
+
+#### CRITICAL
+- **Orphaned worktree accumulation**: lifecycle.mjs handles exit/SIGINT/SIGTERM/uncaughtException, but SIGKILL or hard crash leaves orphaned worktrees in /tmp/swarm/*/worktrees/ and ~/.claude/teams/<uuid>. No auto-cleanup exists. **Recommendation**: Add `arbor cleanup` command (scan stale worktrees >24h, git worktree prune, rm /tmp/swarm/*).
+- **Floating dependency version**: ^2.1.71 allows breaking updates. Pin exact version "2.1.71".
+
+#### HIGH -- Error Handling
+- **No unhandledRejection handler**: agent-entry.mjs:970 and swarm.mjs:906 both catch main() errors, but have no global `unhandledRejection` handler. Fire-and-forget promises crash without cleanup.
+- **Non-atomic result file writes**: context-bridge.mjs:78 uses `writeFileSync` directly. If process crashes mid-write, parent reads corrupt JSON. **Fix**: write to temp file, then `fs.renameSync` (atomic on POSIX).
+- **Result files not crash-safe**: agent-entry.mjs:937 writes result, then unlinks progress file (line 941). Crash between = stale progress file. Parent thinks agent is still running.
+
+#### HIGH -- Security
+- **Worktree escape detection race**: isolation.mjs:476 takes snapshot AFTER agent exits. In parallel mode, Agent B could modify shared files between Agent A's exit and snapshot, causing false positives/negatives.
+
+#### HIGH -- Testing Gaps
+- No integration tests for swarm modes (parallel/pipeline/hierarchical)
+- No tests for worktree isolation (prepareWorktree, validateAndApply, escape detection)
+- No tests for error recovery (agent crashes, timeout, retry)
+- No IPC bus server tests (only protocol tested in ipc.test.mjs)
+- No hierarchical mode tests (ResourceGovernor, SubCoordinator, budget allocation)
+- integration-test.mjs exists but is NOT in the test runner (package.json runs test/*.test.mjs only)
+
+#### MEDIUM
+- **Memory limit exceeded at max agents**: governor.mjs defaults maxTotalAgents=20, maxMemoryMB=4096. Each agent ~256MB overhead -> 20 x 256 = 5.1GB > 4GB limit. OOM at scale.
+- **No global AI API rate limiting**: ai-client.mjs has per-agent retry, but no cross-agent rate limiter. 10 parallel agents = 10x rate limit consumption.
+- **Parallel file writes uncoordinated**: orchestration.mjs applies changes sequentially after all agents finish, but no file-level locking between validateAndApply calls.
+- **No IPC connection limit**: message-bus.mjs allows unlimited connections. 100+ agents could overflow socket buffers.
+- **Silent snapshot failures**: isolation.mjs:90 uses empty `catch {}` for file read failures. Incomplete snapshots could miss escape detection.
+- **No dependency vulnerability scanning**: No npm audit, Snyk, or Dependabot in repo.
+
+#### LOW
+- Sequential worktree cleanup: isolation.mjs:630 removes worktrees one-by-one (10s timeout each). 15 worktrees = 150s worst case. Parallelize.
+- Stale "remote-agent" in comments: isolation.mjs:414, orchestration.mjs:286
+- No telemetry aggregation: each agent writes to own result file. No `arbor report` command to aggregate.
+- Potential credential leakage in IPC logs: no credential scrubbing in message payloads.
 
 ### 8.6 Questionable Claims
 - "500ms-1s faster" from env vars alone -- needs benchmarking before/after
@@ -302,9 +333,20 @@ All 15 env vars and 2 CLI flags VERIFIED in @anthropic-ai/claude-code SDK:
 
 ---
 
-**Next Steps:**
-1. Pin @anthropic-ai/claude-code to exact version (remove ^ from ^2.1.71)
-2. Rename `remote-${agentId}` to `arbor-${agentId}` in agent-entry.mjs:258
-3. Begin Phase 1 implementation (F1-F7) using verified env var names
-4. Build startup-latency benchmark BEFORE making changes (baseline measurement)
-5. Address R8/R9 (concurrent write safety) before scaling beyond 5 parallel agents
+**Next Steps (Priority Order):**
+
+**Pre-implementation fixes (do before Phase 1):**
+1. Pin @anthropic-ai/claude-code to exact version "2.1.71" (remove ^)
+2. Add global `unhandledRejection` handler to agent-entry.mjs and swarm.mjs (R12)
+3. Make result file writes atomic: temp file + fs.renameSync in context-bridge.mjs (R13)
+4. Rename `remote-${agentId}` to `arbor-${agentId}` in agent-entry.mjs:258
+
+**Phase 1 implementation:**
+5. Build startup-latency benchmark BEFORE making changes (baseline measurement)
+6. Begin F1-F7 using verified env var names
+7. Add integration-test.mjs to test runner (currently excluded)
+
+**Before scaling beyond 5 agents:**
+8. Implement `arbor cleanup` command for orphaned worktree recovery (R11)
+9. Fix escape detection race condition with mainCwd locking (R14)
+10. Address R8/R9 (concurrent write safety) and R15 (OOM at max agents)
