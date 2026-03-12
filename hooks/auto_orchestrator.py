@@ -42,7 +42,7 @@ SWARM = "arbor-swarm"
 DELEGATE_STATE = STATE_DIR / "delegate_mode.json"
 
 # AI classifier model — sonnet for quality classification (~2s)
-CLASSIFIER_MODEL = "claude-sonnet-4-20250514"
+CLASSIFIER_MODEL = "claude-sonnet-4-6"
 API_TIMEOUT_SEC = 12  # Sonnet needs slightly more headroom (hook timeout 25s)
 
 # ── AI Classifier ──────────────────────────────────────────────────
@@ -258,13 +258,12 @@ def _get_session_tokens(session_id: str) -> tuple[int, int]:
     try:
         if not BUDGET_DB.exists():
             return 0, 0
-        conn = sqlite3.connect(str(BUDGET_DB), timeout=3.0)
-        cursor = conn.execute(
-            "SELECT total_tokens, tool_count FROM session_summary WHERE session_id = ?",
-            (session_id,),
-        )
-        row = cursor.fetchone()
-        conn.close()
+        with sqlite3.connect(str(BUDGET_DB), timeout=3.0) as conn:
+            cursor = conn.execute(
+                "SELECT total_tokens, tool_count FROM session_summary WHERE session_id = ?",
+                (session_id,),
+            )
+            row = cursor.fetchone()
         return (row[0], row[1]) if row else (0, 0)
     except Exception:
         return 0, 0
@@ -287,7 +286,12 @@ def _save_routing(session_id: str, routing: dict[str, Any]) -> None:
             data = json.loads(ROUTING_HISTORY.read_text(encoding="utf-8"))
         data[session_id] = routing
         if len(data) > 20:
-            for old_key in sorted(data.keys())[:-20]:
+            # Sort by timestamp (oldest first) to evict stale entries, not alphabetically
+            sorted_keys = sorted(
+                data.keys(),
+                key=lambda k: data[k].get("timestamp", "") if isinstance(data[k], dict) else "",
+            )
+            for old_key in sorted_keys[:-20]:
                 del data[old_key]
         STATE_DIR.mkdir(parents=True, exist_ok=True)
         ROUTING_HISTORY.write_text(json.dumps(data, indent=2), encoding="utf-8")
@@ -381,7 +385,7 @@ def _create_bd_task(
         f"- Mode: {classification.get('mode', 'swarm')}",
         f"- Agents: {classification.get('agents', 3)}",
         f"- Depth: {classification.get('depth', 'normal')}",
-        f"- Model: {classification.get('model', 'sonnet')}[1m]",
+        f"- Model: {classification.get('model', 'sonnet')}",
         f"- Verify: {classification.get('verify', True)}",
         f"- Reasoning: {classification.get('reasoning', 'n/a')}",
         "",

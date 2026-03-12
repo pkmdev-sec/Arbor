@@ -4,12 +4,41 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
 	"runtime/debug"
+	"sort"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
+
+// discoverBusSocket finds the most recent active IPC bus socket.
+// Priority: 1) CLAUDE_IPC_SOCKET env var  2) newest /tmp/swarm/*/ipc-bus.sock
+func discoverBusSocket() string {
+	if envSock := os.Getenv("CLAUDE_IPC_SOCKET"); envSock != "" {
+		if _, err := os.Stat(envSock); err == nil {
+			return envSock
+		}
+	}
+
+	matches, err := filepath.Glob("/tmp/swarm/*/ipc-bus.sock")
+	if err != nil || len(matches) == 0 {
+		return ""
+	}
+
+	// Sort by modification time descending — newest first
+	sort.Slice(matches, func(i, j int) bool {
+		si, _ := os.Stat(matches[i])
+		sj, _ := os.Stat(matches[j])
+		if si == nil || sj == nil {
+			return false
+		}
+		return si.ModTime().After(sj.ModTime())
+	})
+
+	return matches[0]
+}
 
 func main() {
 	// Constrain Go runtime memory to prevent macOS OOM killer.
@@ -33,7 +62,13 @@ func main() {
 	pollInterval := flag.Duration("poll-interval", 2*time.Second, "Data polling interval")
 	flag.Parse()
 
-	m := NewModel(*busAddr, *themeName, *pollInterval)
+	// Auto-discover bus socket if not explicitly provided
+	effectiveBusAddr := *busAddr
+	if effectiveBusAddr == "" {
+		effectiveBusAddr = discoverBusSocket()
+	}
+
+	m := NewModel(effectiveBusAddr, *themeName, *pollInterval)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)

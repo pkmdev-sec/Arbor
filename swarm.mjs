@@ -413,9 +413,21 @@ async function executeHierarchyLevel(node, parentTask, workDir, depth, args, gov
     const agentId = node.id || `h-worker-${randomUUID().slice(0, 6)}`;
     const rf = join(workDir, `${agentId}-result.json`);
     const taskDesc = node.task || parentTask;
-    const scopeHint = node.scope && node.scope.length > 0
-      ? `\n\nFILE SCOPE (modify only these):\n${node.scope.join("\n")}`
-      : "";
+    // Build scope hint for the agent's task description
+    // For greenfield tasks (scope=["."]), don't restrict to existing files
+    // For targeted greenfield (scope=["/path/to/new-dir/"]), indicate target directory
+    let scopeHint = "";
+    if (node.scope && node.scope.length > 0) {
+      const isFullAccess = node.scope.length === 1 && node.scope[0] === ".";
+      const isSingleDir = node.scope.length === 1 && node.scope[0] !== "." && !node.scope[0].includes(",");
+      if (isFullAccess) {
+        scopeHint = "\n\nYou have full write access to the working directory. Create any files/directories needed.";
+      } else if (isSingleDir && node.scope[0].endsWith("/")) {
+        scopeHint = `\n\nTARGET DIRECTORY: ${node.scope[0]}\nCreate files within this directory. You may also read files elsewhere for context.`;
+      } else {
+        scopeHint = `\n\nFILE SCOPE (modify only these):\n${node.scope.join("\n")}`;
+      }
+    }
 
     log(`  ${colors.dim}[L${node.level}] ${agentId}: ${(taskDesc).slice(0, 60)}${colors.reset}`);
     logIpc('orchestrator', agentId, 'task_assign', taskDesc.slice(0, 80), { level: node.level, scope: node.scope || [], effort: node.effort || null });
@@ -570,8 +582,20 @@ async function main() {
   if (args.monitor) {
     const goTui = new URL('./tui/orch-tui', import.meta.url).pathname;
     if (existsSync(goTui) && process.stdout.isTTY) {
+      // Find the most recent active IPC bus socket for live streaming
+      const tuiArgs = ['--poll-interval', '2s'];
+      try {
+        const { readdirSync, statSync } = await import("node:fs");
+        const runs = readdirSync(SWARM_BASE).map(d => {
+          const sock = join(SWARM_BASE, d, "ipc-bus.sock");
+          try { return { path: sock, mtime: statSync(sock).mtimeMs }; }
+          catch { return null; }
+        }).filter(Boolean).sort((a, b) => b.mtime - a.mtime);
+        if (runs.length > 0) tuiArgs.unshift('--bus-address', runs[0].path);
+      } catch { /* No active runs — TUI will auto-discover or run without IPC */ }
+
       // Go TUI: 9 tabs, native socket streaming, better performance
-      const tuiProc = spawnChild(goTui, ['--poll-interval', '2s'], { stdio: 'inherit' });
+      const tuiProc = spawnChild(goTui, tuiArgs, { stdio: 'inherit' });
       await new Promise(resolve => tuiProc.on('close', resolve));
     } else {
       // Fallback: Node.js TUI

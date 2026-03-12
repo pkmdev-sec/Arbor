@@ -50,6 +50,33 @@ import { initIpcLogger, logIpc } from "./lib/ipc-logger.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+// Module-level state for emergency result writing on crash
+let _resultFilePath = null;
+let _lastExitCode = 1;
+let _lastOutput = "";
+let _lastDurationMs = 0;
+let _resultWritten = false;
+
+function writeEmergencyResult(error) {
+  if (_resultWritten || !_resultFilePath) return;
+  try {
+    const result = {
+      version: 1,
+      status: "failed",
+      output: _lastOutput || `[arbor: agent crashed during post-processing: ${error}]`,
+      duration_ms: _lastDurationMs,
+      exit_code: _lastExitCode,
+      model: null,
+      task: null,
+      truncated: false,
+      changes_applied: false,
+      files_changed: [],
+      telemetry: { quality_signals: { crash: true, crash_error: String(error) } },
+    };
+    writeFileSync(_resultFilePath, JSON.stringify(result, null, 2), "utf-8");
+  } catch { /* Last resort — nothing more we can do */ }
+}
+
 // ── TASK 2: Zombie Process Cleanup ──────────────────────────────────
 // Track all spawned child PIDs for cleanup
 const activePids = new Set();
@@ -70,19 +97,25 @@ function killAllChildren() {
     }
   }
 
-  // Wait 3s, then SIGKILL survivors
-  setTimeout(() => {
-    for (const pid of activePids) {
-      try {
-        process.kill(pid, 0); // Check if still alive
-        console.error(`[agent-entry:killAllChildren] Force killing pid ${pid} with SIGKILL`);
-        process.kill(pid, "SIGKILL");
-      } catch {
-        // Process is dead, ignore
-      }
+  // Synchronous grace period, then SIGKILL survivors.
+  // Using spawnSync("sleep") because setTimeout won't fire during process exit
+  // (the event loop is drained before exit completes).
+  try {
+    execFileSync("sleep", ["1"], { timeout: 3000 });
+  } catch {
+    // sleep may not exist or timeout — proceed to SIGKILL anyway
+  }
+
+  for (const pid of activePids) {
+    try {
+      process.kill(pid, 0); // Check if still alive
+      console.error(`[agent-entry:killAllChildren] Force killing pid ${pid} with SIGKILL`);
+      process.kill(pid, "SIGKILL");
+    } catch {
+      // Process is dead, ignore
     }
-    activePids.clear();
-  }, 3000);
+  }
+  activePids.clear();
 }
 
 // Register cleanup handlers
@@ -112,6 +145,7 @@ process.on("uncaughtException", (err) => {
 
 process.on("unhandledRejection", (reason) => {
   console.error("[agent-entry:unhandledRejection] Unhandled promise rejection:", reason);
+  writeEmergencyResult(`unhandledRejection: ${reason}`);
   killAllChildren();
   if (process.env.ARBOR_TEAM_NAME) cleanupTeamDir(process.env.ARBOR_TEAM_NAME);
   process.exit(1);
@@ -204,6 +238,9 @@ async function main() {
     process.stderr.write(`Error: No task provided. Must provide task, --context-file, or --stdin.\n`);
     process.exit(1);
   }
+
+  // Set module-level result path for emergency crash handler
+  if (args.resultFile) _resultFilePath = args.resultFile;
 
   // Validate and resolve model — only sonnet 4.6 and opus 4.6 with 1M context
   const resolved = resolveModel(args.model);
@@ -1075,6 +1112,11 @@ async function main() {
     retryCount++;
   } // End retry loop
 
+  // Update module-level state for emergency crash handler
+  _lastExitCode = exitCode;
+  _lastDurationMs = durationMs;
+  _lastOutput = output || "";
+
   const durationSec = (durationMs / 1000).toFixed(1);
 
   // Detect if the agent applied changes to the working tree (critical for interrupted agents)
@@ -1212,6 +1254,7 @@ async function main() {
       telemetry, // Per-agent quality signals
     };
     writeResult(args.resultFile, result);
+    _resultWritten = true;
     log(`${colors.dim}Result written to: ${args.resultFile}${colors.reset}`);
 
     // Clean up progress file
@@ -1260,5 +1303,6 @@ async function main() {
 
 main().catch((err) => {
   log(`${colors.red}Fatal: ${err.message}${colors.reset}`);
+  writeEmergencyResult(`main() crash: ${err.message}`);
   process.exit(1);
 });
