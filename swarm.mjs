@@ -24,6 +24,8 @@ import { spawnAgent } from "./lib/agent-spawn.mjs";
 import { aiDecision, isAiClientAvailable } from "./lib/ai-client.mjs";
 import { autoMode, decompose, executeParallel, executePipeline, verify, buildContract } from "./lib/orchestration.mjs";
 import { prepareWorktree, validateAndApply, cleanupIsolation } from "./lib/isolation.mjs";
+import { selectMode, shouldVerifyMode, resolveDepth } from "./lib/mode-selector.mjs";
+import { collectWorktreeChanges, runMergePipeline } from "./lib/merge-pipeline.mjs";
 import { claimBdTask, cleanOldRuns } from "./lib/lifecycle.mjs";
 import { generateApproaches } from "./lib/approach-generator.mjs";
 import { selectWinner } from "./lib/branch-selector.mjs";

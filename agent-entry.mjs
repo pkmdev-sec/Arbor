@@ -31,7 +31,7 @@
  */
 
 import { spawn, execFileSync } from "node:child_process";
-import { readFileSync, writeFileSync, existsSync, unlinkSync, mkdtempSync, rmSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdtempSync, rmSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
@@ -39,15 +39,17 @@ import { tmpdir } from "node:os";
 import { createWriteStream } from "node:fs";
 
 import { colors, log, setQuiet } from "./lib/output.mjs";
-import { MAX_BUFFER_SIZE, TOOL_CALL_RE, resolveModel, ROLE_PROMPTS, ROLE_DISALLOWED_TOOLS, ROLE_THINKING_TOKENS, ROLE_OUTPUT_TOKENS, ROLE_BASH_LIMIT, DECOMPOSER_OUTPUT_SCHEMA } from "./lib/config.mjs";
+import { MAX_BUFFER_SIZE, TOOL_CALL_RE, resolveModel, ROLE_PROMPTS, ROLE_THINKING_TOKENS, ROLE_OUTPUT_TOKENS, ROLE_BASH_LIMIT } from "./lib/config.mjs";
 import { parseAgentArgs, showAgentHelp } from "./lib/cli.mjs";
 import { contextToSystemPrompt, writeResult } from "./lib/context-bridge.mjs";
-import { filterSystemPromptForRole, filteringStats } from "./lib/context-filter.mjs";
+// filterSystemPromptForRole and filteringStats now used via lib/supervisor.mjs
 import { parseTelemetry, reportPeakBufferSize } from "./lib/telemetry.mjs";
 import { claimBdTask, closeBdTask, cleanupTeamDir } from "./lib/lifecycle.mjs";
 import { aiJsonDecision, isAiClientAvailable } from "./lib/ai-client.mjs";
 import { initIpcLogger, logIpc } from "./lib/ipc-logger.mjs";
 import { killAllAgents } from "./lib/agent-spawn.mjs";
+import { buildClaudeArgs, autoGeneratePrefill, classifyError, parseClaudeOutput, ERROR_TAXONOMY, buildClassifyErrorPrompt } from "./lib/supervisor.mjs";
+import { createProgressTracker, updateProgress, cleanupProgress, resetProgress, recordToolCall } from "./lib/progress.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -452,170 +454,46 @@ async function main() {
     }
   }
 
-  // ── Prefill auto-generation per role ─────────────────────────────
-  // Role-appropriate prefill text skips the "let me think about what to do" phase,
-  // saving 1-3 turns per agent. Verifier is excluded (let it reason from scratch
-  // for adversarial quality).
-  function _autoGeneratePrefill(role) {
-    switch (role) {
-      case "worker":
-        return "I'll start by reading the relevant files to understand the current code, then make the requested changes.\n\n";
-      case "decomposer":
-        return "I'll analyze the task scope and produce a JSON decomposition.\n\n";
-      case "verifier":
-        // Verifier: no prefill (let it reason from scratch for adversarial quality)
-        return null;
-      default:
-        // Standalone calls (no --role): nudge agent to act, not just explore.
-        // Without this, opus spends all turns reading files and produces empty output.
-        return "I'll examine the relevant code, then produce concrete output (write files, generate content, or provide a clear text response). I will NOT spend all my turns just reading — I'll act on what I find.\n\n";
-    }
-  }
-
-  // ── Build child process arguments (called per retry attempt) ───
+  // ── Build child process arguments (delegates to lib/supervisor.mjs) ───
   const buildChildArgs = (previousResultFile, isRetry = false) => {
-    const childArgs = [
-      CLI_JS,
-      // Team triple must come before -p for nesting guard bypass
-      "--team-name", teamName,
-      "--agent-id", agentId,
-      "--agent-name", "arbor",
-      "-p",
-      "--model", args.model,
-      "--permission-mode", "dontAsk",
-      "--dangerously-skip-permissions",
-      "--max-turns", String(args.maxTurns),
-      "--max-budget-usd", String(args.budget),
-      // When writing a result file, force stream-json to enable real-time tool call
-      // counting from NDJSON events. Claude Code in text mode doesn't emit tool call
-      // indicators to stderr, so the TOOL_CALL_RE-based counting was always 0.
-      "--output-format", args.resultFile ? "stream-json" : args.outputFormat,
-    ];
-
-    // stream-json requires --verbose when used with --print
-    if (args.resultFile) {
-      childArgs.push("--verbose");
+    let childArgs;
+    try {
+      childArgs = buildClaudeArgs({
+        cliJsPath: CLI_JS,
+        teamName,
+        agentId,
+        model: args.model,
+        maxTurns: args.maxTurns,
+        budget: args.budget,
+        resultFile: args.resultFile,
+        outputFormat: args.outputFormat,
+        role: args.role,
+        effort: args.effort,
+        fallbackModel: args.fallbackModel,
+        debug: args.debug,
+        task: args.task,
+        contextFile: args.contextFile,
+        systemPrompt: args.systemPrompt,
+        prefill: args.prefill,
+        canResume,
+        sessionUUID,
+        mcpConfigPath,
+        persistContextDir,
+        isRetry,
+        previousResultFile,
+        env,
+      });
+    } catch (err) {
+      if (err.message === "Context file is required but failed to load") {
+        log(`${colors.red}Error: Context file is required but failed to load${colors.reset}`);
+        process.exit(1);
+      }
+      throw err;
     }
 
-    // Session persistence: enable when retries are possible (session files needed for --resume)
-    if (!canResume) {
-      childArgs.push("--no-session-persistence");
-    }
-
-    // Session resume: on retry, continue from previous session instead of starting fresh
+    // Log session resume (side effect kept in entry point)
     if (isRetry && canResume) {
-      childArgs.push("--resume", sessionUUID, "--fork-session");
       log(`${colors.dim}Resuming session ${sessionUUID}${colors.reset}`);
-    } else if (canResume) {
-      childArgs.push("--session-id", sessionUUID);
-    }
-
-    // Native effort level passthrough
-    if (args.effort) {
-      childArgs.push("--effort", args.effort);
-    }
-
-    // Native fallback model for overload handling
-    if (args.fallbackModel) {
-      childArgs.push("--fallback-model", args.fallbackModel);
-    }
-
-    // F6: Debug passthrough — SWARM_DEBUG/DEBUG env or --debug flag
-    if (args.debug || process.env.SWARM_DEBUG || process.env.DEBUG) {
-      childArgs.push("--debug");
-      env.CLAUDE_CODE_DEBUG_LOGS_DIR = join(tmpdir(), `arbor-debug-${agentId}`);
-    }
-
-    // F7: Settings isolation — prevent child from reading user's global settings
-    childArgs.push("--setting-sources", "user");
-
-    // F8: Decomposer JSON schema enforcement — structured output via --json-schema
-    if (args.role === "decomposer") {
-      childArgs.push("--json-schema", JSON.stringify(DECOMPOSER_OUTPUT_SCHEMA));
-    }
-
-    // Change 4: Use built-in verifier agent instead of custom role prompt
-    if (args.role === "verifier") {
-      childArgs.push("--agent", "verifier");
-    }
-
-    // Tool restriction per role (denylist — more future-proof than allowlist)
-    if (args.role && ROLE_DISALLOWED_TOOLS[args.role]) {
-      childArgs.push("--disallowed-tools", ...ROLE_DISALLOWED_TOOLS[args.role].split(" "));
-    }
-
-    // Prefill: pre-fill assistant's first response to skip "thinking" phase
-    // Auto-generate role-appropriate prefill when not explicitly provided
-    if (!isRetry) {
-      const prefill = args.prefill || _autoGeneratePrefill(args.role);
-      if (prefill) {
-        childArgs.push("--prefill", prefill);
-      }
-    }
-
-    // MCP coordination server
-    if (mcpConfigPath) {
-      childArgs.push("--mcp-config", mcpConfigPath);
-    }
-
-    // Context persistence: add temp directory with CLAUDE.md
-    if (persistContextDir) {
-      childArgs.push("--add-dir", persistContextDir);
-    }
-
-    // Context bridge: role prompts + context file → system prompt
-    // On resume retry, skip — the session already has the context
-    const systemParts = [];
-    if (!isRetry) {
-      // Skip role prompt injection for verifier (using --agent verifier instead)
-      // and when persisted to CLAUDE.md (avoid double injection)
-      if (!persistContextDir && args.role !== "verifier") {
-        if (args.role && ROLE_PROMPTS[args.role]) {
-          systemParts.push(ROLE_PROMPTS[args.role]);
-        }
-      }
-      if (!persistContextDir && args.contextFile) {
-        const { prompt: ctxPrompt, error: ctxError } = contextToSystemPrompt(args.contextFile);
-        if (ctxPrompt) {
-          systemParts.push(ctxPrompt);
-        } else if (ctxError) {
-          log(`${colors.red}Error: Context file is required but failed to load${colors.reset}`);
-          process.exit(1);
-        }
-      }
-    }
-    // I4: Inject previous attempt output as context (non-resume fallback)
-    if (!isRetry && previousResultFile && existsSync(previousResultFile)) {
-      const { prompt: prevPrompt } = contextToSystemPrompt(previousResultFile);
-      if (prevPrompt) {
-        systemParts.push("[Previous Attempt Output - use as reference, do not repeat failures]\n\n" + prevPrompt);
-      }
-    }
-    if (args.systemPrompt) {
-      systemParts.push(args.systemPrompt);
-    }
-    if (systemParts.length > 0) {
-      // F11: Semantic context filtering — strip irrelevant sections per role
-      let assembledPrompt = systemParts.join("\n\n");
-      if (args.role) {
-        const original = assembledPrompt;
-        assembledPrompt = filterSystemPromptForRole(assembledPrompt, args.role);
-        const stats = filteringStats(original, assembledPrompt);
-        if (stats.reductionPct > 0) {
-          log(`${colors.dim}F11: context filtered for ${args.role} (${stats.reductionPct}% reduction, ${stats.originalSize} → ${stats.filteredSize} chars)${colors.reset}`);
-        }
-      }
-      childArgs.push("--append-system-prompt", assembledPrompt);
-    }
-
-    // Task goes last — use "--" separator when variadic flags are present
-    // to prevent the task string from being consumed as a flag argument
-    if (args.task && !isRetry) {
-      if (persistContextDir || mcpConfigPath) {
-        childArgs.push("--", args.task);
-      } else {
-        childArgs.push(args.task);
-      }
     }
 
     return childArgs;
@@ -686,10 +564,9 @@ async function main() {
 
   // Progress tracking — declared outside retry loop so it's accessible in result-writing section.
   // Accumulates across retries (total tool calls for the entire agent lifecycle).
-  const progress = {
-    tool_calls_count: 0,
-    last_tool: null,
-  };
+  const progressTracker = createProgressTracker(agentId, args.resultFile);
+  // Alias for backward-compatible access within this file
+  const progress = progressTracker;
 
   // Stream-json parsing state — when --result-file forces stream-json output format,
   // we parse NDJSON events from stdout to count tool calls and extract the final text.
@@ -953,19 +830,7 @@ async function main() {
 
       // Write incremental progress file every 5s for TUI freshness
       if (args.resultFile) {
-        const progressFile = args.resultFile + ".progress.json";
-        const progressData = {
-          tool_calls: progress.tool_calls_count,
-          elapsed_ms: Date.now() - startTime,
-          stdout_bytes: stdoutBytes,
-          last_tool: progress.last_tool,
-        };
-        try {
-          writeFileSync(progressFile, JSON.stringify(progressData, null, 2), "utf-8");
-        } catch (err) {
-          // TASK 4: Error logging - progress file write failure (best-effort)
-          console.error("[agent-entry:progressInterval] Error writing progress file:", err.message || err);
-        }
+        updateProgress(progressTracker, { stdoutBytes });
       }
     }, 5000);
 
@@ -1067,13 +932,12 @@ async function main() {
 
     durationMs = Date.now() - startTime;
 
-    // When stream-json was used (--result-file mode), extract the human-readable text
-    // from the parsed result event. The raw buffer contains NDJSON, not readable text.
-    if (args.resultFile && streamResultText !== null) {
-      output = (streamResultText || "").trim();
-    } else {
-      output = (Buffer.concat(stdoutChunks).toString("utf-8") || "").trim();
-    }
+    // Parse output using extracted function
+    output = parseClaudeOutput({
+      hasResultFile: !!args.resultFile,
+      streamResultText,
+      stdoutChunks,
+    });
 
     // TASK 1: Close overflow streams and clean up temp directory
     if (stdoutOverflowStream) {
@@ -1097,45 +961,24 @@ async function main() {
       break; // Success or interrupted — don't retry
     }
 
-    // Classify error before deciding to retry
+    // Classify error before deciding to retry (uses extracted taxonomy from lib/supervisor.mjs)
     if (retryCount < args.maxRetries && isAiClientAvailable()) {
       try {
         const stderrTail = Buffer.concat(stderrChunks).toString("utf-8").slice(-2000);
         const classification = await aiJsonDecision({
           model: "claude-sonnet-4-6",
-          system: [
-            'You are an error classifier for agent subprocess failures. Respond with ONLY JSON: {"type": "transient"|"permanent"|"ambiguous", "reason": "1-sentence explanation"}',
-            "",
-            "## Error Taxonomy",
-            "",
-            "### transient (retry WILL help)",
-            "- HTTP 429/503/529: rate limits, server overload",
-            '- "ECONNRESET", "ETIMEDOUT", "socket hang up": network interruptions',
-            '- "resource temporarily unavailable": system load',
-            "- Exit code 137 (OOM killed): may succeed with less parallel work",
-            "",
-            "### permanent (retry will NOT help)",
-            "- Syntax errors, import failures, missing modules: code bugs",
-            "- Permission denied, authentication failed: config issues",
-            '- "Invalid API key", "unauthorized": credential problems',
-            "- Assertion failures, test failures: logic errors",
-            "- Exit code 1 with clear error message about invalid input",
-            "",
-            "### ambiguous (retry worth attempting)",
-            "- Generic exit code 1 with unclear stderr",
-            "- Segfault (exit 139): may be transient race condition",
-            "- Empty stderr with non-zero exit: unknown failure mode",
-          ].join("\n"),
-          prompt: `Agent failed with exit code ${exitCode}.\n\nLast 2K of stderr:\n${stderrTail}\n\nClassify this error.`,
+          system: ERROR_TAXONOMY,
+          prompt: buildClassifyErrorPrompt(exitCode, stderrTail),
           maxTokens: 128,
         });
 
-        if (classification.parsed?.type === "permanent") {
-          log(`${colors.yellow}Error classified as permanent: ${classification.parsed.reason || "unknown"} — skipping retry${colors.reset}`);
+        const decision = classifyError(classification.parsed);
+        if (!decision.shouldRetry) {
+          log(`${colors.yellow}Error classified as ${decision.type}: ${decision.reason} — skipping retry${colors.reset}`);
           break;
         }
-        if (classification.parsed?.type) {
-          log(`${colors.dim}Error classified as ${classification.parsed.type}: ${classification.parsed.reason || ""} — will retry${colors.reset}`);
+        if (decision.type !== "unknown") {
+          log(`${colors.dim}Error classified as ${decision.type}: ${decision.reason} — will retry${colors.reset}`);
         }
       } catch {
         // Classification failed — proceed with retry (safe default)
@@ -1291,10 +1134,7 @@ async function main() {
     log(`${colors.dim}Result written to: ${args.resultFile}${colors.reset}`);
 
     // Clean up progress file
-    try { unlinkSync(args.resultFile + ".progress.json"); } catch (err) {
-      // TASK 4: Error logging - progress file cleanup (best-effort)
-      console.error("[agent-entry:main] Error deleting progress file:", err.message || err);
-    }
+    cleanupProgress(progressTracker);
 
     // Always write a status summary to stdout so the parent Bash tool never shows "(No output)".
     // This is critical: the parent Claude decides what to do next based on what it sees in stdout.
