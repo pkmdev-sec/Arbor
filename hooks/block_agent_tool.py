@@ -179,8 +179,27 @@ def _should_pass_through(tool_name: str, tool_input: dict[str, object]) -> bool:
     return size is not None and size <= FILE_SIZE_THRESHOLD
 
 
-def _auto_arbor_cmd(tool_name: str, tool_input: dict[str, object]) -> str:
-    """Generate a ready-to-run arbor command from the blocked tool's input."""
+def _auto_arbor_cmd(
+    tool_name: str, tool_input: dict[str, object], delegation_cmd: str = ""
+) -> str:
+    """Generate a ready-to-run arbor/arbor-swarm command from blocked tool input.
+
+    Routing: if the original delegation used arbor-swarm (multi-file task),
+    suggest the swarm command for write operations. Read-only tools get
+    standalone arbor since they only peek at one file.
+    """
+    is_swarm = "arbor-swarm" in delegation_cmd
+
+    # Agent → always arbor-swarm
+    if tool_name == "Agent":
+        prompt = str(tool_input.get("prompt", "<task>"))[:100]
+        return f"arbor-swarm --mode parallel '{prompt}'"
+
+    # Write/Edit during swarm delegation → suggest original swarm command
+    if is_swarm and tool_name in ("Write", "Edit"):
+        return delegation_cmd if delegation_cmd else "arbor-swarm --mode swarm '<task>'"
+
+    # Read-only tools → standalone arbor (just peeking at one file)
     if tool_name == "Read":
         fp = tool_input.get("file_path", "<file>")
         return f"arbor -m sonnet 'read and summarize {fp}'"
@@ -194,15 +213,17 @@ def _auto_arbor_cmd(tool_name: str, tool_input: dict[str, object]) -> str:
         pat = tool_input.get("pattern", "<pattern>")
         path = tool_input.get("path", ".")
         return f"arbor -m sonnet 'search for {pat} in {path}'"
-    if tool_name == "Agent":
-        prompt = str(tool_input.get("prompt", "<task>"))[:100]
-        return f"arbor-swarm --mode parallel '{prompt}'"
     return "arbor -m sonnet '<task>'"
 
 
 def _block_tool_smart(tool_name: str, tool_input: dict[str, object], command: str) -> None:
-    """Block with auto-generated arbor command using actual tool input."""
-    auto_cmd = _auto_arbor_cmd(tool_name, tool_input)
+    """Block with context-aware arbor/arbor-swarm suggestion.
+
+    When the delegation used arbor-swarm, write operations get a strong push
+    toward using the swarm command instead of individual arbor calls.
+    """
+    is_swarm = "arbor-swarm" in command
+    auto_cmd = _auto_arbor_cmd(tool_name, tool_input, command)
 
     if tool_name == "Read":
         fp = str(tool_input.get("file_path", ""))
@@ -211,6 +232,13 @@ def _block_tool_smart(tool_name: str, tool_input: dict[str, object], command: st
         reason = (
             f"[Orchestrator] Read blocked — file too large for orchestrator context{size_str}.\n"
             f"Run: `{auto_cmd}`"
+        )
+    elif is_swarm and tool_name in ("Write", "Edit", "Agent"):
+        reason = (
+            f"[Orchestrator] {tool_name} blocked — swarm delegation active.\n"
+            f"This is a multi-file task routed to arbor-swarm. Use the swarm for coordinated changes:\n"
+            f"  `{auto_cmd}`\n"
+            f"Avoid individual arbor calls for multi-file work — arbor-swarm decomposes, parallelizes, and verifies."
         )
     else:
         reason = (
