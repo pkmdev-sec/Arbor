@@ -4,7 +4,8 @@
   "description": "Isolated Claude Code supervisor with worktree isolation",
   "type": "module",
   "bin": {
-    "arbor": "./agent-entry.mjs"
+    "arbor": "./agent-entry.mjs",
+    "arbor-swarm": "./swarm.mjs"
   },
   "scripts": {
     "start": "node agent-entry.mjs",
