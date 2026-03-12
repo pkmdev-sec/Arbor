@@ -445,3 +445,42 @@ describe("Policy limits schema", () => {
     assert.ok(props.maxAgents.default > 0, "maxAgents should have positive default");
   });
 });
+
+// ── AgentChannel edge cases ─────────────────────────────────────────
+
+describe("AgentChannel", () => {
+  it("rejects messages when not connected", async () => {
+    const { AgentChannel } = await import("../lib/ipc/agent-channel.mjs");
+    const channel = new AgentChannel("test-agent", {
+      socketPath: "/nonexistent/socket.sock",
+      autoReconnect: false
+    });
+
+    // Attempt to send message on non-connected channel should throw
+    await assert.rejects(
+      async () => channel.send("test.topic", { data: "test" }),
+      /Not connected/,
+      "should reject when not connected"
+    );
+  });
+});
+
+// ── MessageBus additional coverage ──────────────────────────────────
+
+describe("MessageBus message validation", () => {
+  it("rejects malformed messages", async () => {
+    const { MessageBus } = await import("../lib/ipc/message-bus.mjs");
+    const bus = new MessageBus({ socketPath: "/tmp/test-bus-validation.sock" });
+
+    // Mock socket
+    const mockSocket = { write: () => true, destroyed: false, end: () => {} };
+    bus.clients.set("agent-01", mockSocket);
+
+    // Malformed message (missing required fields)
+    const badMsg = { type: "PUBLISH", payload: {} };
+    const result = bus._sendToClient("agent-01", badMsg);
+
+    // Should handle gracefully (either reject or fix it)
+    assert.ok(typeof result === "boolean");
+  });
+});

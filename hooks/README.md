@@ -9,14 +9,14 @@ Hooks for Claude Code that enforce constraints on arbor operations.
 
 ### How It Works
 
-The scope guard blocks `Write`, `Edit`, and `Bash` tool operations that target files outside the agent's allowed scope. Scope is defined via the `REMOTE_AGENT_SCOPE` environment variable.
+The scope guard blocks `Write`, `Edit`, and `Bash` tool operations that target files outside the agent's allowed scope. Scope is defined via the `ARBOR_SCOPE` environment variable.
 
 ### Configuration
 
-Set the `REMOTE_AGENT_SCOPE` environment variable to a comma-separated list of allowed paths:
+Set the `ARBOR_SCOPE` environment variable to a comma-separated list of allowed paths:
 
 ```bash
-export REMOTE_AGENT_SCOPE="lib/config.mjs,lib/output.mjs,test/"
+export ARBOR_SCOPE="lib/config.mjs,lib/output.mjs,test/"
 ```
 
 Paths can be:
@@ -32,7 +32,7 @@ Paths can be:
 - Write/Edit within scope
 - Bash commands writing to scope paths
 - Bash commands to `/dev/null`, `/dev/stderr`, etc.
-- Any operation when `REMOTE_AGENT_SCOPE` is unset (no restrictions)
+- Any operation when `ARBOR_SCOPE` is unset (no restrictions)
 
 **Blocked operations:**
 - Write/Edit to files outside scope
@@ -48,13 +48,13 @@ Paths can be:
 
 ```bash
 # Allow agent to modify only lib/ files
-REMOTE_AGENT_SCOPE="lib/" arbor "refactor config loader"
+ARBOR_SCOPE="lib/" arbor "refactor config loader"
 
 # Allow specific files
-REMOTE_AGENT_SCOPE="lib/config.mjs,lib/output.mjs" arbor "update config"
+ARBOR_SCOPE="lib/config.mjs,lib/output.mjs" arbor "update config"
 
 # Multiple directories
-REMOTE_AGENT_SCOPE="lib/,test/,docs/" arbor "add feature"
+ARBOR_SCOPE="lib/,test/,docs/" arbor "add feature"
 
 # No restrictions
 arbor "explore codebase"
@@ -107,7 +107,7 @@ def test(event, scope):
         input=json.dumps(event),
         capture_output=True,
         text=True,
-        env={**os.environ, "REMOTE_AGENT_SCOPE": scope}
+        env={**os.environ, "ARBOR_SCOPE": scope}
     )
     return json.loads(proc.stdout.strip()) if proc.stdout.strip() else {}
 

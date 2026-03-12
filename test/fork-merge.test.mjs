@@ -56,6 +56,47 @@ describe("scoreApproach", () => {
     assert.equal(score.testsPassed, null);
     assert.ok(score.qualityScore >= 40); // at least success points
   });
+
+  it("parses Jest test output format", () => {
+    const score = scoreApproach({
+      exitCode: 0, durationMs: 2000,
+      output: "Tests: 15 passed, 3 failed, 18 total",
+    }, null);
+    assert.ok(score.testsPassed);
+    assert.equal(score.testsPassed.passed, 15);
+    assert.equal(score.testsPassed.failed, 3);
+    assert.equal(score.testsPassed.total, 18);
+  });
+
+  it("parses Mocha test output format", () => {
+    const score = scoreApproach({
+      exitCode: 0, durationMs: 2000,
+      output: "  20 passing\n  2 failing",
+    }, null);
+    assert.ok(score.testsPassed);
+    assert.equal(score.testsPassed.passed, 20);
+    assert.equal(score.testsPassed.failed, 2);
+  });
+
+  it("parses pytest output format", () => {
+    const score = scoreApproach({
+      exitCode: 0, durationMs: 2000,
+      output: "====== 12 passed, 1 failed in 2.34s ======",
+    }, null);
+    assert.ok(score.testsPassed);
+    assert.equal(score.testsPassed.passed, 12);
+    assert.equal(score.testsPassed.failed, 1);
+  });
+
+  it("parses generic test output format", () => {
+    const score = scoreApproach({
+      exitCode: 0, durationMs: 2000,
+      output: "8 tests passed\n1 test failed",
+    }, null);
+    assert.ok(score.testsPassed);
+    assert.equal(score.testsPassed.passed, 8);
+    assert.equal(score.testsPassed.failed, 1);
+  });
 });
 
 // ── APPROACH_SCHEMA ──────────────────────────────────────────────

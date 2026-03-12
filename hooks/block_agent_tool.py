@@ -69,10 +69,6 @@ def _read_budget_path() -> Path:
     return Path(f"/tmp/.claude-orchestrator-reads-{_get_session_suffix()}")
 
 
-# Legacy global paths (checked on first run for migration)
-_LEGACY_LOCK = Path("/tmp/.claude-orchestrator-lock")
-_LEGACY_BUDGET = Path("/tmp/.claude-orchestrator-reads")
-
 # Lock file TTL: 30 minutes (reduced from 4 hours to prevent long deadlocks on crash)
 SESSION_LOCK_TTL = 30 * 60
 

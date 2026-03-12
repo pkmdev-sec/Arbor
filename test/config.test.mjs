@@ -79,3 +79,108 @@ describe("constants", () => {
     assert.ok(DEFAULT_EXCLUDES.includes(".git"));
   });
 });
+
+describe("validateConfig", () => {
+  it("validates basic object schema", async () => {
+    const { validateConfig } = await import("../lib/config.mjs");
+    const schema = {
+      properties: {
+        name: { type: "string", required: true },
+        count: { type: "number", required: false }
+      }
+    };
+
+    // Valid config
+    assert.doesNotThrow(() => {
+      validateConfig({ name: "test", count: 5 }, schema, "test.json");
+    });
+
+    // Missing required field
+    assert.throws(() => {
+      validateConfig({ count: 5 }, schema, "test.json");
+    }, /name/);
+  });
+
+  it("validates nested objects", async () => {
+    const { validateConfig } = await import("../lib/config.mjs");
+    const schema = {
+      properties: {
+        server: {
+          type: "object",
+          properties: {
+            host: { type: "string", required: true },
+            port: { type: "number", required: true }
+          }
+        }
+      }
+    };
+
+    // Valid nested config
+    assert.doesNotThrow(() => {
+      validateConfig({ server: { host: "localhost", port: 3000 } }, schema, "test.json");
+    });
+
+    // Invalid nested field
+    assert.throws(() => {
+      validateConfig({ server: { host: "localhost", port: "3000" } }, schema, "test.json");
+    }, /port/);
+  });
+
+  it("validates arrays", async () => {
+    const { validateConfig } = await import("../lib/config.mjs");
+    const schema = {
+      properties: {
+        tags: { type: "array", itemType: "string" }
+      }
+    };
+
+    // Valid array
+    assert.doesNotThrow(() => {
+      validateConfig({ tags: ["tag1", "tag2"] }, schema, "test.json");
+    });
+
+    // Invalid array item type
+    assert.throws(() => {
+      validateConfig({ tags: ["tag1", 123] }, schema, "test.json");
+    }, /tags\[1\]/);
+
+    // Non-array value
+    assert.throws(() => {
+      validateConfig({ tags: "not-an-array" }, schema, "test.json");
+    }, /array/);
+  });
+
+  it("detects circular references", async () => {
+    const { validateConfig } = await import("../lib/config.mjs");
+    const schema = {
+      properties: {
+        data: {
+          type: "object",
+          properties: {
+            nested: { type: "object" }
+          }
+        }
+      }
+    };
+
+    const circular = { data: {} };
+    circular.data.nested = circular.data; // circular reference to parent
+
+    assert.throws(() => {
+      validateConfig(circular, schema, "test.json");
+    }, /circular reference/i);
+  });
+
+  it("handles type mismatches", async () => {
+    const { validateConfig } = await import("../lib/config.mjs");
+    const schema = {
+      properties: {
+        value: { type: "string" }
+      }
+    };
+
+    assert.throws(() => {
+      validateConfig({ value: 123 }, schema, "test.json");
+    }, /value.*expected.*string/i);
+  });
+});
