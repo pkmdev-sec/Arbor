@@ -1,135 +1,130 @@
-<svg viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540">
+  <!-- Dark background -->
+  <rect width="960" height="540" fill="#0D1117" rx="12"/>
+
+  <!-- Define arrow markers -->
   <defs>
-    <marker id="d-amber" markerWidth="6" markerHeight="4" refX="6" refY="2" orient="auto">
-      <polygon points="0,0 6,2 0,4" fill="#F59E0B"/>
+    <!-- Cyan marker for Entry→Core -->
+    <marker id="arrow-cyan" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L8,3 z" fill="#06B6D4" opacity="0.7"/>
     </marker>
-    <marker id="d-cyan" markerWidth="6" markerHeight="4" refX="6" refY="2" orient="auto">
-      <polygon points="0,0 6,2 0,4" fill="#06B6D4"/>
+    <!-- Slate marker for Entry→Mid -->
+    <marker id="arrow-slate" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L8,3 z" fill="#475569" opacity="0.4"/>
     </marker>
-    <marker id="d-slate" markerWidth="6" markerHeight="4" refX="6" refY="2" orient="auto">
-      <polygon points="0,0 6,2 0,4" fill="#475569"/>
+    <!-- Cyan thin marker for Core→Mid -->
+    <marker id="arrow-cyan-thin" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L8,3 z" fill="#06B6D4" opacity="0.4"/>
     </marker>
   </defs>
 
-  <!-- Background -->
-  <rect width="800" height="500" fill="#0F172A"/>
-
   <!-- Layer labels -->
-  <text x="15" y="45" font-family="monospace" font-size="9" fill="#333333">ENTRY</text>
-  <text x="15" y="165" font-family="monospace" font-size="9" fill="#333333">CORE</text>
-  <text x="15" y="250" font-family="monospace" font-size="9" fill="#333333">MID</text>
-  <text x="15" y="405" font-family="monospace" font-size="9" fill="#333333">LEAF</text>
+  <text x="20" y="65" font-family="monospace" font-size="10" fill="#333">ENTRY</text>
+  <text x="20" y="190" font-family="monospace" font-size="10" fill="#333">CORE</text>
+  <text x="20" y="320" font-family="monospace" font-size="10" fill="#333">MID</text>
+  <text x="20" y="460" font-family="monospace" font-size="10" fill="#333">LEAF</text>
 
-  <!-- ═══════════════════════════════════════ -->
-  <!-- Layer 1: Entry Points (y=40) — amber -->
-  <!-- ═══════════════════════════════════════ -->
+  <!-- Layer separators -->
+  <line x1="100" y1="115" x2="860" y2="115" stroke="#1e293b" opacity="0.5" stroke-width="1"/>
+  <line x1="100" y1="245" x2="860" y2="245" stroke="#1e293b" opacity="0.5" stroke-width="1"/>
+  <line x1="100" y1="385" x2="860" y2="385" stroke="#1e293b" opacity="0.5" stroke-width="1"/>
 
+  <!-- DEPENDENCY ARROWS (drawn first, behind boxes) -->
+
+  <!-- Entry → Core (thick cyan) -->
+  <!-- swarm → orchestration (curve down-left) -->
+  <path d="M 580,94 Q 480,120 350,155" fill="none" stroke="#06B6D4" stroke-width="2.5" opacity="0.7" marker-end="url(#arrow-cyan)"/>
+
+  <!-- swarm → isolation (straight down) -->
+  <path d="M 640,94 Q 640,125 640,155" fill="none" stroke="#06B6D4" stroke-width="2.5" opacity="0.7" marker-end="url(#arrow-cyan)"/>
+
+  <!-- agent-entry → orchestration (curve down-right, thinner) -->
+  <path d="M 320,94 Q 320,125 310,155" fill="none" stroke="#06B6D4" stroke-width="2" opacity="0.7" marker-end="url(#arrow-cyan)"/>
+
+  <!-- Entry → Mid (medium slate) -->
+  <!-- swarm → agent-spawn -->
+  <path d="M 600,94 Q 480,180 280,280" fill="none" stroke="#475569" stroke-width="1.5" opacity="0.4" marker-end="url(#arrow-slate)"/>
+
+  <!-- swarm → lifecycle -->
+  <path d="M 620,94 Q 550,180 430,280" fill="none" stroke="#475569" stroke-width="1.5" opacity="0.4" marker-end="url(#arrow-slate)"/>
+
+  <!-- swarm → cli -->
+  <path d="M 570,94 Q 400,180 100,280" fill="none" stroke="#475569" stroke-width="1.5" opacity="0.4" marker-end="url(#arrow-slate)"/>
+
+  <!-- agent-entry → cli -->
+  <path d="M 240,94 Q 180,180 85,280" fill="none" stroke="#475569" stroke-width="1.5" opacity="0.4" marker-end="url(#arrow-slate)"/>
+
+  <!-- agent-entry → context-bridge -->
+  <path d="M 340,94 Q 450,180 580,280" fill="none" stroke="#475569" stroke-width="1.5" opacity="0.4" marker-end="url(#arrow-slate)"/>
+
+  <!-- agent-entry → lifecycle -->
+  <path d="M 310,94 Q 370,180 420,280" fill="none" stroke="#475569" stroke-width="1.5" opacity="0.4" marker-end="url(#arrow-slate)"/>
+
+  <!-- agent-entry → telemetry -->
+  <path d="M 360,94 Q 550,180 770,280" fill="none" stroke="#475569" stroke-width="1.5" opacity="0.4" marker-end="url(#arrow-slate)"/>
+
+  <!-- Core → Mid (thin cyan) -->
+  <!-- orchestration → agent-spawn -->
+  <path d="M 280,207 Q 280,240 250,280" fill="none" stroke="#06B6D4" stroke-width="1.5" opacity="0.4" marker-end="url(#arrow-cyan-thin)"/>
+
+  <!-- orchestration → context-bridge -->
+  <path d="M 360,207 Q 480,240 600,280" fill="none" stroke="#06B6D4" stroke-width="1.5" opacity="0.4" marker-end="url(#arrow-cyan-thin)"/>
+
+  <!-- orchestration → isolation (dashed horizontal-ish) -->
+  <path d="M 380,181 Q 470,181 560,181" fill="none" stroke="#06B6D4" stroke-width="1.5" opacity="0.4" stroke-dasharray="4,3" marker-end="url(#arrow-cyan-thin)"/>
+
+  <!-- LAYER 1 - Entry Points -->
   <!-- agent-entry.mjs -->
-  <rect x="135" y="22" width="130" height="40" rx="8" ry="8" fill="#111111" stroke="#F59E0B" stroke-width="2"/>
-  <text x="200" y="47" text-anchor="middle" font-family="monospace" font-size="11" fill="#F59E0B">agent-entry.mjs</text>
+  <rect x="200" y="42" width="180" height="52" rx="10" fill="#161b22" stroke="#F59E0B" stroke-width="2"/>
+  <text x="290" y="65" font-family="system-ui" font-size="13" fill="#F59E0B" font-weight="bold" text-anchor="middle">agent-entry.mjs</text>
+  <text x="290" y="80" font-family="system-ui" font-size="10" fill="#64748B" text-anchor="middle">arbor CLI</text>
 
   <!-- swarm.mjs -->
-  <rect x="480" y="22" width="100" height="40" rx="8" ry="8" fill="#111111" stroke="#F59E0B" stroke-width="2"/>
-  <text x="530" y="47" text-anchor="middle" font-family="monospace" font-size="11" fill="#F59E0B">swarm.mjs</text>
+  <rect x="560" y="42" width="160" height="52" rx="10" fill="#161b22" stroke="#F59E0B" stroke-width="2"/>
+  <text x="640" y="65" font-family="system-ui" font-size="13" fill="#F59E0B" font-weight="bold" text-anchor="middle">swarm.mjs</text>
+  <text x="640" y="80" font-family="system-ui" font-size="10" fill="#64748B" text-anchor="middle">arbor-swarm CLI</text>
 
-  <!-- ═══════════════════════════════════════ -->
-  <!-- Layer 2: Core (y=160) — cyan, larger -->
-  <!-- ═══════════════════════════════════════ -->
-
+  <!-- LAYER 2 - Core Modules -->
   <!-- orchestration.mjs -->
-  <rect x="170" y="142" width="160" height="44" rx="8" ry="8" fill="#111111" stroke="#06B6D4" stroke-width="2"/>
-  <text x="250" y="169" text-anchor="middle" font-family="monospace" font-size="12" fill="#06B6D4">orchestration.mjs</text>
+  <rect x="180" y="155" width="200" height="52" rx="10" fill="#161b22" stroke="#06B6D4" stroke-width="2"/>
+  <text x="280" y="177" font-family="system-ui" font-size="13" fill="#06B6D4" font-weight="bold" text-anchor="middle">orchestration.mjs</text>
+  <text x="280" y="192" font-family="system-ui" font-size="9" fill="#64748B" text-anchor="middle">decompose · execute · verify</text>
 
   <!-- isolation.mjs -->
-  <rect x="460" y="142" width="140" height="44" rx="8" ry="8" fill="#111111" stroke="#06B6D4" stroke-width="2"/>
-  <text x="530" y="169" text-anchor="middle" font-family="monospace" font-size="12" fill="#06B6D4">isolation.mjs</text>
+  <rect x="560" y="155" width="180" height="52" rx="10" fill="#161b22" stroke="#06B6D4" stroke-width="2"/>
+  <text x="650" y="177" font-family="system-ui" font-size="13" fill="#06B6D4" font-weight="bold" text-anchor="middle">isolation.mjs</text>
+  <text x="650" y="192" font-family="system-ui" font-size="9" fill="#64748B" text-anchor="middle">worktree · snapshot · merge</text>
 
-  <!-- ═══════════════════════════════════════ -->
-  <!-- Layer 3: Mid (y=280) — slate -->
-  <!-- ═══════════════════════════════════════ -->
-
+  <!-- LAYER 3 - Mid Modules -->
   <!-- cli.mjs -->
-  <rect x="20" y="262" width="80" height="40" rx="8" ry="8" fill="#111111" stroke="#475569" stroke-width="1.5"/>
-  <text x="60" y="287" text-anchor="middle" font-family="monospace" font-size="11" fill="#E2E8F0">cli.mjs</text>
+  <rect x="30" y="280" width="110" height="48" rx="8" fill="#161b22" stroke="#475569" stroke-width="2"/>
+  <text x="85" y="308" font-family="system-ui" font-size="12" fill="#E2E8F0" text-anchor="middle">cli.mjs</text>
 
   <!-- agent-spawn.mjs -->
-  <rect x="130" y="262" width="140" height="40" rx="8" ry="8" fill="#111111" stroke="#475569" stroke-width="1.5"/>
-  <text x="200" y="287" text-anchor="middle" font-family="monospace" font-size="11" fill="#E2E8F0">agent-spawn.mjs</text>
+  <rect x="170" y="280" width="160" height="48" rx="8" fill="#161b22" stroke="#475569" stroke-width="2"/>
+  <text x="250" y="308" font-family="system-ui" font-size="12" fill="#E2E8F0" text-anchor="middle">agent-spawn.mjs</text>
 
   <!-- lifecycle.mjs -->
-  <rect x="300" y="262" width="110" height="40" rx="8" ry="8" fill="#111111" stroke="#475569" stroke-width="1.5"/>
-  <text x="355" y="287" text-anchor="middle" font-family="monospace" font-size="11" fill="#E2E8F0">lifecycle.mjs</text>
+  <rect x="360" y="280" width="140" height="48" rx="8" fill="#161b22" stroke="#475569" stroke-width="2"/>
+  <text x="430" y="308" font-family="system-ui" font-size="12" fill="#E2E8F0" text-anchor="middle">lifecycle.mjs</text>
 
   <!-- context-bridge.mjs -->
-  <rect x="440" y="262" width="140" height="40" rx="8" ry="8" fill="#111111" stroke="#475569" stroke-width="1.5"/>
-  <text x="510" y="287" text-anchor="middle" font-family="monospace" font-size="11" fill="#E2E8F0">context-bridge.mjs</text>
+  <rect x="530" y="280" width="170" height="48" rx="8" fill="#161b22" stroke="#475569" stroke-width="2"/>
+  <text x="615" y="308" font-family="system-ui" font-size="12" fill="#E2E8F0" text-anchor="middle">context-bridge.mjs</text>
 
   <!-- telemetry.mjs -->
-  <rect x="610" y="262" width="120" height="40" rx="8" ry="8" fill="#111111" stroke="#475569" stroke-width="1.5"/>
-  <text x="670" y="287" text-anchor="middle" font-family="monospace" font-size="11" fill="#E2E8F0">telemetry.mjs</text>
+  <rect x="730" y="280" width="140" height="48" rx="8" fill="#161b22" stroke="#475569" stroke-width="2"/>
+  <text x="800" y="308" font-family="system-ui" font-size="12" fill="#E2E8F0" text-anchor="middle">telemetry.mjs</text>
 
-  <!-- ═══════════════════════════════════════ -->
-  <!-- Layer 4: Leaf (y=400) — dim -->
-  <!-- ═══════════════════════════════════════ -->
-
+  <!-- LAYER 4 - Leaf Modules -->
   <!-- output.mjs -->
-  <rect x="220" y="385" width="120" height="40" rx="8" ry="8" fill="#111111" stroke="#333333" stroke-width="1.5"/>
-  <text x="280" y="410" text-anchor="middle" font-family="monospace" font-size="11" fill="#64748B">output.mjs</text>
+  <rect x="280" y="420" width="140" height="48" rx="8" fill="#161b22" stroke="#333" stroke-width="2"/>
+  <text x="350" y="448" font-family="system-ui" font-size="12" fill="#64748B" text-anchor="middle">output.mjs</text>
 
   <!-- config.mjs -->
-  <rect x="445" y="385" width="110" height="40" rx="8" ry="8" fill="#111111" stroke="#333333" stroke-width="1.5"/>
-  <text x="500" y="410" text-anchor="middle" font-family="monospace" font-size="11" fill="#64748B">config.mjs</text>
+  <rect x="540" y="420" width="130" height="48" rx="8" fill="#161b22" stroke="#333" stroke-width="2"/>
+  <text x="605" y="448" font-family="system-ui" font-size="12" fill="#64748B" text-anchor="middle">config.mjs</text>
 
-  <!-- ═══════════════════════════════════════ -->
-  <!-- EDGES: Entry → Core (thick, cyan) -->
-  <!-- ═══════════════════════════════════════ -->
-
-  <!-- swarm → orchestration (thick, cyan) -->
-  <path d="M 490,62 Q 380,78 280,142" fill="none" stroke="#06B6D4" stroke-width="2.5" opacity="0.8" marker-end="url(#d-cyan)"/>
-
-  <!-- swarm → isolation (thick, cyan) -->
-  <path d="M 555,62 Q 548,102 530,142" fill="none" stroke="#06B6D4" stroke-width="2.5" opacity="0.8" marker-end="url(#d-cyan)"/>
-
-  <!-- ═══════════════════════════════════════ -->
-  <!-- EDGES: Entry → Mid (medium) -->
-  <!-- ═══════════════════════════════════════ -->
-
-  <!-- swarm → agent-spawn (medium) -->
-  <path d="M 506,62 Q 350,200 200,262" fill="none" stroke="#475569" stroke-width="1.5" opacity="0.5" marker-end="url(#d-slate)"/>
-
-  <!-- swarm → lifecycle (medium) -->
-  <path d="M 530,62 Q 480,140 370,262" fill="none" stroke="#475569" stroke-width="1.5" opacity="0.5" marker-end="url(#d-slate)"/>
-
-  <!-- swarm → cli (medium) -->
-  <path d="M 498,62 Q 190,90 60,262" fill="none" stroke="#475569" stroke-width="1.5" opacity="0.45" marker-end="url(#d-slate)"/>
-
-  <!-- agent-entry → cli (medium) -->
-  <path d="M 155,62 Q 70,140 60,262" fill="none" stroke="#475569" stroke-width="1.5" opacity="0.5" marker-end="url(#d-slate)"/>
-
-  <!-- agent-entry → context-bridge (medium) -->
-  <path d="M 230,62 Q 420,100 510,262" fill="none" stroke="#475569" stroke-width="1.5" opacity="0.5" marker-end="url(#d-slate)"/>
-
-  <!-- agent-entry → telemetry (medium) -->
-  <path d="M 250,62 Q 540,90 670,262" fill="none" stroke="#475569" stroke-width="1.5" opacity="0.45" marker-end="url(#d-slate)"/>
-
-  <!-- agent-entry → lifecycle (medium) -->
-  <path d="M 210,62 Q 400,110 340,262" fill="none" stroke="#475569" stroke-width="1.5" opacity="0.5" marker-end="url(#d-slate)"/>
-
-  <!-- ═══════════════════════════════════════ -->
-  <!-- EDGES: Core → Mid (thin, cyan) -->
-  <!-- ═══════════════════════════════════════ -->
-
-  <!-- orchestration → agent-spawn (thin, cyan) -->
-  <path d="M 225,186 Q 215,220 200,262" fill="none" stroke="#06B6D4" stroke-width="1" opacity="0.5" marker-end="url(#d-cyan)"/>
-
-  <!-- orchestration → context-bridge (thin, cyan) -->
-  <path d="M 300,186 Q 420,210 490,262" fill="none" stroke="#06B6D4" stroke-width="1" opacity="0.5" marker-end="url(#d-cyan)"/>
-
-  <!-- orchestration → isolation (thin, cyan, dashed) -->
-  <path d="M 330,164 Q 395,145 460,164" fill="none" stroke="#06B6D4" stroke-width="1" opacity="0.4" stroke-dasharray="4 3" marker-end="url(#d-cyan)"/>
-
-  <!-- ═══════════════════════════════════════ -->
-  <!-- Footnote: utility imports -->
-  <!-- ═══════════════════════════════════════ -->
-  <text x="400" y="460" text-anchor="middle" font-family="monospace" font-size="9" fill="#64748B" font-style="italic">* all modules import output.mjs and config.mjs</text>
+  <!-- Footnote -->
+  <text x="480" y="520" font-family="system-ui" font-size="10" fill="#475569" font-style="italic" text-anchor="middle">* all modules import output.mjs and config.mjs</text>
 </svg>

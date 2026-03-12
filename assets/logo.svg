@@ -1,83 +1,180 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
-    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="4"/>
+    <radialGradient id="bgGradient" cx="50%" cy="50%">
+      <stop offset="0%" style="stop-color:#1a1f35;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0F172A;stop-opacity:1" />
+    </radialGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="8" result="coloredBlur"/>
       <feMerge>
-        <feMergeNode/>
+        <feMergeNode in="coloredBlur"/>
         <feMergeNode in="SourceGraphic"/>
       </feMerge>
     </filter>
-    <radialGradient id="bg" cx="50%" cy="45%" r="55%">
-      <stop offset="0%" stop-color="#1a1f35"/>
-      <stop offset="100%" stop-color="#0F172A"/>
-    </radialGradient>
-    <linearGradient id="trunk" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#F59E0B"/>
-      <stop offset="40%" stop-color="#D97706"/>
-      <stop offset="100%" stop-color="#B45309"/>
-    </linearGradient>
-    <linearGradient id="branch" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#06B6D4"/>
-      <stop offset="100%" stop-color="#0891B2"/>
-    </linearGradient>
   </defs>
 
-  <circle cx="256" cy="256" r="248" fill="url(#bg)" stroke="#1e293b" stroke-width="2"/>
-  <circle cx="256" cy="256" r="210" fill="none" stroke="#334155" stroke-width="1" stroke-dasharray="8 6" opacity="0.3"/>
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="248" fill="url(#bgGradient)"/>
 
-  <!-- Roots -->
-  <g opacity="0.4">
-    <path d="M256,380 L240,410 L225,430" stroke="#1e293b" stroke-width="3" stroke-linecap="round"/>
-    <path d="M256,380 L256,420" stroke="#1e293b" stroke-width="4" stroke-linecap="round"/>
-    <path d="M256,380 L272,410 L287,430" stroke="#1e293b" stroke-width="3" stroke-linecap="round"/>
-  </g>
+  <!-- Outer ring -->
+  <circle cx="256" cy="256" r="210" fill="none" stroke="#334155" stroke-width="2" stroke-dasharray="8 6" opacity="0.15"/>
 
-  <!-- Trunk -->
-  <g filter="url(#glow)">
-    <path d="M236,380 L232,320 L235,260 L240,200 L245,160" stroke="url(#trunk)" stroke-width="24" stroke-linecap="round" fill="none"/>
-    <path d="M276,380 L280,320 L277,260 L272,200 L267,160" stroke="url(#trunk)" stroke-width="24" stroke-linecap="round" fill="none"/>
-    <path d="M256,380 L256,160" stroke="#F59E0B" stroke-width="18" stroke-linecap="round" opacity="0.9"/>
-  </g>
+  <!-- Roots (subtle) -->
+  <line x1="246" y1="390" x2="220" y2="430" stroke="#1e293b" stroke-width="3" opacity="0.4"/>
+  <line x1="256" y1="390" x2="256" y2="435" stroke="#1e293b" stroke-width="3" opacity="0.4"/>
+  <line x1="266" y1="390" x2="292" y2="430" stroke="#1e293b" stroke-width="3" opacity="0.4"/>
 
-  <circle cx="256" cy="200" r="8" fill="#F59E0B" opacity="0.8"/>
-  <circle cx="256" cy="200" r="12" fill="none" stroke="#F59E0B" stroke-width="1.5" opacity="0.4"/>
+  <!-- TRUNK (Amber tones - 18 facets) -->
+  <polygon points="240,390 256,385 246,350" fill="#B45309"/>
+  <polygon points="256,385 272,390 266,350" fill="#D97706"/>
+  <polygon points="246,350 256,385 256,340" fill="#F59E0B"/>
+  <polygon points="256,340 256,385 266,350" fill="#E8A315"/>
+  <polygon points="240,350 246,350 242,310" fill="#92400E"/>
+  <polygon points="246,350 256,340 248,310" fill="#B45309"/>
+  <polygon points="256,340 266,350 264,310" fill="#D97706"/>
+  <polygon points="266,350 272,350 270,310" fill="#F59E0B"/>
+  <polygon points="242,310 248,310 244,270" fill="#D97706"/>
+  <polygon points="248,310 256,305 250,270" fill="#F59E0B"/>
+  <polygon points="256,305 264,310 260,270" fill="#F59E0B"/>
+  <polygon points="264,310 270,310 268,270" fill="#E8A315"/>
+  <polygon points="244,270 250,270 246,230" fill="#B45309"/>
+  <polygon points="250,270 260,270 254,230" fill="#D97706"/>
+  <polygon points="260,270 268,270 264,230" fill="#F59E0B"/>
+  <polygon points="246,230 254,230 248,200" fill="#D97706"/>
+  <polygon points="254,230 264,230 260,200" fill="#F59E0B"/>
+  <polygon points="248,200 260,200 256,190" fill="#E8A315"/>
 
-  <!-- Branches -->
-  <g filter="url(#glow)">
-    <path d="M256,200 Q220,180 190,140 Q180,125 175,105" stroke="url(#branch)" stroke-width="8" stroke-linecap="round" fill="none"/>
-    <path d="M256,210 Q210,200 175,175 Q160,165 150,145" stroke="url(#branch)" stroke-width="7" stroke-linecap="round" fill="none"/>
-    <path d="M256,215 Q230,210 210,190 Q200,180 195,165" stroke="url(#branch)" stroke-width="7" stroke-linecap="round" fill="none"/>
-    <path d="M256,215 Q282,210 302,190 Q312,180 317,165" stroke="url(#branch)" stroke-width="7" stroke-linecap="round" fill="none"/>
-    <path d="M256,210 Q302,200 337,175 Q352,165 362,145" stroke="url(#branch)" stroke-width="7" stroke-linecap="round" fill="none"/>
-    <path d="M256,200 Q292,180 322,140 Q332,125 337,105" stroke="url(#branch)" stroke-width="8" stroke-linecap="round" fill="none"/>
-  </g>
+  <!-- LEFT BRANCHES (Cyan tones - 30 facets) -->
+  <!-- Branch 1 - Far Left Upper -->
+  <polygon points="248,200 240,190 235,180" fill="#0891B2"/>
+  <polygon points="240,190 235,180 225,175" fill="#06B6D4"/>
+  <polygon points="235,180 225,175 215,170" fill="#0E7490"/>
+  <polygon points="225,175 215,170 205,168" fill="#155E75"/>
+  <polygon points="215,170 205,168 195,170" fill="#0891B2"/>
+  <polygon points="205,168 195,170 185,172" fill="#0E7490"/>
 
-  <!-- Agent nodes -->
-  <g filter="url(#glow)">
-    <circle cx="175" cy="105" r="6" fill="#06B6D4"/>
-    <circle cx="175" cy="105" r="9" fill="none" stroke="#06B6D4" stroke-width="1" opacity="0.4"/>
-    <circle cx="150" cy="145" r="5" fill="#06B6D4"/>
-    <circle cx="150" cy="145" r="8" fill="none" stroke="#06B6D4" stroke-width="1" opacity="0.4"/>
-    <circle cx="195" cy="165" r="5" fill="#06B6D4"/>
-    <circle cx="195" cy="165" r="8" fill="none" stroke="#06B6D4" stroke-width="1" opacity="0.4"/>
-    <circle cx="317" cy="165" r="5" fill="#06B6D4"/>
-    <circle cx="317" cy="165" r="8" fill="none" stroke="#06B6D4" stroke-width="1" opacity="0.4"/>
-    <circle cx="362" cy="145" r="5" fill="#06B6D4"/>
-    <circle cx="362" cy="145" r="8" fill="none" stroke="#06B6D4" stroke-width="1" opacity="0.4"/>
-    <circle cx="337" cy="105" r="6" fill="#06B6D4"/>
-    <circle cx="337" cy="105" r="9" fill="none" stroke="#06B6D4" stroke-width="1" opacity="0.4"/>
-  </g>
+  <!-- Branch 2 - Mid Left Upper -->
+  <polygon points="246,210 235,205 225,200" fill="#06B6D4"/>
+  <polygon points="235,205 225,200 210,195" fill="#0891B2"/>
+  <polygon points="225,200 210,195 195,192" fill="#0E7490"/>
+  <polygon points="210,195 195,192 180,193" fill="#155E75"/>
+  <polygon points="195,192 180,193 170,196" fill="#0891B2"/>
 
-  <!-- Merge paths -->
-  <g opacity="0.6">
-    <path d="M175,105 Q200,115 220,140" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-dasharray="4 3" fill="none" opacity="0.5"/>
-    <path d="M150,145 Q175,155 195,165" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-dasharray="4 3" fill="none" opacity="0.5"/>
-    <path d="M337,105 Q312,115 292,140" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-dasharray="4 3" fill="none" opacity="0.5"/>
-    <path d="M362,145 Q337,155 317,165" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-dasharray="4 3" fill="none" opacity="0.5"/>
-    <circle cx="256" cy="160" r="5" fill="#10B981" opacity="0.7"/>
-    <circle cx="256" cy="160" r="8" fill="none" stroke="#10B981" stroke-width="1" opacity="0.5"/>
-  </g>
+  <!-- Branch 3 - Mid Left Lower -->
+  <polygon points="244,225 230,223 215,222" fill="#0891B2"/>
+  <polygon points="230,223 215,222 200,224" fill="#06B6D4"/>
+  <polygon points="215,222 200,224 185,228" fill="#0E7490"/>
+  <polygon points="200,224 185,228 175,233" fill="#155E75"/>
+  <polygon points="185,228 175,233 165,238" fill="#0891B2"/>
 
-  <!-- Fork symbol -->
-  <path d="M250,194 L256,188 L262,194" stroke="#F59E0B" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.3"/>
+  <!-- RIGHT BRANCHES (Cyan tones - 30 facets) -->
+  <!-- Branch 4 - Far Right Upper -->
+  <polygon points="260,200 268,190 277,180" fill="#0891B2"/>
+  <polygon points="268,190 277,180 287,175" fill="#06B6D4"/>
+  <polygon points="277,180 287,175 297,170" fill="#0E7490"/>
+  <polygon points="287,175 297,170 307,168" fill="#155E75"/>
+  <polygon points="297,170 307,168 317,170" fill="#0891B2"/>
+  <polygon points="307,168 317,170 327,172" fill="#0E7490"/>
+
+  <!-- Branch 5 - Mid Right Upper -->
+  <polygon points="264,210 277,205 287,200" fill="#06B6D4"/>
+  <polygon points="277,205 287,200 302,195" fill="#0891B2"/>
+  <polygon points="287,200 302,195 317,192" fill="#0E7490"/>
+  <polygon points="302,195 317,192 332,193" fill="#155E75"/>
+  <polygon points="317,192 332,193 342,196" fill="#0891B2"/>
+
+  <!-- Branch 6 - Mid Right Lower -->
+  <polygon points="268,225 282,223 297,222" fill="#0891B2"/>
+  <polygon points="282,223 297,222 312,224" fill="#06B6D4"/>
+  <polygon points="297,222 312,224 327,228" fill="#0E7490"/>
+  <polygon points="312,224 327,228 337,233" fill="#155E75"/>
+  <polygon points="327,228 337,233 347,238" fill="#0891B2"/>
+
+  <!-- CANOPY CLUSTERS (Emerald tones - 60+ facets) -->
+  <!-- Cluster 1 - Far Left -->
+  <polygon points="185,172 175,167 180,157" fill="#10B981"/>
+  <polygon points="175,167 170,162 180,157" fill="#059669"/>
+  <polygon points="180,157 170,162 185,152" fill="#047857"/>
+  <polygon points="185,152 170,162 190,147" fill="#065F46"/>
+  <polygon points="190,147 180,157 195,150" fill="#10B981"/>
+  <polygon points="195,150 185,152 200,148" fill="#059669"/>
+  <polygon points="200,148 195,150 205,146" fill="#047857"/>
+  <polygon points="185,172 180,157 190,165" fill="#065F46"/>
+  <polygon points="190,165 195,170 185,172" fill="#10B981"/>
+  <polygon points="195,170 200,168 190,165" fill="#059669"/>
+
+  <!-- Cluster 2 - Mid Left Upper -->
+  <polygon points="170,196 160,191 165,181" fill="#059669"/>
+  <polygon points="160,191 155,186 165,181" fill="#10B981"/>
+  <polygon points="165,181 155,186 170,176" fill="#047857"/>
+  <polygon points="170,176 165,181 175,174" fill="#065F46"/>
+  <polygon points="175,174 170,196 180,188" fill="#10B981"/>
+  <polygon points="180,188 175,174 185,182" fill="#059669"/>
+  <polygon points="185,182 180,188 190,185" fill="#047857"/>
+  <polygon points="170,196 180,188 175,200" fill="#065F46"/>
+
+  <!-- Cluster 3 - Mid Left Lower -->
+  <polygon points="165,238 155,233 160,223" fill="#10B981"/>
+  <polygon points="155,233 150,228 160,223" fill="#059669"/>
+  <polygon points="160,223 150,228 165,218" fill="#047857"/>
+  <polygon points="165,218 160,223 170,216" fill="#065F46"/>
+  <polygon points="170,216 165,238 175,230" fill="#10B981"/>
+  <polygon points="175,230 170,216 180,224" fill="#059669"/>
+  <polygon points="180,224 175,230 185,228" fill="#047857"/>
+  <polygon points="165,238 175,230 170,242" fill="#065F46"/>
+
+  <!-- Cluster 4 - Far Right -->
+  <polygon points="327,172 337,167 332,157" fill="#10B981"/>
+  <polygon points="337,167 342,162 332,157" fill="#059669"/>
+  <polygon points="332,157 342,162 327,152" fill="#047857"/>
+  <polygon points="327,152 342,162 322,147" fill="#065F46"/>
+  <polygon points="322,147 332,157 317,150" fill="#10B981"/>
+  <polygon points="317,150 327,152 312,148" fill="#059669"/>
+  <polygon points="312,148 317,150 307,146" fill="#047857"/>
+  <polygon points="327,172 332,157 322,165" fill="#065F46"/>
+  <polygon points="322,165 317,170 327,172" fill="#10B981"/>
+  <polygon points="317,170 312,168 322,165" fill="#059669"/>
+
+  <!-- Cluster 5 - Mid Right Upper -->
+  <polygon points="342,196 352,191 347,181" fill="#059669"/>
+  <polygon points="352,191 357,186 347,181" fill="#10B981"/>
+  <polygon points="347,181 357,186 342,176" fill="#047857"/>
+  <polygon points="342,176 347,181 337,174" fill="#065F46"/>
+  <polygon points="337,174 342,196 332,188" fill="#10B981"/>
+  <polygon points="332,188 337,174 327,182" fill="#059669"/>
+  <polygon points="327,182 332,188 322,185" fill="#047857"/>
+  <polygon points="342,196 332,188 337,200" fill="#065F46"/>
+
+  <!-- Cluster 6 - Mid Right Lower -->
+  <polygon points="347,238 357,233 352,223" fill="#10B981"/>
+  <polygon points="357,233 362,228 352,223" fill="#059669"/>
+  <polygon points="352,223 362,228 347,218" fill="#047857"/>
+  <polygon points="347,218 352,223 342,216" fill="#065F46"/>
+  <polygon points="342,216 347,238 337,230" fill="#10B981"/>
+  <polygon points="337,230 342,216 332,224" fill="#059669"/>
+  <polygon points="332,224 337,230 327,228" fill="#047857"/>
+  <polygon points="347,238 337,230 342,242" fill="#065F46"/>
+
+  <!-- Additional density triangles -->
+  <polygon points="190,165 185,160 195,162" fill="#10B981"/>
+  <polygon points="195,162 190,165 200,160" fill="#047857"/>
+  <polygon points="175,182 170,177 180,179" fill="#059669"/>
+  <polygon points="322,165 327,160 317,162" fill="#10B981"/>
+  <polygon points="317,162 322,165 312,160" fill="#047857"/>
+  <polygon points="337,182 342,177 332,179" fill="#059669"/>
+  <polygon points="160,228 155,223 165,225" fill="#10B981"/>
+  <polygon points="352,228 357,223 347,225" fill="#10B981"/>
+
+  <!-- Merge phase lines (emerald dashed) -->
+  <path d="M 185,172 Q 215,186 248,200" fill="none" stroke="#10B981" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.3"/>
+  <path d="M 170,196 Q 210,203 246,210" fill="none" stroke="#10B981" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.3"/>
+  <path d="M 165,238 Q 205,232 244,225" fill="none" stroke="#10B981" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.3"/>
+  <path d="M 327,172 Q 297,186 260,200" fill="none" stroke="#10B981" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.3"/>
+  <path d="M 342,196 Q 302,203 264,210" fill="none" stroke="#10B981" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.3"/>
+  <path d="M 347,238 Q 307,232 268,225" fill="none" stroke="#10B981" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.3"/>
+
+  <!-- Energy nodes with glow -->
+  <circle cx="256" cy="200" r="4" fill="#06B6D4" opacity="0.8" filter="url(#glow)"/>
+  <circle cx="185" cy="172" r="3" fill="#06B6D4" opacity="0.6" filter="url(#glow)"/>
+  <circle cx="327" cy="172" r="3" fill="#06B6D4" opacity="0.6" filter="url(#glow)"/>
 </svg>

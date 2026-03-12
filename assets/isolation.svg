@@ -1,116 +1,118 @@
-<svg viewBox="0 0 860 380" xmlns="http://www.w3.org/2000/svg">
+<svg viewBox="0 0 960 400" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="960" height="400" fill="#0D1117" rx="12"/>
+
+  <!-- Definitions for arrow markers -->
   <defs>
-    <marker id="a-cyan" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto">
-      <polygon points="0,0 7,2.5 0,5" fill="#06B6D4"/>
+    <!-- Cyan arrow -->
+    <marker id="arrow-cyan" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#06B6D4"/>
     </marker>
-    <marker id="a-slate" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto">
-      <polygon points="0,0 7,2.5 0,5" fill="#475569"/>
+    <!-- Green arrow -->
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#10B981"/>
     </marker>
-    <marker id="a-green" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto">
-      <polygon points="0,0 7,2.5 0,5" fill="#10B981"/>
+    <!-- Orange arrow -->
+    <marker id="arrow-orange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#F59E0B"/>
     </marker>
-    <marker id="a-red" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto">
-      <polygon points="0,0 7,2.5 0,5" fill="#EF4444"/>
+    <!-- Gray arrow -->
+    <marker id="arrow-gray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
     </marker>
-    <marker id="a-amber" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto">
-      <polygon points="0,0 7,2.5 0,5" fill="#F59E0B"/>
+    <!-- Red arrow -->
+    <marker id="arrow-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#EF4444"/>
     </marker>
   </defs>
 
-  <!-- Background -->
-  <rect width="860" height="380" fill="#0F172A"/>
+  <!-- Column headers -->
+  <text x="160" y="35" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="600" fill="#64748B" letter-spacing="3" text-anchor="middle">BEFORE</text>
+  <text x="480" y="35" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="600" fill="#64748B" letter-spacing="3" text-anchor="middle">DURING</text>
+  <text x="800" y="35" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="600" fill="#64748B" letter-spacing="3" text-anchor="middle">AFTER</text>
 
-  <!-- ═══════════════════════════════════════ -->
-  <!-- PHASE 1: BEFORE (x=20-230) -->
-  <!-- ═══════════════════════════════════════ -->
-  <text x="125" y="24" text-anchor="middle" font-family="monospace" font-size="12" fill="#64748B">BEFORE</text>
+  <!-- Vertical separators -->
+  <line x1="320" y1="50" x2="320" y2="360" stroke="#1e293b" stroke-width="1" stroke-dasharray="6 4"/>
+  <line x1="640" y1="50" x2="640" y2="360" stroke="#1e293b" stroke-width="1" stroke-dasharray="6 4"/>
 
-  <!-- Dashed grouping box -->
-  <rect x="30" y="38" width="190" height="175" rx="8" ry="8" fill="none" stroke="#333333" stroke-width="1" stroke-dasharray="6 4"/>
+  <!-- BEFORE COLUMN -->
+  <!-- Box 1: Record Snapshot -->
+  <rect x="40" y="70" width="240" height="55" fill="#161b22" stroke="#06B6D4" stroke-width="1.5" rx="8"/>
+  <text x="160" y="92" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="500" fill="#E2E8F0" text-anchor="middle">Record Snapshot</text>
+  <text x="160" y="108" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#64748B" text-anchor="middle">SHA-256 hash every file · mtime pre-filter</text>
 
-  <!-- Snapshot node -->
-  <rect x="50" y="58" width="150" height="55" rx="8" ry="8" fill="#111111" stroke="#06B6D4" stroke-width="1.5"/>
-  <text x="125" y="82" text-anchor="middle" font-family="monospace" font-size="13" fill="#E2E8F0">Snapshot</text>
-  <text x="125" y="100" text-anchor="middle" font-family="monospace" font-size="9" fill="#64748B">SHA-256 file hashes</text>
+  <!-- Arrow 1 -->
+  <line x1="160" y1="125" x2="160" y2="150" stroke="#06B6D4" stroke-width="1.5" marker-end="url(#arrow-cyan)"/>
 
-  <!-- Backup node -->
-  <rect x="50" y="133" width="150" height="55" rx="8" ry="8" fill="#111111" stroke="#06B6D4" stroke-width="1.5"/>
-  <text x="125" y="157" text-anchor="middle" font-family="monospace" font-size="13" fill="#E2E8F0">Backup</text>
-  <text x="125" y="175" text-anchor="middle" font-family="monospace" font-size="9" fill="#64748B">Copy source files</text>
+  <!-- Box 2: Create Worktree -->
+  <rect x="40" y="155" width="240" height="55" fill="#161b22" stroke="#10B981" stroke-width="1.5" rx="8"/>
+  <text x="160" y="177" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="500" fill="#E2E8F0" text-anchor="middle">Create Worktree</text>
+  <text x="160" y="193" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#64748B" text-anchor="middle">git worktree add · isolated branch</text>
 
-  <!-- ═══════════════════════════════════════ -->
-  <!-- PHASE 2: DURING (x=260-480) -->
-  <!-- ═══════════════════════════════════════ -->
-  <text x="370" y="24" text-anchor="middle" font-family="monospace" font-size="12" fill="#64748B">DURING</text>
+  <!-- Arrow 2 -->
+  <line x1="160" y1="210" x2="160" y2="235" stroke="#10B981" stroke-width="1.5" marker-end="url(#arrow-green)"/>
 
-  <!-- Isolation boundary (dashed) -->
-  <rect x="275" y="38" width="190" height="140" rx="8" ry="8" fill="none" stroke="#06B6D4" stroke-width="1.5" stroke-dasharray="6 4" opacity="0.6"/>
+  <!-- Box 3: Build Contract -->
+  <rect x="40" y="240" width="240" height="55" fill="#161b22" stroke="#F59E0B" stroke-width="1.5" rx="8"/>
+  <text x="160" y="262" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="500" fill="#E2E8F0" text-anchor="middle">Build Contract</text>
+  <text x="160" y="278" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#64748B" text-anchor="middle">task scope · allowed paths · timeout</text>
 
-  <!-- Agent Executes (inside boundary) -->
-  <rect x="295" y="60" width="150" height="65" rx="8" ry="8" fill="#111111" stroke="#06B6D4" stroke-width="1.5"/>
-  <text x="370" y="88" text-anchor="middle" font-family="sans-serif" font-size="13" fill="#E2E8F0">Agent Executes</text>
-  <text x="370" y="108" text-anchor="middle" font-family="monospace" font-size="9" fill="#64748B">Isolated worktree</text>
+  <!-- DURING COLUMN -->
+  <!-- Isolation boundary -->
+  <rect x="350" y="60" width="260" height="250" fill="none" stroke="#06B6D4" stroke-width="2" stroke-dasharray="8 6" opacity="0.4" rx="12"/>
+  <text x="480" y="325" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#06B6D4" opacity="0.5" text-anchor="middle">isolation boundary</text>
 
-  <!-- Isolation label -->
-  <text x="370" y="158" text-anchor="middle" font-family="monospace" font-size="9" fill="#06B6D4" opacity="0.6">isolation boundary</text>
+  <!-- Inside boundary - Agent Executes -->
+  <rect x="370" y="90" width="220" height="60" fill="#161b22" stroke="#06B6D4" stroke-width="1.5" rx="8"/>
+  <text x="480" y="113" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="600" fill="#06B6D4" text-anchor="middle">Agent Executes</text>
+  <text x="480" y="129" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#64748B" text-anchor="middle">fresh 1M context · no shared state</text>
 
-  <!-- Escape Detection (outside boundary, below) -->
-  <rect x="290" y="198" width="160" height="48" rx="8" ry="8" fill="#111111" stroke="#F59E0B" stroke-width="1.5"/>
-  <text x="370" y="219" text-anchor="middle" font-family="monospace" font-size="12" fill="#F59E0B">Escape Detection</text>
-  <text x="370" y="236" text-anchor="middle" font-family="monospace" font-size="9" fill="#64748B">hash mismatch</text>
+  <!-- Arrow down -->
+  <line x1="480" y1="150" x2="480" y2="175" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow-gray)"/>
 
-  <!-- Arrow from Escape Detection up to boundary -->
-  <line x1="370" y1="198" x2="370" y2="180" stroke="#F59E0B" stroke-width="1.5" marker-end="url(#a-amber)"/>
+  <!-- Inside boundary - File Writes -->
+  <rect x="370" y="180" width="220" height="50" fill="#161b22" stroke="#475569" stroke-width="1.5" rx="8"/>
+  <text x="480" y="200" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="500" fill="#E2E8F0" text-anchor="middle">File Modifications</text>
+  <text x="480" y="216" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#64748B" text-anchor="middle">scoped to worktree only</text>
 
-  <!-- ═══════════════════════════════════════ -->
-  <!-- PHASE 3: AFTER (x=520-780) -->
-  <!-- ═══════════════════════════════════════ -->
-  <text x="650" y="24" text-anchor="middle" font-family="monospace" font-size="12" fill="#64748B">AFTER</text>
+  <!-- Escape Detection box (outside boundary) -->
+  <rect x="370" y="330" width="220" height="45" fill="#161b22" stroke="#EF4444" stroke-width="1.5" rx="8"/>
+  <text x="480" y="348" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="500" fill="#EF4444" text-anchor="middle">Escape Detection</text>
+  <text x="480" y="364" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#64748B" text-anchor="middle">hash mismatch → abort</text>
 
-  <!-- Fork diamond -->
-  <polygon points="540,125 555,110 570,125 555,140" fill="#111111" stroke="#475569" stroke-width="1.5"/>
+  <!-- Red dashed arrow from boundary to escape detection -->
+  <line x1="480" y1="310" x2="480" y2="325" stroke="#EF4444" stroke-width="1.5" stroke-dasharray="4 4" marker-end="url(#arrow-red)"/>
 
-  <!-- ── TOP PATH: Success ── -->
-  <!-- Validate check -->
-  <rect x="590" y="60" width="90" height="40" rx="8" ry="8" fill="#111111" stroke="#10B981" stroke-width="1.5"/>
-  <text x="635" y="85" text-anchor="middle" font-family="monospace" font-size="11" fill="#10B981">Validate ✓</text>
+  <!-- AFTER COLUMN -->
+  <!-- Validate Changes -->
+  <rect x="660" y="80" width="240" height="55" fill="#161b22" stroke="#06B6D4" stroke-width="1.5" rx="8"/>
+  <text x="780" y="102" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="500" fill="#E2E8F0" text-anchor="middle">Validate Changes</text>
+  <text x="780" y="118" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#64748B" text-anchor="middle">syntax check · lint · type check</text>
 
-  <line x1="680" y1="80" x2="698" y2="80" stroke="#10B981" stroke-width="1.5" marker-end="url(#a-green)"/>
+  <!-- Arrow to decision -->
+  <line x1="780" y1="135" x2="780" y2="160" stroke="#06B6D4" stroke-width="1.5" marker-end="url(#arrow-cyan)"/>
 
-  <!-- Apply -->
-  <rect x="708" y="60" width="70" height="40" rx="8" ry="8" fill="#10B981" stroke="#10B981" stroke-width="1.5"/>
-  <text x="743" y="85" text-anchor="middle" font-family="monospace" font-size="11" fill="#0F172A">Apply</text>
+  <!-- Decision diamond -->
+  <path d="M 780 165 L 795 180 L 780 195 L 765 180 Z" fill="#161b22" stroke="#475569" stroke-width="1.5"/>
 
-  <text x="743" y="118" text-anchor="middle" font-family="monospace" font-size="9" fill="#64748B">changes copied to main</text>
+  <!-- Success path - to Apply -->
+  <line x1="795" y1="180" x2="810" y2="180" stroke="#10B981" stroke-width="1.5"/>
+  <line x1="810" y1="180" x2="810" y2="220" stroke="#10B981" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+  <text x="820" y="185" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#10B981">pass</text>
 
-  <!-- Fork → top path -->
-  <line x1="555" y1="110" x2="555" y2="80" stroke="#475569" stroke-width="1"/>
-  <line x1="555" y1="80" x2="588" y2="80" stroke="#10B981" stroke-width="1.5" marker-end="url(#a-green)"/>
+  <!-- Apply box -->
+  <rect x="760" y="220" width="100" height="44" fill="#10B981" stroke="#10B981" stroke-width="1.5" rx="8"/>
+  <text x="810" y="246" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="600" fill="#0D1117" text-anchor="middle">Apply</text>
+  <text x="810" y="280" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#64748B" text-anchor="middle">three-way merge to main</text>
 
-  <!-- ── BOTTOM PATH: Failure ── -->
-  <!-- Validate fail -->
-  <rect x="590" y="180" width="90" height="40" rx="8" ry="8" fill="#111111" stroke="#EF4444" stroke-width="1.5"/>
-  <text x="635" y="205" text-anchor="middle" font-family="monospace" font-size="11" fill="#EF4444">Validate ✗</text>
+  <!-- Failure path - to Rollback -->
+  <line x1="780" y1="195" x2="780" y2="250" stroke="#EF4444" stroke-width="1.5"/>
+  <line x1="780" y1="250" x2="720" y2="250" stroke="#EF4444" stroke-width="1.5"/>
+  <line x1="720" y1="250" x2="720" y2="310" stroke="#EF4444" stroke-width="1.5" marker-end="url(#arrow-red)"/>
+  <text x="750" y="200" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#EF4444">fail</text>
 
-  <line x1="680" y1="200" x2="698" y2="200" stroke="#EF4444" stroke-width="1.5" marker-end="url(#a-red)"/>
-
-  <!-- Rollback -->
-  <rect x="708" y="180" width="70" height="40" rx="8" ry="8" fill="#111111" stroke="#F59E0B" stroke-width="1.5"/>
-  <text x="743" y="205" text-anchor="middle" font-family="monospace" font-size="11" fill="#F59E0B">Rollback</text>
-
-  <text x="743" y="238" text-anchor="middle" font-family="monospace" font-size="9" fill="#64748B">originals restored</text>
-
-  <!-- Fork → bottom path -->
-  <line x1="555" y1="140" x2="555" y2="200" stroke="#475569" stroke-width="1"/>
-  <line x1="555" y1="200" x2="588" y2="200" stroke="#EF4444" stroke-width="1.5" marker-end="url(#a-red)"/>
-
-  <!-- ═══════════════════════════════════════ -->
-  <!-- Phase connection arrows -->
-  <!-- ═══════════════════════════════════════ -->
-
-  <!-- Phase 1 → Phase 2 -->
-  <line x1="220" y1="125" x2="273" y2="125" stroke="#475569" stroke-width="1.5" marker-end="url(#a-slate)"/>
-
-  <!-- Phase 2 → Phase 3 (fork diamond) -->
-  <line x1="465" y1="125" x2="538" y2="125" stroke="#475569" stroke-width="1.5" marker-end="url(#a-slate)"/>
+  <!-- Rollback box -->
+  <rect x="660" y="310" width="120" height="44" fill="#161b22" stroke="#EF4444" stroke-width="1.5" rx="8"/>
+  <text x="720" y="336" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="500" fill="#EF4444" text-anchor="middle">Rollback</text>
+  <text x="720" y="370" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#64748B" text-anchor="middle">restore from backup</text>
 </svg>
