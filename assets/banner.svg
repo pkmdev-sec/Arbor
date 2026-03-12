@@ -2,152 +2,191 @@
   <title>Arbor — Multi-Agent Orchestrator</title>
   <defs>
     <!-- Background gradients -->
-    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+    <linearGradient id="bgFull" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" stop-color="#1a2332"/>
       <stop offset="100%" stop-color="#0a0c10"/>
     </linearGradient>
-
-    <radialGradient id="vignette" cx="50%" cy="50%" r="65%">
+    <radialGradient id="vigBanner" cx="50%" cy="50%" r="65%">
       <stop offset="0%" stop-color="#000" stop-opacity="0"/>
-      <stop offset="100%" stop-color="#000" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#000" stop-opacity="0.3"/>
     </radialGradient>
-
-    <linearGradient id="glassShine" x1="0%" y1="0%" x2="0%" y2="50%">
-      <stop offset="0%" stop-color="#fff" stop-opacity="0.06"/>
-      <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
+    <linearGradient id="shineBanner" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fff" stop-opacity="0.04"/>
+      <stop offset="50%" stop-color="#fff" stop-opacity="0"/>
     </linearGradient>
 
-    <!-- Trunk gradient -->
-    <linearGradient id="trunkGrad" x1="0%" y1="100%" x2="0%" y2="0%">
-      <stop offset="0%" stop-color="#D97706"/>
-      <stop offset="100%" stop-color="#c0c0c0"/>
+    <!-- Tree gradients for left squircle -->
+    <linearGradient id="tBanner" x1="150" y1="215" x2="150" y2="152" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#3D2312"/>
+      <stop offset="50%" stop-color="#5A3818"/>
+      <stop offset="100%" stop-color="#7A5020"/>
     </linearGradient>
 
-    <!-- Fork junction gradient -->
-    <radialGradient id="forkGrad">
-      <stop offset="0%" stop-color="#FCD34D"/>
-      <stop offset="100%" stop-color="#D97706"/>
-    </radialGradient>
+    <!-- Branch gradients -->
+    <linearGradient id="bAmbBanner" x1="120" y1="155" x2="90" y2="115" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#5A3818"/>
+      <stop offset="60%" stop-color="#9B7318"/>
+      <stop offset="100%" stop-color="#DAA520"/>
+    </linearGradient>
+    <linearGradient id="bGrnBanner" x1="135" y1="155" x2="120" y2="105" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#5A3818"/>
+      <stop offset="60%" stop-color="#3D7048"/>
+      <stop offset="100%" stop-color="#2EAB6F"/>
+    </linearGradient>
+    <linearGradient id="bCynBanner" x1="150" y1="150" x2="150" y2="92" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#5A3818"/>
+      <stop offset="60%" stop-color="#2A6B78"/>
+      <stop offset="100%" stop-color="#1AAFCA"/>
+    </linearGradient>
+    <linearGradient id="bVioBanner" x1="165" y1="155" x2="180" y2="105" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#5A3818"/>
+      <stop offset="60%" stop-color="#5A3E80"/>
+      <stop offset="100%" stop-color="#8B6FC0"/>
+    </linearGradient>
+    <linearGradient id="bCorBanner" x1="180" y1="155" x2="210" y2="115" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#5A3818"/>
+      <stop offset="60%" stop-color="#8A4420"/>
+      <stop offset="100%" stop-color="#E8732A"/>
+    </linearGradient>
 
-    <!-- Glass sphere gradients - 3D effect -->
-    <radialGradient id="glassLeft" cx="35%" cy="30%">
-      <stop offset="0%" stop-color="#ffffff"/>
-      <stop offset="50%" stop-color="#e8e8e8"/>
-      <stop offset="100%" stop-color="#909090"/>
-    </radialGradient>
-
-    <radialGradient id="glassCenter" cx="35%" cy="30%">
-      <stop offset="0%" stop-color="#ffffff"/>
-      <stop offset="50%" stop-color="#ebebeb"/>
-      <stop offset="100%" stop-color="#959595"/>
-    </radialGradient>
-
-    <radialGradient id="glassRight" cx="35%" cy="30%">
-      <stop offset="0%" stop-color="#ffffff"/>
-      <stop offset="50%" stop-color="#e8e8e8"/>
-      <stop offset="100%" stop-color="#909090"/>
-    </radialGradient>
-
-    <!-- Typography gradient -->
+    <!-- Typography gradients -->
     <linearGradient id="titleGrad" x1="0%" y1="0%" x2="100%" y2="0%">
       <stop offset="0%" stop-color="#FCD34D"/>
       <stop offset="100%" stop-color="#D97706"/>
     </linearGradient>
-
     <linearGradient id="separator" x1="0%" y1="0%" x2="100%" y2="0%">
       <stop offset="0%" stop-color="#D97706" stop-opacity="0.3"/>
       <stop offset="50%" stop-color="#FCD34D" stop-opacity="0.15"/>
       <stop offset="100%" stop-color="#D97706" stop-opacity="0"/>
     </linearGradient>
-
-    <!-- Filters -->
-    <filter id="containerShadow">
-      <feGaussianBlur in="SourceAlpha" stdDeviation="14"/>
-      <feOffset dx="0" dy="10"/>
-      <feComponentTransfer>
-        <feFuncA type="linear" slope="0.4"/>
-      </feComponentTransfer>
-      <feMerge>
-        <feMergeNode/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
-
-    <filter id="forkGlow">
-      <feGaussianBlur stdDeviation="6"/>
-      <feColorMatrix values="1 0 0 0 0  0 0.8 0 0 0  0 0 0.2 0 0  0 0 0 0.5 0"/>
-      <feMerge>
-        <feMergeNode/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
-
-    <filter id="sphereGlow">
-      <feGaussianBlur stdDeviation="8"/>
-      <feComponentTransfer>
-        <feFuncA type="linear" slope="0.4"/>
-      </feComponentTransfer>
-      <feMerge>
-        <feMergeNode/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
   </defs>
 
-  <!-- Full dark gradient background -->
-  <rect width="1200" height="300" fill="url(#bgGrad)"/>
-  <rect width="1200" height="300" fill="url(#vignette)"/>
+  <!-- Full background -->
+  <rect width="1200" height="300" fill="url(#bgFull)"/>
+  <rect width="1200" height="300" fill="url(#vigBanner)"/>
 
-  <!-- LEFT SIDE: Squircle container with tree -->
-  <rect x="50" y="50" width="200" height="200" rx="44" fill="url(#bgGrad)" filter="url(#containerShadow)"/>
-  <rect x="50" y="50" width="200" height="200" rx="44" fill="url(#vignette)"/>
-  <rect x="50" y="50" width="200" height="100" rx="44" fill="url(#glassShine)"/>
+  <!-- LEFT: Squircle container with organic tree (200x200) -->
+  <rect x="50" y="50" width="200" height="200" rx="44" fill="url(#bgFull)"/>
+  <rect x="50" y="50" width="200" height="200" rx="44" fill="url(#vigBanner)"/>
+  <rect x="50" y="50" width="200" height="100" rx="44" fill="url(#shineBanner)"/>
   <rect x="50.5" y="50.5" width="199" height="199" rx="43.5" fill="none" stroke="#fff" stroke-opacity="0.04" stroke-width="1"/>
 
-  <!-- Tree structure scaled proportionally -->
-  <!-- Trunk line -->
-  <line x1="150" y1="215" x2="150" y2="152" stroke="url(#trunkGrad)" stroke-width="3" stroke-linecap="round"/>
+  <!-- Organic trunk (scaled to 200x200 container) -->
+  <path d="
+    M 143,215
+    C 143,208 143,201 144,192
+    C 145,182 145,170 145,158
+    L 155,158
+    C 155,170 155,182 156,192
+    C 157,201 157,208 157,215
+    Z
+  " fill="url(#tBanner)"/>
 
-  <!-- Three branches -->
-  <g stroke="#e8e8e8" stroke-width="2.5" stroke-linecap="round" fill="none">
-    <path d="M 150 152 Q 129 130 108 108"/>
-    <line x1="150" y1="150" x2="150" y2="92"/>
-    <path d="M 150 152 Q 171 130 192 108"/>
-  </g>
+  <!-- Trunk highlight -->
+  <path d="
+    M 143,215 C 143,208 143,201 144,192 C 145,182 145,170 145,158
+    L 148,158 C 147,170 147,182 146,192 C 145,201 145,208 145,215 Z
+  " fill="#fff" opacity="0.08"/>
 
-  <!-- Fork junction with golden glow -->
-  <circle cx="150" cy="152" r="7" fill="url(#forkGrad)" filter="url(#forkGlow)"/>
-  <circle cx="147" cy="149" r="2" fill="#fff" opacity="0.5"/>
+  <!-- Ground shadow -->
+  <ellipse cx="150" cy="216" rx="9" ry="2" fill="#000" opacity="0.15"/>
 
-  <!-- Left glass sphere node -->
-  <g filter="url(#sphereGlow)">
-    <circle cx="108" cy="108" r="11" fill="url(#glassLeft)"/>
-  </g>
-  <ellipse cx="104" cy="104" rx="4" ry="3" fill="#fff" opacity="0.5"/>
-  <circle cx="103.5" cy="103.5" r="1.5" fill="#fff" opacity="0.65"/>
-  <ellipse cx="108" cy="114" rx="5" ry="1.5" fill="#000" opacity="0.15"/>
+  <!-- Fork junction -->
+  <ellipse cx="150" cy="158" rx="8" ry="5" fill="#6B4423"/>
+  <ellipse cx="148" cy="157" rx="4" ry="2.5" fill="#fff" opacity="0.05"/>
 
-  <!-- Center glass sphere node (primary, largest) -->
-  <g filter="url(#sphereGlow)">
-    <circle cx="150" cy="90" r="13" fill="url(#glassCenter)"/>
-  </g>
-  <ellipse cx="146" cy="86" rx="4.5" ry="3.5" fill="#fff" opacity="0.5"/>
-  <circle cx="145.5" cy="85.5" r="1.5" fill="#fff" opacity="0.65"/>
-  <ellipse cx="150" cy="98" rx="6" ry="1.8" fill="#000" opacity="0.15"/>
+  <!-- Organic branches (tapered filled paths) -->
 
-  <!-- Right glass sphere node -->
-  <g filter="url(#sphereGlow)">
-    <circle cx="192" cy="108" r="11" fill="url(#glassRight)"/>
-  </g>
-  <ellipse cx="188" cy="104" rx="4" ry="3" fill="#fff" opacity="0.5"/>
-  <circle cx="187.5" cy="103.5" r="1.5" fill="#fff" opacity="0.65"/>
-  <ellipse cx="192" cy="114" rx="5" ry="1.5" fill="#000" opacity="0.15"/>
+  <!-- Amber (far left) -->
+  <path d="
+    M 145,158
+    C 132,145 119,132 90,115
+    L 88,117
+    C 115,133 130,147 143,160
+    Z
+  " fill="url(#bAmbBanner)"/>
 
-  <!-- RIGHT SIDE: Typography -->
+  <!-- Coral (far right) -->
+  <path d="
+    M 155,158
+    C 168,145 181,132 210,115
+    L 212,117
+    C 185,133 170,147 157,160
+    Z
+  " fill="url(#bCorBanner)"/>
+
+  <!-- Green (mid left) -->
+  <path d="
+    M 143,156
+    C 138,140 133,125 120,105
+    L 122,107
+    C 134,126 140,142 145,158
+    Z
+  " fill="url(#bGrnBanner)"/>
+
+  <!-- Violet (mid right) -->
+  <path d="
+    M 157,156
+    C 162,140 167,125 180,105
+    L 178,107
+    C 166,126 160,142 155,158
+    Z
+  " fill="url(#bVioBanner)"/>
+
+  <!-- Cyan (center, frontmost) -->
+  <path d="
+    M 148,155
+    C 149,135 150,115 150,92
+    L 152,92
+    C 152,115 151,135 152,155
+    Z
+  " fill="url(#bCynBanner)"/>
+
+  <!-- Foliage clusters -->
+
+  <!-- Amber -->
+  <circle cx="90" cy="115" r="10" fill="#DAA520" opacity="0.18"/>
+  <circle cx="90" cy="115" r="10" fill="none" stroke="#DAA520" stroke-width="0.8" opacity="0.23"/>
+  <circle cx="86" cy="111" r="3.5" fill="#FFE44D" opacity="0.85"/>
+  <circle cx="93" cy="112" r="3" fill="#FFD700" opacity="0.85"/>
+  <circle cx="88" cy="118" r="2.8" fill="#FFC107" opacity="0.8"/>
+  <circle cx="94" cy="118" r="2.5" fill="#FFE44D" opacity="0.75"/>
+
+  <!-- Green -->
+  <circle cx="120" cy="105" r="10" fill="#2EAB6F" opacity="0.18"/>
+  <circle cx="120" cy="105" r="10" fill="none" stroke="#2EAB6F" stroke-width="0.8" opacity="0.23"/>
+  <circle cx="116" cy="101" r="3.5" fill="#5DEAAD" opacity="0.85"/>
+  <circle cx="123" cy="102" r="3" fill="#34D399" opacity="0.85"/>
+  <circle cx="118" cy="108" r="2.8" fill="#2CC98E" opacity="0.8"/>
+
+  <!-- Cyan (center, slightly larger) -->
+  <circle cx="150" cy="92" r="11" fill="#1AAFCA" opacity="0.18"/>
+  <circle cx="150" cy="92" r="11" fill="none" stroke="#1AAFCA" stroke-width="0.8" opacity="0.23"/>
+  <circle cx="146" cy="88" r="4" fill="#5CE0F0" opacity="0.85"/>
+  <circle cx="153" cy="89" r="3.5" fill="#22D3EE" opacity="0.85"/>
+  <circle cx="149" cy="96" r="3" fill="#1DC5DE" opacity="0.8"/>
+  <circle cx="154" cy="95" r="2.8" fill="#5CE0F0" opacity="0.75"/>
+
+  <!-- Violet -->
+  <circle cx="180" cy="105" r="10" fill="#8B6FC0" opacity="0.18"/>
+  <circle cx="180" cy="105" r="10" fill="none" stroke="#8B6FC0" stroke-width="0.8" opacity="0.23"/>
+  <circle cx="176" cy="101" r="3.5" fill="#C4A8FF" opacity="0.85"/>
+  <circle cx="183" cy="102" r="3" fill="#A78BFA" opacity="0.85"/>
+  <circle cx="178" cy="108" r="2.8" fill="#9B7EF0" opacity="0.8"/>
+
+  <!-- Coral -->
+  <circle cx="210" cy="115" r="10" fill="#E8732A" opacity="0.18"/>
+  <circle cx="210" cy="115" r="10" fill="none" stroke="#E8732A" stroke-width="0.8" opacity="0.23"/>
+  <circle cx="206" cy="111" r="3.5" fill="#FCA75C" opacity="0.85"/>
+  <circle cx="213" cy="112" r="3" fill="#FB923C" opacity="0.85"/>
+  <circle cx="208" cy="118" r="2.8" fill="#F08030" opacity="0.8"/>
+  <circle cx="214" cy="118" r="2.5" fill="#FCA75C" opacity="0.75"/>
+
+  <!-- RIGHT: Typography -->
   <text x="310" y="148" font-family="system-ui,-apple-system,sans-serif" font-size="80" font-weight="700" fill="url(#titleGrad)" letter-spacing="10">ARBOR</text>
   <text x="310" y="180" font-family="system-ui,-apple-system,sans-serif" font-size="15" font-weight="400" fill="#9CA3AF" letter-spacing="6">MULTI-AGENT ORCHESTRATOR</text>
-  <text x="310" y="210" font-family="system-ui,-apple-system,sans-serif" font-size="12" fill="#6B7280" letter-spacing="1">worktree isolation &#183; fork-join concurrency &#183; verified merge</text>
+  <text x="310" y="210" font-family="system-ui,-apple-system,sans-serif" font-size="12" fill="#6B7280" letter-spacing="1">worktree isolation · fork-join concurrency · verified merge</text>
 
-  <!-- Thin decorative line -->
+  <!-- Decorative separator line -->
   <line x1="310" y1="232" x2="1100" y2="232" stroke="url(#separator)" stroke-width="1"/>
 </svg>
