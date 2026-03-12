@@ -903,6 +903,11 @@ async function main() {
   process.exit(contract.summary.failed > 0 ? 1 : 0);
 }
 
+process.on("unhandledRejection", (reason) => {
+  console.error("[swarm:unhandledRejection] Unhandled promise rejection:", reason);
+  process.exit(1);
+});
+
 main().catch((err) => {
   log(`${colors.red}Fatal: ${err.message}${colors.reset}`);
   process.exit(1);

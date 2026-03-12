@@ -39,7 +39,7 @@ import { tmpdir } from "node:os";
 import { createWriteStream } from "node:fs";
 
 import { colors, log, setQuiet } from "./lib/output.mjs";
-import { MAX_BUFFER_SIZE, TOOL_CALL_RE, resolveModel, ROLE_PROMPTS, ROLE_DISALLOWED_TOOLS } from "./lib/config.mjs";
+import { MAX_BUFFER_SIZE, TOOL_CALL_RE, resolveModel, ROLE_PROMPTS, ROLE_DISALLOWED_TOOLS, ROLE_THINKING_TOKENS, ROLE_OUTPUT_TOKENS, ROLE_BASH_LIMIT } from "./lib/config.mjs";
 import { parseAgentArgs, showAgentHelp } from "./lib/cli.mjs";
 import { contextToSystemPrompt, writeResult } from "./lib/context-bridge.mjs";
 import { parseTelemetry, reportPeakBufferSize } from "./lib/telemetry.mjs";
@@ -104,6 +104,13 @@ process.on("SIGINT", () => {
 
 process.on("uncaughtException", (err) => {
   console.error("[agent-entry:uncaughtException] Fatal error:", err.message || err);
+  killAllChildren();
+  if (process.env.ARBOR_TEAM_NAME) cleanupTeamDir(process.env.ARBOR_TEAM_NAME);
+  process.exit(1);
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("[agent-entry:unhandledRejection] Unhandled promise rejection:", reason);
   killAllChildren();
   if (process.env.ARBOR_TEAM_NAME) cleanupTeamDir(process.env.ARBOR_TEAM_NAME);
   process.exit(1);
@@ -255,9 +262,36 @@ async function main() {
 
   // Bypass nesting guard: provide the full team triple (--team-name + --agent-id + --agent-name)
   const agentId = randomUUID().slice(0, 12);
-  const teamName = `remote-${agentId}`;
+  const teamName = `arbor-${agentId}`;
   process.env.ARBOR_TEAM_NAME = teamName; // For cleanup handlers
   env.CLAUDECODE = ""; // Belt-and-suspenders: also clear the env guard
+
+  // F1: Non-essential traffic suppression — verified in SDK
+  env.DISABLE_ERROR_REPORTING = "1";
+  env.DISABLE_AUTOUPDATER = "1";
+  env.DISABLE_COST_WARNINGS = "1";
+  env.DISABLE_INSTALLATION_CHECKS = "1";
+  env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "1";
+  env.CLAUDE_CODE_DISABLE_AUTO_MEMORY = "1";
+  env.CLAUDE_CODE_DISABLE_TERMINAL_TITLE = "1";
+  env.CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY = "1";
+
+  // F2: Adaptive compaction — defer compaction for short tasks, allow earlier for long
+  env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = args.maxTurns > 25 ? "85" : "95";
+
+  // F3: Small model for internal SDK calls (tool search, summaries)
+  env.ANTHROPIC_SMALL_FAST_MODEL = "claude-haiku-4-5-20251001";
+
+  // F4: Role-specific resource tuning — verified env var names in SDK
+  if (args.role && ROLE_THINKING_TOKENS[args.role]) {
+    env.MAX_THINKING_TOKENS = String(ROLE_THINKING_TOKENS[args.role]);
+  }
+  if (args.role && ROLE_OUTPUT_TOKENS[args.role]) {
+    env.CLAUDE_CODE_MAX_OUTPUT_TOKENS = String(ROLE_OUTPUT_TOKENS[args.role]);
+  }
+  if (args.role && ROLE_BASH_LIMIT[args.role]) {
+    env.BASH_MAX_OUTPUT_LENGTH = String(ROLE_BASH_LIMIT[args.role]);
+  }
 
   // ── Session resume support ───────────────────────────────────────
   // Generate a stable session ID for the first run. On retry, --resume picks up
@@ -322,7 +356,8 @@ async function main() {
 
   // ── Context persistence: CLAUDE.md for compaction survival ─────
   let persistContextDir = null;
-  if (args.persistContext || args.maxTurns > 50) {
+  // F5: Expanded persistence trigger — also fires on scope to survive compaction
+  if (args.persistContext || args.maxTurns > 50 || args.scope) {
     const systemParts = [];
     if (args.role && args.role !== "verifier" && ROLE_PROMPTS[args.role]) {
       systemParts.push(ROLE_PROMPTS[args.role]);
@@ -393,6 +428,15 @@ async function main() {
     if (args.fallbackModel) {
       childArgs.push("--fallback-model", args.fallbackModel);
     }
+
+    // F6: Debug passthrough — SWARM_DEBUG/DEBUG env or --debug flag
+    if (args.debug || process.env.SWARM_DEBUG || process.env.DEBUG) {
+      childArgs.push("--debug");
+      env.CLAUDE_CODE_DEBUG_LOGS_DIR = join(tmpdir(), `arbor-debug-${agentId}`);
+    }
+
+    // F7: Settings isolation — prevent child from reading user's global settings
+    childArgs.push("--setting-sources", "user");
 
     // Change 4: Use built-in verifier agent instead of custom role prompt
     if (args.role === "verifier") {

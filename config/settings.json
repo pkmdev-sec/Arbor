@@ -6,5 +6,9 @@
     "defaultMode": "dontAsk"
   },
   "disableAllHooks": true,
-  "includeCoAuthoredBy": false
+  "includeCoAuthoredBy": false,
+  "disable_error_reporting": true,
+  "disable_autoupdater": true,
+  "disable_cost_warnings": true,
+  "disable_installation_checks": true
 }
