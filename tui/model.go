@@ -27,6 +27,11 @@ const (
 	tabCount
 )
 
+// maxIPCRetries is the maximum number of IPC reconnection attempts.
+// The TUI may start before the IPC bus socket exists (race condition),
+// so we retry with increasing delay up to this limit.
+const maxIPCRetries = 15
+
 var tabNames = [tabCount]string{
 	"Overview", "Agents", "Chat", "Hierarchy", "Resources", "Logs", "Launch", "Intern", "Net",
 }
@@ -56,6 +61,7 @@ type Model struct {
 	ipc          *IPCConn
 	busAddress   string
 	ipcConnected bool
+	ipcRetries   int
 
 	messages     *MessageRing
 	chatFilter   ChatFilter
@@ -178,6 +184,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case ipcConnectedMsg:
 		m.ipcConnected = true
+		m.ipcRetries = 0
 		m.lastError = ""
 		if m.ipc != nil {
 			return m, listenForIPCMessages(m.ipc)
@@ -199,6 +206,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ipcErrMsg:
 		m.ipcConnected = false
 		m.lastError = msg.err.Error()
+		// Retry IPC connection with backoff — the bus socket may not exist yet
+		// (TUI starts before the orchestrator creates the IPC bus)
+		m.ipcRetries++
+		if m.ipc != nil && m.ipcRetries <= maxIPCRetries {
+			ipc := m.ipc
+			delay := time.Duration(m.ipcRetries) * time.Second
+			if delay > 5*time.Second {
+				delay = 5 * time.Second
+			}
+			return m, func() tea.Msg {
+				time.Sleep(delay)
+				if err := ipc.Connect(); err != nil {
+					return ipcErrMsg{err: err}
+				}
+				return ipcConnectedMsg{}
+			}
+		}
 		return m, nil
 
 	case ipcDisconnectedMsg:
@@ -647,6 +671,10 @@ func (m Model) viewStatusBar() string {
 	if m.ipc != nil {
 		if m.ipcConnected {
 			parts = append(parts, lipgloss.NewStyle().Foreground(m.theme.Success).Render("● IPC"))
+		} else if m.ipcRetries > 0 && m.ipcRetries <= maxIPCRetries {
+			// Actively retrying — show yellow with retry count
+			retryStr := fmt.Sprintf("◌ IPC(%d)", m.ipcRetries)
+			parts = append(parts, lipgloss.NewStyle().Foreground(m.theme.Warning).Render(retryStr))
 		} else {
 			parts = append(parts, lipgloss.NewStyle().Foreground(m.theme.Error).Render("✗ IPC"))
 		}

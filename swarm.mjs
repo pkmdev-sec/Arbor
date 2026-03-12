@@ -207,9 +207,10 @@ async function executeHierarchical(task, args, workDir, depth) {
     maxWorktrees: Math.min(args.agentBudget, 15),
   });
 
-  // Start IPC message bus for hierarchical coordination (ScopedBus, heartbeats, progress)
+  // IPC bus: reuse top-level bus if already started, otherwise create one
   let bus = null;
   const busSocketPath = join(workDir, "ipc-bus.sock");
+  let busOwnedHere = false; // Track if we need to stop bus on cleanup
 
   // BUG FIX 2: Wrap entire execution pipeline in try-finally to ensure cleanup on early failure
   // Governor and bus must be cleaned up even if decomposition fails or execution throws
@@ -219,10 +220,16 @@ async function executeHierarchical(task, args, workDir, depth) {
 
   try {
     try {
-      const { MessageBus } = await import("./lib/ipc/message-bus.mjs");
-      bus = new MessageBus({ socketPath: busSocketPath });
-      await bus.start();
-      log(`${colors.dim}IPC bus started: ${busSocketPath}${colors.reset}`);
+      // Check if bus socket already exists (started at top level before TUI)
+      if (existsSync(busSocketPath)) {
+        log(`${colors.dim}IPC bus already running: ${busSocketPath}${colors.reset}`);
+      } else {
+        const { MessageBus } = await import("./lib/ipc/message-bus.mjs");
+        bus = new MessageBus({ socketPath: busSocketPath });
+        await bus.start();
+        busOwnedHere = true;
+        log(`${colors.dim}IPC bus started: ${busSocketPath}${colors.reset}`);
+      }
 
       // Connect governor to bus for real-time monitoring
       await governor.connectBus(busSocketPath, "orchestrator");
@@ -260,7 +267,7 @@ async function executeHierarchical(task, args, workDir, depth) {
     // - decomposition failed (phase 1-2)
     // - governor/bus creation failed (phase 3)
     // - execution threw an error (phase 4)
-    if (bus) {
+    if (bus && busOwnedHere) {
       try {
         await bus.stop();
         log(`${colors.dim}IPC bus stopped${colors.reset}`);
@@ -634,6 +641,20 @@ async function main() {
   // F9: Propagate TUI flag to child agents for PostToolUse progress hooks
   if (args.tui) {
     process.env.ARBOR_TUI = "1";
+  }
+
+  // ── Start IPC bus EARLY so TUI can connect immediately ──
+  // Previously the bus was only started inside executeHierarchical(), after
+  // the TUI had already launched and failed to connect (no socket yet).
+  let topLevelBus = null;
+  try {
+    const { MessageBus } = await import("./lib/ipc/message-bus.mjs");
+    topLevelBus = new MessageBus({ socketPath: busSocketPath });
+    await topLevelBus.start();
+    log(`${colors.dim}IPC bus started: ${busSocketPath}${colors.reset}`);
+  } catch (err) {
+    log(`${colors.dim}IPC bus unavailable: ${err.message}${colors.reset}`);
+    topLevelBus = null;
   }
 
   // ── TUI dashboard (read-only overlay — does NOT control execution) ──
@@ -1105,6 +1126,11 @@ async function main() {
     try { rmSync(bkDir, { recursive: true, force: true }); } catch (error) {
       console.error("[swarm.mjs:main] Error:", error.message || error);
     }
+  }
+
+  // Stop top-level IPC bus (started before TUI for early connectivity)
+  if (topLevelBus) {
+    try { await topLevelBus.stop(); } catch {}
   }
 
   process.exit(contract.summary.failed > 0 ? 1 : 0);
