@@ -39,13 +39,13 @@ import { tmpdir } from "node:os";
 import { createWriteStream } from "node:fs";
 
 import { colors, log, setQuiet } from "./lib/output.mjs";
-import { MAX_BUFFER_SIZE, TOOL_CALL_RE, resolveModel, ROLE_PROMPTS } from "./lib/config.mjs";
+import { MAX_BUFFER_SIZE, TOOL_CALL_RE, resolveModel, ROLE_PROMPTS, ROLE_DISALLOWED_TOOLS } from "./lib/config.mjs";
 import { parseAgentArgs, showAgentHelp } from "./lib/cli.mjs";
 import { contextToSystemPrompt, writeResult } from "./lib/context-bridge.mjs";
 import { parseTelemetry, reportPeakBufferSize } from "./lib/telemetry.mjs";
 import { claimBdTask, closeBdTask, cleanupTeamDir } from "./lib/lifecycle.mjs";
 import { aiJsonDecision, isAiClientAvailable } from "./lib/ai-client.mjs";
-import { initIpcLogger, logIpc } from "./lib/tui/ipc-logger.mjs";
+import { initIpcLogger, logIpc } from "./lib/ipc-logger.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -87,25 +87,25 @@ function killAllChildren() {
 // Register cleanup handlers
 process.on("exit", () => {
   killAllChildren();
-  cleanupTeamDir(process.env.REMOTE_AGENT_TEAM_NAME); // Will be set in main()
+  if (process.env.ARBOR_TEAM_NAME) cleanupTeamDir(process.env.ARBOR_TEAM_NAME); // Will be set in main()
 });
 
 process.on("SIGTERM", () => {
   killAllChildren();
-  cleanupTeamDir(process.env.REMOTE_AGENT_TEAM_NAME);
+  if (process.env.ARBOR_TEAM_NAME) cleanupTeamDir(process.env.ARBOR_TEAM_NAME);
   process.exit(143);
 });
 
 process.on("SIGINT", () => {
   killAllChildren();
-  cleanupTeamDir(process.env.REMOTE_AGENT_TEAM_NAME);
+  if (process.env.ARBOR_TEAM_NAME) cleanupTeamDir(process.env.ARBOR_TEAM_NAME);
   process.exit(130);
 });
 
 process.on("uncaughtException", (err) => {
   console.error("[agent-entry:uncaughtException] Fatal error:", err.message || err);
   killAllChildren();
-  cleanupTeamDir(process.env.REMOTE_AGENT_TEAM_NAME);
+  if (process.env.ARBOR_TEAM_NAME) cleanupTeamDir(process.env.ARBOR_TEAM_NAME);
   process.exit(1);
 });
 
@@ -134,7 +134,7 @@ if (existsSync(localPath)) {
 
 // ── Version checking ─────────────────────────────────────────────
 try {
-  const remoteAgentPkgPath = join(dirname(CLI_JS), "package.json");
+  const remoteAgentPkgPath = join(dirname(CLI_JS), "..", "package.json");
   const remoteAgentPkg = JSON.parse(readFileSync(remoteAgentPkgPath, "utf-8"));
   const remoteVersion = remoteAgentPkg.version;
 
@@ -146,8 +146,9 @@ try {
         readFileSync(join(process.env.HOME, ".claude", "node_modules", "@anthropic-ai", "claude-code", "package.json"), "utf-8")
       );
       mainVersion = mainPkg.version;
-    } catch {
-      // Main Claude Code install not found — not an error, just skip version comparison
+    } catch (err) {
+      // TASK 4: Error logging - main package.json read failure
+      console.error("[agent-entry:versionCheck] Error reading main package.json:", err.message || err);
     }
   }
 
@@ -170,7 +171,7 @@ async function main() {
 
   if (args.version) {
     try {
-      const pkg = JSON.parse(readFileSync(join(dirname(CLI_JS), "package.json"), "utf-8"));
+      const pkg = JSON.parse(readFileSync(join(dirname(CLI_JS), "..", "package.json"), "utf-8"));
       process.stdout.write(`arbor 1.0.0 (claude-code ${pkg.version})\n`);
     } catch (err) {
       // TASK 4: Error logging - package.json read failure
@@ -239,46 +240,6 @@ async function main() {
     process.exit(1);
   }
 
-  // Build child process arguments
-  const childArgs = [
-    CLI_JS,
-    "-p",
-    "--model", args.model,
-    "--permission-mode", "dontAsk",
-    "--dangerously-skip-permissions",
-    "--max-turns", String(args.maxTurns),
-    "--max-budget-usd", String(args.budget),
-    "--output-format", args.outputFormat,
-    "--no-session-persistence",
-  ];
-
-  // Context bridge: role prompts + context file → system prompt
-  const systemParts = [];
-  // Inject role-specific prompt first (highest priority)
-  if (args.role && ROLE_PROMPTS[args.role]) {
-    systemParts.push(ROLE_PROMPTS[args.role]);
-  }
-  if (args.contextFile) {
-    const { prompt: ctxPrompt, error: ctxError } = contextToSystemPrompt(args.contextFile);
-    if (ctxPrompt) {
-      systemParts.push(ctxPrompt);
-    } else if (ctxError) {
-      log(`${colors.red}Error: Context file is required but failed to load${colors.reset}`);
-      process.exit(1);
-    }
-  }
-  if (args.systemPrompt) {
-    systemParts.push(args.systemPrompt);
-  }
-  if (systemParts.length > 0) {
-    childArgs.push("--append-system-prompt", systemParts.join("\n\n"));
-  }
-
-  // Task goes last
-  if (args.task) {
-    childArgs.push(args.task);
-  }
-
   // S2: Delta-only env — single-pass filter avoids spread + V8-deoptimizing deletes
   const ENV_DELETES = new Set([
     "CLAUDE_CODE_ALWAYS_ENABLE_EFFORT",
@@ -295,16 +256,220 @@ async function main() {
   // Bypass nesting guard: provide the full team triple (--team-name + --agent-id + --agent-name)
   const agentId = randomUUID().slice(0, 12);
   const teamName = `remote-${agentId}`;
-  process.env.REMOTE_AGENT_TEAM_NAME = teamName; // For cleanup handlers
-  childArgs.splice(1, 0,
-    "--team-name", teamName,
-    "--agent-id", agentId,
-    "--agent-name", "arbor",
-  );
+  process.env.ARBOR_TEAM_NAME = teamName; // For cleanup handlers
   env.CLAUDECODE = ""; // Belt-and-suspenders: also clear the env guard
 
-  // Point subprocess to minimal config (no hooks, no MCP, no taskmaster)
-  env.CLAUDE_CONFIG_DIR = join(__dirname, "config");
+  // ── Session resume support ───────────────────────────────────────
+  // Generate a stable session ID for the first run. On retry, --resume picks up
+  // where the previous attempt left off with full conversation history intact.
+  const sessionUUID = randomUUID();
+  const canResume = args.maxRetries > 0;
+
+  // ── Scope guard: per-agent config with PreToolUse hook ─────────
+  // When scope is provided, create a per-agent config directory with a hook that
+  // blocks Write/Edit/Bash operations targeting files outside the scope.
+  let scopeConfigDir = null;
+  if (args.scope) {
+    scopeConfigDir = mkdtempSync(join(tmpdir(), "ra-scope-"));
+    const scopeSettings = {
+      "$schema": "https://json.schemastore.org/claude-code-settings.json",
+      permissions: { allow: ["*"], deny: [], defaultMode: "dontAsk" },
+      includeCoAuthoredBy: false,
+      hooks: {
+        PreToolUse: [{
+          matcher: "{Write,Edit,Bash}",
+          hooks: [{
+            type: "command",
+            command: `python3 ${join(__dirname, "hooks", "scope-guard.py")}`,
+            timeout: 3,
+          }]
+        }]
+      }
+    };
+    writeFileSync(join(scopeConfigDir, "settings.json"), JSON.stringify(scopeSettings, null, 2), "utf-8");
+    env.ARBOR_SCOPE = args.scope;
+    log(`${colors.dim}Scope guard active: ${args.scope}${colors.reset}`);
+  }
+
+  // Point subprocess to config (scope-guarded or minimal)
+  env.CLAUDE_CONFIG_DIR = scopeConfigDir || join(__dirname, "config");
+
+  // ── MCP coordination: write config for agent-side MCP server ───
+  let mcpConfigPath = null;
+  if (args.resultFile) {
+    const mcpServerPath = join(__dirname, "lib", "mcp", "coordinator-server.mjs");
+    if (existsSync(mcpServerPath)) {
+      mcpConfigPath = join(mkdtempSync(join(tmpdir(), "ra-mcp-")), "mcp-config.json");
+      const mcpConfig = {
+        mcpServers: {
+          "swarm-coordinator": {
+            command: "node",
+            args: [mcpServerPath],
+            env: {
+              SWARM_AGENT_ID: process.env.SWARM_AGENT_ID || agentId,
+              SWARM_WORK_DIR: dirname(args.resultFile),
+              SWARM_SCOPE: args.scope || "",
+              SWARM_TASK: (args.task || "").slice(0, 500),
+              SWARM_CONTEXT_FILE: args.contextFile || "",
+            }
+          }
+        }
+      };
+      writeFileSync(mcpConfigPath, JSON.stringify(mcpConfig, null, 2), "utf-8");
+      log(`${colors.dim}MCP coordinator enabled${colors.reset}`);
+    }
+  }
+
+  // ── Context persistence: CLAUDE.md for compaction survival ─────
+  let persistContextDir = null;
+  if (args.persistContext || args.maxTurns > 50) {
+    const systemParts = [];
+    if (args.role && args.role !== "verifier" && ROLE_PROMPTS[args.role]) {
+      systemParts.push(ROLE_PROMPTS[args.role]);
+    }
+    if (args.contextFile) {
+      const { prompt: ctxPrompt } = contextToSystemPrompt(args.contextFile);
+      if (ctxPrompt) systemParts.push(ctxPrompt);
+    }
+    if (systemParts.length > 0) {
+      persistContextDir = mkdtempSync(join(tmpdir(), "ra-ctx-"));
+      writeFileSync(join(persistContextDir, "CLAUDE.md"), systemParts.join("\n\n"), "utf-8");
+      log(`${colors.dim}Context persisted to ${persistContextDir}/CLAUDE.md (survives compaction)${colors.reset}`);
+    }
+  }
+
+  // ── Prefill auto-generation per role ─────────────────────────────
+  // Role-appropriate prefill text skips the "let me think about what to do" phase,
+  // saving 1-3 turns per agent. Verifier is excluded (let it reason from scratch
+  // for adversarial quality).
+  function _autoGeneratePrefill(role) {
+    switch (role) {
+      case "worker":
+        return "I'll start by reading the relevant files to understand the current code, then make the requested changes.\n\n";
+      case "decomposer":
+        return "I'll analyze the task scope and produce a JSON decomposition.\n\n";
+      default:
+        // verifier and unknown roles: no prefill (let them reason independently)
+        return null;
+    }
+  }
+
+  // ── Build child process arguments (called per retry attempt) ───
+  const buildChildArgs = (previousResultFile, isRetry = false) => {
+    const childArgs = [
+      CLI_JS,
+      // Team triple must come before -p for nesting guard bypass
+      "--team-name", teamName,
+      "--agent-id", agentId,
+      "--agent-name", "arbor",
+      "-p",
+      "--model", args.model,
+      "--permission-mode", "dontAsk",
+      "--dangerously-skip-permissions",
+      "--max-turns", String(args.maxTurns),
+      "--max-budget-usd", String(args.budget),
+      "--output-format", args.outputFormat,
+    ];
+
+    // Session persistence: enable when retries are possible (session files needed for --resume)
+    if (!canResume) {
+      childArgs.push("--no-session-persistence");
+    }
+
+    // Session resume: on retry, continue from previous session instead of starting fresh
+    if (isRetry && canResume) {
+      childArgs.push("--resume", sessionUUID, "--fork-session");
+      log(`${colors.dim}Resuming session ${sessionUUID}${colors.reset}`);
+    } else if (canResume) {
+      childArgs.push("--session-id", sessionUUID);
+    }
+
+    // Native effort level passthrough
+    if (args.effort) {
+      childArgs.push("--effort", args.effort);
+    }
+
+    // Native fallback model for overload handling
+    if (args.fallbackModel) {
+      childArgs.push("--fallback-model", args.fallbackModel);
+    }
+
+    // Change 4: Use built-in verifier agent instead of custom role prompt
+    if (args.role === "verifier") {
+      childArgs.push("--agent", "verifier");
+    }
+
+    // Tool restriction per role (denylist — more future-proof than allowlist)
+    if (args.role && ROLE_DISALLOWED_TOOLS[args.role]) {
+      childArgs.push("--disallowed-tools", ...ROLE_DISALLOWED_TOOLS[args.role].split(" "));
+    }
+
+    // Prefill: pre-fill assistant's first response to skip "thinking" phase
+    // Auto-generate role-appropriate prefill when not explicitly provided
+    if (!isRetry) {
+      const prefill = args.prefill || _autoGeneratePrefill(args.role);
+      if (prefill) {
+        childArgs.push("--prefill", prefill);
+      }
+    }
+
+    // MCP coordination server
+    if (mcpConfigPath) {
+      childArgs.push("--mcp-config", mcpConfigPath);
+    }
+
+    // Context persistence: add temp directory with CLAUDE.md
+    if (persistContextDir) {
+      childArgs.push("--add-dir", persistContextDir);
+    }
+
+    // Context bridge: role prompts + context file → system prompt
+    // On resume retry, skip — the session already has the context
+    const systemParts = [];
+    if (!isRetry) {
+      // Skip role prompt injection for verifier (using --agent verifier instead)
+      // and when persisted to CLAUDE.md (avoid double injection)
+      if (!persistContextDir && args.role !== "verifier") {
+        if (args.role && ROLE_PROMPTS[args.role]) {
+          systemParts.push(ROLE_PROMPTS[args.role]);
+        }
+      }
+      if (!persistContextDir && args.contextFile) {
+        const { prompt: ctxPrompt, error: ctxError } = contextToSystemPrompt(args.contextFile);
+        if (ctxPrompt) {
+          systemParts.push(ctxPrompt);
+        } else if (ctxError) {
+          log(`${colors.red}Error: Context file is required but failed to load${colors.reset}`);
+          process.exit(1);
+        }
+      }
+    }
+    // I4: Inject previous attempt output as context (non-resume fallback)
+    if (!isRetry && previousResultFile && existsSync(previousResultFile)) {
+      const { prompt: prevPrompt } = contextToSystemPrompt(previousResultFile);
+      if (prevPrompt) {
+        systemParts.push("[Previous Attempt Output - use as reference, do not repeat failures]\n\n" + prevPrompt);
+      }
+    }
+    if (args.systemPrompt) {
+      systemParts.push(args.systemPrompt);
+    }
+    if (systemParts.length > 0) {
+      childArgs.push("--append-system-prompt", systemParts.join("\n\n"));
+    }
+
+    // Task goes last — use "--" separator when variadic flags are present
+    // to prevent the task string from being consumed as a flag argument
+    if (args.task && !isRetry) {
+      if (persistContextDir || mcpConfigPath) {
+        childArgs.push("--", args.task);
+      } else {
+        childArgs.push(args.task);
+      }
+    }
+
+    return childArgs;
+  };
 
   // Status
   const taskPreview = (args.task || "(from context file)").slice(0, 80);
@@ -312,7 +477,8 @@ async function main() {
   log(`${colors.dim}Task: ${taskPreview}${taskPreview.length >= 80 ? "..." : ""}${colors.reset}`);
   log("");
 
-  // Initialize IPC logger if running as part of a swarm (result file is in a workDir)
+  // Initialize IPC logger when resultFile is set (swarm workDir or explicit --result-file)
+  // Standalone runs without resultFile skip IPC — no consumer watches random temp dirs
   const agentLabel = process.env.SWARM_AGENT_ID || 'agent';
   if (args.resultFile) {
     try {
@@ -337,6 +503,7 @@ async function main() {
   let stderrBytes = 0;
   let startTime;
   let retryCount = 0;
+  let previousResultFile = null;
 
   while (retryCount <= args.maxRetries) {
     // Check budget before retry (skip if insufficient)
@@ -349,6 +516,19 @@ async function main() {
       const backoffSeconds = Math.pow(2, retryCount - 1); // 1s, 2s, 4s
       log(`${colors.yellow}Retry ${retryCount}/${args.maxRetries} after ${backoffSeconds}s (exit code: ${exitCode})...${colors.reset}`);
       await new Promise(resolve => setTimeout(resolve, backoffSeconds * 1000));
+
+      // I4: If result file exists from previous attempt, pass it as context
+      if (args.resultFile && existsSync(args.resultFile)) {
+        previousResultFile = args.resultFile + `.retry-${retryCount - 1}.json`;
+        try {
+          const prevResult = readFileSync(args.resultFile, "utf-8");
+          writeFileSync(previousResultFile, prevResult, "utf-8");
+          log(`${colors.dim}Retry ${retryCount}: passing previous attempt output as context (${previousResultFile})${colors.reset}`);
+        } catch (err) {
+          log(`${colors.yellow}Failed to save previous result for retry: ${err.message}${colors.reset}`);
+          previousResultFile = null;
+        }
+      }
     }
 
     startTime = Date.now();
@@ -361,6 +541,10 @@ async function main() {
     let stderrOverflowStream = null;
     let peakStdoutBytes = 0;
     let peakStderrBytes = 0;
+
+    // Build child args per retry attempt (session resume on retry, fresh on first run)
+    const isRetry = retryCount > 0;
+    const childArgs = buildChildArgs(previousResultFile, isRetry);
 
     // Spawn subprocess
     const proc = spawn("node", childArgs, {
@@ -376,38 +560,25 @@ async function main() {
       activePids.delete(proc.pid);
     });
 
-    // TASK 1: Capture stdout with ring buffer + overflow to temp file + backpressure
+    // TASK 1: Capture stdout with ring buffer + overflow to temp file
     stdoutChunks = [];
     stdoutBytes = 0;
-    const BACKPRESSURE_THRESHOLD = MAX_BUFFER_SIZE * 0.8; // 80% of max
 
     proc.stdout.on("data", (chunk) => {
       stdoutChunks.push(chunk);
       stdoutBytes += chunk.length;
       peakStdoutBytes = Math.max(peakStdoutBytes, stdoutBytes);
 
-      // TASK 1: Write overflow to temp file when exceeding MAX_BUFFER_SIZE
+      // Write overflow to temp file when exceeding MAX_BUFFER_SIZE
       while (stdoutBytes > MAX_BUFFER_SIZE && stdoutChunks.length > 0) {
         const dropped = stdoutChunks.shift();
         stdoutBytes -= dropped.length;
 
-        // Write dropped chunk to overflow file
         if (!stdoutOverflowStream) {
           stdoutOverflowPath = join(tempDir, "stdout-overflow.log");
           stdoutOverflowStream = createWriteStream(stdoutOverflowPath, { flags: "a" });
         }
         stdoutOverflowStream.write(dropped);
-      }
-
-      // TASK 1: Backpressure management - pause when near cap
-      if (stdoutBytes > BACKPRESSURE_THRESHOLD && !proc.stdout.isPaused()) {
-        proc.stdout.pause();
-        // Resume after flush
-        setImmediate(() => {
-          if (proc.stdout.isPaused()) {
-            proc.stdout.resume();
-          }
-        });
       }
 
       // Stream to our stdout in real-time (unless writing result file)
@@ -416,7 +587,7 @@ async function main() {
       }
     });
 
-    // TASK 1: Stream stderr live with overflow + backpressure
+    // TASK 1: Stream stderr live with overflow
     stderrChunks = [];
     stderrBytes = 0;
     let stderrBufferWarned = false;
@@ -429,14 +600,7 @@ async function main() {
       tool_calls_count: 0,
       last_tool: null,
     };
-    const toolPatterns = [
-      { pattern: /\bRead\(/i, name: "Read" },
-      { pattern: /\bGrep\(/i, name: "Grep" },
-      { pattern: /\bBash\(/i, name: "Bash" },
-      { pattern: /\bEdit\(/i, name: "Edit" },
-      { pattern: /\bWrite\(/i, name: "Write" },
-      { pattern: /\bGlob\(/i, name: "Glob" },
-    ];
+    // Tool detection uses TOOL_CALL_RE from config.mjs (covers all 8 tools)
 
     // ── Stderr write queue — atomic line writes prevent interleaving ──
     const writeQueue = [];
@@ -477,23 +641,28 @@ async function main() {
       }
     }
 
-    // Emit progress updates every 30s
+    // Emit progress updates every 5s (progress file for TUI freshness)
+    // Stderr + IPC logs throttled to every 30s (every 6th tick) to avoid noise
     let progressTick = 0;
     const progressInterval = setInterval(() => {
       progressTick++;
       const elapsedSec = ((Date.now() - startTime) / 1000).toFixed(0);
       const stdoutKB = (stdoutBytes / 1024).toFixed(0);
-      const progressMsg = `[progress] ${elapsedSec}s | tools: ${progress.tool_calls_count} | last: ${progress.last_tool || "none"} | stdout: ${stdoutKB}KB`;
-      queueWrite(`${colors.dim}${progressMsg}${colors.reset}\n`);
 
-      // IPC progress: log every 60s (every other tick) to avoid spam
-      if (args.resultFile && progressTick % 2 === 0) {
+      // Stderr progress message every 30s (every 6th tick)
+      if (progressTick % 6 === 0) {
+        const progressMsg = `[progress] ${elapsedSec}s | tools: ${progress.tool_calls_count} | last: ${progress.last_tool || "none"} | stdout: ${stdoutKB}KB`;
+        queueWrite(`${colors.dim}${progressMsg}${colors.reset}\n`);
+      }
+
+      // IPC progress: log every 30s (every 6th tick) to avoid spam
+      if (args.resultFile && progressTick % 6 === 0) {
         try {
           logIpc(agentLabel, 'orchestrator', 'progress', `${elapsedSec}s | tools: ${progress.tool_calls_count} | last: ${progress.last_tool || "none"}`, { elapsedSec: Number(elapsedSec), toolCalls: progress.tool_calls_count, lastTool: progress.last_tool });
         } catch { /* non-fatal */ }
       }
 
-      // Write incremental progress file if result file is set
+      // Write incremental progress file every 5s for TUI freshness
       if (args.resultFile) {
         const progressFile = args.resultFile + ".progress.json";
         const progressData = {
@@ -509,38 +678,10 @@ async function main() {
           console.error("[agent-entry:progressInterval] Error writing progress file:", err.message || err);
         }
       }
-    }, 30000);
-
-    // ── Inactivity watchdog — kill agent after 5min of stderr silence ──
-    let lastStderrActivity = Date.now();
-    const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
-    const inactivityWatchdog = setInterval(() => {
-      const silenceMs = Date.now() - lastStderrActivity;
-      if (silenceMs >= INACTIVITY_TIMEOUT_MS) {
-        clearInterval(inactivityWatchdog);
-        const silenceSec = (silenceMs / 1000).toFixed(0);
-        queueWrite(`${colors.yellow}[watchdog] No activity for ${silenceSec}s — sending SIGINT${colors.reset}\n`);
-        try { proc.kill("SIGINT"); } catch { /* already dead */ }
-        // Escalate: SIGTERM after 10s, SIGKILL after 20s
-        setTimeout(() => {
-          try {
-            process.kill(proc.pid, 0); // alive check
-            queueWrite(`${colors.yellow}[watchdog] Still alive — sending SIGTERM${colors.reset}\n`);
-            proc.kill("SIGTERM");
-          } catch { /* dead */ }
-        }, 10_000);
-        setTimeout(() => {
-          try {
-            process.kill(proc.pid, 0);
-            queueWrite(`${colors.red}[watchdog] Force killing — SIGKILL${colors.reset}\n`);
-            proc.kill("SIGKILL");
-          } catch { /* dead */ }
-        }, 20_000);
-      }
-    }, 30_000); // Check every 30s
+    }, 5000);
 
     proc.stderr.on("data", (chunk) => {
-      lastStderrActivity = Date.now(); // Reset watchdog on any stderr activity
+      lastStderrTime = Date.now(); // Reset inactivity watchdog
       stderrChunks.push(chunk);
       stderrBytes += chunk.length;
       peakStderrBytes = Math.max(peakStderrBytes, stderrBytes);
@@ -562,25 +703,13 @@ async function main() {
         stderrOverflowStream.write(dropped);
       }
 
-      // TASK 1: Backpressure management - pause when near cap
-      if (stderrBytes > BACKPRESSURE_THRESHOLD && !proc.stderr.isPaused()) {
-        proc.stderr.pause();
-        // Resume after flush
-        setImmediate(() => {
-          if (proc.stderr.isPaused()) {
-            proc.stderr.resume();
-          }
-        });
-      }
-
       // Parse stderr for tool calls (passive observation only)
       const text = chunk.toString("utf-8");
       const prevTool = progress.last_tool;
-      for (const { pattern, name } of toolPatterns) {
-        if (pattern.test(text)) {
-          progress.tool_calls_count++;
-          progress.last_tool = name;
-        }
+      const toolMatch = TOOL_CALL_RE.exec(text);
+      if (toolMatch) {
+        progress.tool_calls_count++;
+        progress.last_tool = toolMatch[1];
       }
       // IPC: Log when a new tool type is detected
       if (progress.last_tool !== prevTool && args.resultFile) {
@@ -593,18 +722,49 @@ async function main() {
       }
     });
 
-    // Wait for exit (no timeout — agents run until natural completion)
+    // Inactivity watchdog — kill after 5 min of stderr silence
+    let lastStderrTime = Date.now();
+    const INACTIVITY_LIMIT_MS = 5 * 60 * 1000; // 5 minutes
+    const inactivityWatchdog = setInterval(() => {
+      const silenceMs = Date.now() - lastStderrTime;
+      if (silenceMs >= INACTIVITY_LIMIT_MS) {
+        clearInterval(inactivityWatchdog);
+        clearInterval(progressInterval);
+        log(`\n${colors.yellow}Inactivity watchdog: ${(silenceMs / 1000).toFixed(0)}s stderr silence — sending SIGINT${colors.reset}`);
+        proc.kill("SIGINT");
+
+        // Escalate to SIGTERM after 10s
+        setTimeout(() => {
+          if (!proc.killed) {
+            log(`${colors.yellow}Escalating to SIGTERM${colors.reset}`);
+            proc.kill("SIGTERM");
+
+            // Final escalation to SIGKILL after 10s more
+            setTimeout(() => {
+              if (!proc.killed) {
+                log(`${colors.yellow}Force killing with SIGKILL${colors.reset}`);
+                try { proc.kill("SIGKILL"); } catch {}
+              }
+            }, 10000);
+          }
+        }, 10000);
+      }
+    }, 30000);
+
+    // Wait for exit
     exitCode = await new Promise((resolve) => {
       proc.on("close", (code, signal) => {
-        clearInterval(progressInterval);
         clearInterval(inactivityWatchdog);
+        clearInterval(progressInterval);
+        // Flush any remaining partial lines in the stderr buffer
         if (!args.quiet) flushRemainingLines(stderrPrefix);
+        // Exit code 124 indicates interruption (signal-based or watchdog)
         const wasInterrupted = signal === "SIGTERM" || signal === "SIGKILL" || signal === "SIGINT";
         resolve(wasInterrupted ? 124 : (code ?? 1));
       });
       proc.on("error", (err) => {
-        clearInterval(progressInterval);
         clearInterval(inactivityWatchdog);
+        clearInterval(progressInterval);
         log(`${colors.red}Spawn error: ${err.message}${colors.reset}`);
         resolve(1);
       });
@@ -792,6 +952,17 @@ async function main() {
 
   // Clean up team directory (--team-name creates ~/.claude/teams/<name>/)
   cleanupTeamDir(teamName);
+
+  // Clean up temp directories
+  if (persistContextDir) {
+    try { rmSync(persistContextDir, { recursive: true, force: true }); } catch {}
+  }
+  if (scopeConfigDir) {
+    try { rmSync(scopeConfigDir, { recursive: true, force: true }); } catch {}
+  }
+  if (mcpConfigPath) {
+    try { rmSync(dirname(mcpConfigPath), { recursive: true, force: true }); } catch {}
+  }
 
   process.exit(exitCode);
 }

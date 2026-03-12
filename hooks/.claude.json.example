@@ -1,0 +1,12 @@
+{
+  "hooks": {
+    "preToolUse": [
+      {
+        "name": "scope-guard",
+        "path": "~/.claude/remote-agent/hooks/scope-guard.py",
+        "toolMatchers": ["Write", "Edit", "Bash"],
+        "description": "Enforces file scope restrictions on remote agents. Set REMOTE_AGENT_SCOPE env var to comma-separated paths."
+      }
+    ]
+  }
+}

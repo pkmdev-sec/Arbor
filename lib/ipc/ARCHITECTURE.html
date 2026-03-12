@@ -1,0 +1,1951 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inter-Agent Communication Layer — Architecture &amp; Design</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg-surface: #161b22;
+    --bg-elevated: #1c2129;
+    --bg-hover: #21262d;
+    --border: #30363d;
+    --border-muted: #21262d;
+    --text: #e6edf3;
+    --text-muted: #8b949e;
+    --text-subtle: #6e7681;
+    --blue: #58a6ff;
+    --blue-dim: #1f6feb;
+    --green: #3fb950;
+    --green-dim: #238636;
+    --orange: #d29922;
+    --orange-dim: #9e6a03;
+    --red: #f85149;
+    --red-dim: #da3633;
+    --purple: #bc8cff;
+    --purple-dim: #8957e5;
+    --teal: #39d2c0;
+    --teal-dim: #1b7c83;
+    --gold: #e3b341;
+    --gold-dim: #bb8009;
+    --pink: #f778ba;
+    --font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', 'JetBrains Mono', Consolas, monospace;
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* ─── Navigation ─── */
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(13, 17, 23, 0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+  }
+  .nav-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    gap: 0.25rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .nav-inner::-webkit-scrollbar { display: none; }
+  .nav a {
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.8rem;
+    font-family: var(--font-mono);
+    padding: 0.75rem 0.85rem;
+    white-space: nowrap;
+    border-bottom: 2px solid transparent;
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .nav a:hover { color: var(--text); border-bottom-color: var(--border); }
+  .nav a.active { color: var(--blue); border-bottom-color: var(--blue); }
+
+  /* ─── Layout ─── */
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+  }
+
+  section {
+    margin-bottom: 4rem;
+    scroll-margin-top: 60px;
+  }
+
+  /* ─── Header ─── */
+  .hero {
+    text-align: center;
+    padding: 4rem 2rem 3rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: radial-gradient(ellipse at 50% 0%, rgba(88,166,255,0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .hero h1 {
+    font-size: 2.2rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--blue), var(--teal));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 0.75rem;
+    letter-spacing: -0.02em;
+  }
+  .hero .subtitle {
+    color: var(--text-muted);
+    font-size: 1.05rem;
+    max-width: 700px;
+    margin: 0 auto 1.5rem;
+  }
+  .hero-stats {
+    display: flex;
+    justify-content: center;
+    gap: 2.5rem;
+    flex-wrap: wrap;
+  }
+  .stat {
+    text-align: center;
+  }
+  .stat-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    color: var(--blue);
+  }
+  .stat-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  /* ─── Section Headers ─── */
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-number {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--bg);
+    background: var(--blue);
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-weight: 700;
+  }
+  .section-header h2 {
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  /* ─── Tables ─── */
+  .table-wrapper {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-surface);
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+  }
+  thead th {
+    background: var(--bg-elevated);
+    color: var(--text-muted);
+    font-weight: 600;
+    text-align: left;
+    padding: 0.75rem 1rem;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  tbody td {
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid var(--border-muted);
+    vertical-align: middle;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: var(--bg-hover); }
+  .paradigm-name { font-weight: 600; color: var(--text); white-space: nowrap; }
+  .paradigm-winner .paradigm-name { color: var(--gold); }
+  .paradigm-winner { background: rgba(227, 179, 65, 0.04); }
+
+  /* Score badges */
+  .score {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    min-width: 2.5rem;
+    text-align: center;
+  }
+  .score-5 { background: rgba(63,185,80,0.15); color: var(--green); }
+  .score-4 { background: rgba(63,185,80,0.1); color: var(--green); }
+  .score-3 { background: rgba(210,153,34,0.12); color: var(--orange); }
+  .score-2 { background: rgba(248,81,73,0.1); color: var(--red); }
+  .score-1 { background: rgba(248,81,73,0.15); color: var(--red); }
+  .score-fit {
+    font-size: 0.9rem;
+    font-weight: 700;
+  }
+  .score-fit.high { color: var(--gold); }
+  .score-fit.mid { color: var(--text-muted); }
+  .score-fit.low { color: var(--text-subtle); }
+
+  /* ─── SVG Diagrams ─── */
+  .diagram-container {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 2rem;
+    overflow-x: auto;
+    margin-bottom: 1.5rem;
+  }
+  .diagram-container svg {
+    display: block;
+    margin: 0 auto;
+  }
+  .diagram-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    text-align: center;
+    margin-top: 0.75rem;
+    font-family: var(--font-mono);
+  }
+
+  /* ─── Message Flow Tabs ─── */
+  .flow-tabs {
+    display: flex;
+    gap: 0.25rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+  .flow-tab {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-family: var(--font-mono);
+    transition: all 0.2s;
+  }
+  .flow-tab:hover { background: var(--bg-hover); color: var(--text); }
+  .flow-tab.active { background: var(--blue-dim); border-color: var(--blue); color: #fff; }
+  .flow-panel { display: none; }
+  .flow-panel.active { display: block; }
+
+  /* ─── Protocol Section ─── */
+  .frame-diagram {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    margin: 1.5rem 0;
+    font-family: var(--font-mono);
+  }
+  .frame-part {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    border: 2px solid;
+    border-radius: 6px;
+    overflow: hidden;
+    min-width: 0;
+  }
+  .frame-part.length {
+    border-color: var(--orange);
+    flex: 0 0 160px;
+  }
+  .frame-part.payload {
+    border-color: var(--blue);
+    flex: 1;
+    margin-left: -1px;
+  }
+  .frame-label {
+    padding: 0.35rem 0.75rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    width: 100%;
+    text-align: center;
+  }
+  .frame-part.length .frame-label { background: rgba(210,153,34,0.15); color: var(--orange); }
+  .frame-part.payload .frame-label { background: rgba(88,166,255,0.1); color: var(--blue); }
+  .frame-content {
+    padding: 0.75rem;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    text-align: center;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* ─── Code blocks ─── */
+  .code-block {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin: 1rem 0;
+  }
+  .code-header {
+    background: var(--bg-elevated);
+    padding: 0.5rem 1rem;
+    font-size: 0.75rem;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .code-lang {
+    background: rgba(88,166,255,0.1);
+    color: var(--blue);
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+  pre {
+    padding: 1rem;
+    overflow-x: auto;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: var(--text);
+  }
+  pre .kw { color: var(--purple); }
+  pre .fn { color: var(--blue); }
+  pre .str { color: var(--green); }
+  pre .num { color: var(--orange); }
+  pre .cm { color: var(--text-subtle); font-style: italic; }
+  pre .type { color: var(--teal); }
+  pre .op { color: var(--text-muted); }
+  pre .field { color: var(--pink); }
+
+  /* ─── Collapsible Sections ─── */
+  .collapsible {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+    overflow: hidden;
+    background: var(--bg-surface);
+  }
+  .collapsible-header {
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    user-select: none;
+    transition: background 0.2s;
+  }
+  .collapsible-header:hover { background: var(--bg-hover); }
+  .collapsible-icon {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    transition: transform 0.25s ease;
+    flex-shrink: 0;
+    width: 1.2rem;
+    text-align: center;
+  }
+  .collapsible.open .collapsible-icon { transform: rotate(90deg); }
+  .collapsible-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+    flex: 1;
+  }
+  .collapsible-badge {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 10px;
+    flex-shrink: 0;
+  }
+  .badge-protocol { background: rgba(210,153,34,0.15); color: var(--orange); }
+  .badge-bus { background: rgba(88,166,255,0.15); color: var(--blue); }
+  .badge-channel { background: rgba(57,210,192,0.15); color: var(--teal); }
+  .badge-control { background: rgba(248,81,73,0.15); color: var(--red); }
+  .badge-registry { background: rgba(63,185,80,0.15); color: var(--green); }
+  .badge-telemetry { background: rgba(210,153,34,0.15); color: var(--orange); }
+  .badge-bridge { background: rgba(188,140,255,0.15); color: var(--purple); }
+  .badge-python { background: rgba(63,185,80,0.15); color: var(--green); }
+
+  .collapsible-body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.35s ease;
+  }
+  .collapsible.open .collapsible-body {
+    max-height: 3000px;
+  }
+  .collapsible-content {
+    padding: 0 1rem 1rem;
+    border-top: 1px solid var(--border-muted);
+  }
+
+  .fn-sig {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    padding: 0.4rem 0;
+    border-bottom: 1px solid var(--border-muted);
+    color: var(--text);
+    line-height: 1.6;
+  }
+  .fn-sig:last-child { border-bottom: none; }
+  .fn-sig .fn-name { color: var(--blue); font-weight: 600; }
+  .fn-sig .fn-param { color: var(--orange); }
+  .fn-sig .fn-type { color: var(--teal); }
+  .fn-sig .fn-ret { color: var(--green); }
+  .fn-sig .fn-desc {
+    color: var(--text-subtle);
+    font-size: 0.75rem;
+    display: block;
+    margin-top: 0.15rem;
+  }
+
+  /* ─── File Map ─── */
+  .file-tree {
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    line-height: 1.8;
+  }
+  .file-tree .dir {
+    color: var(--blue);
+    font-weight: 600;
+  }
+  .file-tree .file-entry {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.15rem 0;
+  }
+  .file-tree .file-name { color: var(--text); }
+  .file-tree .file-lines {
+    color: var(--text-subtle);
+    font-size: 0.72rem;
+  }
+  .file-tree .file-desc {
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    flex: 1;
+    text-align: right;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .file-tree .indent { padding-left: 1.5rem; }
+  .file-tree .indent2 { padding-left: 3rem; }
+  .lines-bar {
+    display: inline-block;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--blue-dim);
+    vertical-align: middle;
+    margin-right: 0.25rem;
+  }
+
+  /* ─── Integration Points ─── */
+  .integration-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 1rem;
+  }
+  .integration-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem;
+    transition: border-color 0.2s;
+  }
+  .integration-card:hover { border-color: var(--blue-dim); }
+  .integration-card h4 {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--blue);
+    margin-bottom: 0.5rem;
+  }
+  .integration-card p {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    line-height: 1.5;
+  }
+  .integration-card .arrow {
+    color: var(--text-subtle);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    margin: 0.35rem 0;
+  }
+  .integration-card .uses {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--teal);
+  }
+
+  /* ─── Footer ─── */
+  .footer {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-subtle);
+    font-size: 0.75rem;
+    border-top: 1px solid var(--border-muted);
+  }
+
+  /* ─── Responsive ─── */
+  @media (max-width: 768px) {
+    .container { padding: 1rem; }
+    .hero h1 { font-size: 1.5rem; }
+    .hero-stats { gap: 1.5rem; }
+    .frame-diagram { flex-direction: column; }
+    .frame-part.length { flex: none; }
+    .frame-part.payload { margin-left: 0; margin-top: -1px; }
+    .integration-grid { grid-template-columns: 1fr; }
+    table { font-size: 0.75rem; }
+    thead th, tbody td { padding: 0.5rem 0.6rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Navigation -->
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="#research" onclick="setActive(this)">Research</a>
+    <a href="#architecture" onclick="setActive(this)">Architecture</a>
+    <a href="#flows" onclick="setActive(this)">Message Flows</a>
+    <a href="#protocol" onclick="setActive(this)">Protocol</a>
+    <a href="#api" onclick="setActive(this)">API Reference</a>
+    <a href="#filemap" onclick="setActive(this)">File Map</a>
+    <a href="#integration" onclick="setActive(this)">Integration</a>
+  </div>
+</nav>
+
+<!-- Hero Header -->
+<header class="hero">
+  <h1>Inter-Agent Communication Layer</h1>
+  <p class="subtitle">
+    Architecture &amp; Design — Unix domain socket message bus with length-prefixed JSON protocol,
+    enabling real-time pub/sub, request/response, and orchestrator control across Node.js and Python agents.
+  </p>
+  <div class="hero-stats">
+    <div class="stat">
+      <div class="stat-value">3,923</div>
+      <div class="stat-label">Lines of Code</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value">9</div>
+      <div class="stat-label">Modules</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value">21</div>
+      <div class="stat-label">Public Exports</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value">0</div>
+      <div class="stat-label">External Deps</div>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- Section 1: Research -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="research">
+  <div class="section-header">
+    <span class="section-number">01</span>
+    <h2>IPC Paradigm Research</h2>
+  </div>
+  <p style="color:var(--text-muted); margin-bottom:1.25rem; font-size:0.9rem;">
+    Ten IPC paradigms were evaluated against six criteria weighted for the system's constraints:
+    zero external dependencies, cross-language support (Node.js + Python), and ephemeral agent lifecycles.
+  </p>
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>Paradigm</th>
+          <th>Throughput</th>
+          <th>Latency</th>
+          <th>Fault Tolerance</th>
+          <th>Cross-Language</th>
+          <th>Complexity</th>
+          <th>Fit Score</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="paradigm-winner">
+          <td class="paradigm-name">Unix Domain Sockets</td>
+          <td><span class="score score-4">4</span></td>
+          <td><span class="score score-5">5</span></td>
+          <td><span class="score score-4">4</span></td>
+          <td><span class="score score-5">5</span></td>
+          <td><span class="score score-3">3</span></td>
+          <td><span class="score score-fit high">4.05</span></td>
+        </tr>
+        <tr>
+          <td class="paradigm-name">File Watchers (inotify/kqueue)</td>
+          <td><span class="score score-2">2</span></td>
+          <td><span class="score score-2">2</span></td>
+          <td><span class="score score-4">4</span></td>
+          <td><span class="score score-5">5</span></td>
+          <td><span class="score score-4">4</span></td>
+          <td><span class="score score-fit mid">3.30</span></td>
+        </tr>
+        <tr>
+          <td class="paradigm-name">Redis Streams</td>
+          <td><span class="score score-5">5</span></td>
+          <td><span class="score score-4">4</span></td>
+          <td><span class="score score-4">4</span></td>
+          <td><span class="score score-4">4</span></td>
+          <td><span class="score score-1">1</span></td>
+          <td><span class="score score-fit mid">3.15</span></td>
+        </tr>
+        <tr>
+          <td class="paradigm-name">Named Pipes (FIFO)</td>
+          <td><span class="score score-3">3</span></td>
+          <td><span class="score score-4">4</span></td>
+          <td><span class="score score-2">2</span></td>
+          <td><span class="score score-5">5</span></td>
+          <td><span class="score score-4">4</span></td>
+          <td><span class="score score-fit mid">3.10</span></td>
+        </tr>
+        <tr>
+          <td class="paradigm-name">gRPC over UDS</td>
+          <td><span class="score score-5">5</span></td>
+          <td><span class="score score-4">4</span></td>
+          <td><span class="score score-3">3</span></td>
+          <td><span class="score score-3">3</span></td>
+          <td><span class="score score-1">1</span></td>
+          <td><span class="score score-fit mid">2.80</span></td>
+        </tr>
+        <tr>
+          <td class="paradigm-name">Actor Model (nact)</td>
+          <td><span class="score score-4">4</span></td>
+          <td><span class="score score-4">4</span></td>
+          <td><span class="score score-4">4</span></td>
+          <td><span class="score score-1">1</span></td>
+          <td><span class="score score-3">3</span></td>
+          <td><span class="score score-fit mid">2.75</span></td>
+        </tr>
+        <tr>
+          <td class="paradigm-name">NATS Embedded</td>
+          <td><span class="score score-5">5</span></td>
+          <td><span class="score score-5">5</span></td>
+          <td><span class="score score-4">4</span></td>
+          <td><span class="score score-3">3</span></td>
+          <td><span class="score score-1">1</span></td>
+          <td><span class="score score-fit mid">2.70</span></td>
+        </tr>
+        <tr>
+          <td class="paradigm-name">SQLite WAL-Mode Bus</td>
+          <td><span class="score score-3">3</span></td>
+          <td><span class="score score-2">2</span></td>
+          <td><span class="score score-5">5</span></td>
+          <td><span class="score score-5">5</span></td>
+          <td><span class="score score-3">3</span></td>
+          <td><span class="score score-fit low">2.65</span></td>
+        </tr>
+        <tr>
+          <td class="paradigm-name">ZeroMQ</td>
+          <td><span class="score score-5">5</span></td>
+          <td><span class="score score-5">5</span></td>
+          <td><span class="score score-3">3</span></td>
+          <td><span class="score score-2">2</span></td>
+          <td><span class="score score-1">1</span></td>
+          <td><span class="score score-fit low">2.40</span></td>
+        </tr>
+        <tr>
+          <td class="paradigm-name">Shared Memory (mmap)</td>
+          <td><span class="score score-5">5</span></td>
+          <td><span class="score score-5">5</span></td>
+          <td><span class="score score-1">1</span></td>
+          <td><span class="score score-1">1</span></td>
+          <td><span class="score score-2">2</span></td>
+          <td><span class="score score-fit low">2.20</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- Section 2: Architecture Diagram -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="architecture">
+  <div class="section-header">
+    <span class="section-number">02</span>
+    <h2>Architecture Diagram</h2>
+  </div>
+  <div class="diagram-container">
+    <svg width="880" height="620" viewBox="0 0 880 620" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+      <defs>
+        <marker id="arrowBlue" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L8,3 L0,6" fill="none" stroke="#58a6ff" stroke-width="1.5"/>
+        </marker>
+        <marker id="arrowGold" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L8,3 L0,6" fill="none" stroke="#e3b341" stroke-width="1.5"/>
+        </marker>
+        <marker id="arrowGreen" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L8,3 L0,6" fill="none" stroke="#3fb950" stroke-width="1.5"/>
+        </marker>
+        <marker id="arrowPurple" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L8,3 L0,6" fill="none" stroke="#bc8cff" stroke-width="1.5"/>
+        </marker>
+        <marker id="arrowOrange" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L8,3 L0,6" fill="none" stroke="#d29922" stroke-width="1.5"/>
+        </marker>
+        <marker id="arrowRed" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L8,3 L0,6" fill="none" stroke="#f85149" stroke-width="1.5"/>
+        </marker>
+        <marker id="arrowTeal" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L8,3 L0,6" fill="none" stroke="#39d2c0" stroke-width="1.5"/>
+        </marker>
+        <filter id="glow">
+          <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+          <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <linearGradient id="busGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#1f6feb" stop-opacity="0.3"/>
+          <stop offset="100%" stop-color="#58a6ff" stop-opacity="0.1"/>
+        </linearGradient>
+      </defs>
+
+      <!-- Background grid (subtle) -->
+      <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+        <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#21262d" stroke-width="0.5"/>
+      </pattern>
+      <rect width="880" height="620" fill="url(#grid)" opacity="0.4"/>
+
+      <!-- Master Orchestrator (Top, Gold) -->
+      <rect x="310" y="20" width="260" height="60" rx="8" fill="#161b22" stroke="#e3b341" stroke-width="2"/>
+      <rect x="310" y="20" width="260" height="60" rx="8" fill="rgba(227,179,65,0.06)"/>
+      <text x="440" y="42" text-anchor="middle" fill="#e3b341" font-size="11" font-weight="700" letter-spacing="0.08em">MASTER ORCHESTRATOR</text>
+      <text x="440" y="60" text-anchor="middle" fill="#8b949e" font-size="10">swarm.mjs / orchestration.mjs</text>
+
+      <!-- Arrow: Orchestrator → Control Plane -->
+      <line x1="440" y1="80" x2="440" y2="130" stroke="#e3b341" stroke-width="1.5" stroke-dasharray="6,3" marker-end="url(#arrowGold)"/>
+
+      <!-- Orchestrator Control Plane (Red) -->
+      <rect x="300" y="130" width="200" height="50" rx="6" fill="#161b22" stroke="#f85149" stroke-width="1.5"/>
+      <rect x="300" y="130" width="200" height="50" rx="6" fill="rgba(248,81,73,0.05)"/>
+      <text x="400" y="152" text-anchor="middle" fill="#f85149" font-size="10" font-weight="700">ORCHESTRATOR CONTROL</text>
+      <text x="400" y="167" text-anchor="middle" fill="#6e7681" font-size="9">monitor · filter · inject · pause</text>
+
+      <!-- Arrow: Control → Bus -->
+      <line x1="400" y1="180" x2="440" y2="240" stroke="#f85149" stroke-width="1.5" marker-end="url(#arrowRed)"/>
+      <text x="410" y="215" fill="#f85149" font-size="8" opacity="0.7">privileged</text>
+
+      <!-- Agent Registry (Green, left of control) -->
+      <rect x="530" y="130" width="190" height="50" rx="6" fill="#161b22" stroke="#3fb950" stroke-width="1.5"/>
+      <rect x="530" y="130" width="190" height="50" rx="6" fill="rgba(63,185,80,0.05)"/>
+      <text x="625" y="152" text-anchor="middle" fill="#3fb950" font-size="10" font-weight="700">AGENT REGISTRY</text>
+      <text x="625" y="167" text-anchor="middle" fill="#6e7681" font-size="9">capabilities · health · discovery</text>
+
+      <!-- Arrow: Registry → Bus -->
+      <line x1="590" y1="180" x2="510" y2="280" stroke="#3fb950" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrowGreen)"/>
+      <text x="565" y="225" fill="#3fb950" font-size="8" opacity="0.7">hooks</text>
+
+      <!-- MESSAGE BUS (Center, large rounded rect with glow) -->
+      <rect x="280" y="240" width="320" height="120" rx="60" fill="url(#busGrad)" stroke="#58a6ff" stroke-width="2.5" filter="url(#glow)"/>
+      <text x="440" y="285" text-anchor="middle" fill="#58a6ff" font-size="14" font-weight="700">MESSAGE BUS</text>
+      <text x="440" y="305" text-anchor="middle" fill="#8b949e" font-size="10">Unix Domain Socket Broker</text>
+      <text x="440" y="322" text-anchor="middle" fill="#6e7681" font-size="9" font-family="'SF Mono', Consolas, monospace">/tmp/claude-ipc-bus.sock</text>
+      <text x="440" y="340" text-anchor="middle" fill="#6e7681" font-size="9">pub/sub · direct · request/response</text>
+
+      <!-- Topic labels around bus -->
+      <rect x="290" y="253" width="52" height="16" rx="8" fill="rgba(88,166,255,0.15)"/>
+      <text x="316" y="264" text-anchor="middle" fill="#58a6ff" font-size="8" font-weight="600">topics</text>
+      <rect x="555" y="253" width="38" height="16" rx="8" fill="rgba(88,166,255,0.15)"/>
+      <text x="574" y="264" text-anchor="middle" fill="#58a6ff" font-size="8" font-weight="600">auth</text>
+
+      <!-- Python Bridge (Left side, purple) -->
+      <rect x="30" y="262" width="180" height="76" rx="6" fill="#161b22" stroke="#bc8cff" stroke-width="1.5"/>
+      <rect x="30" y="262" width="180" height="76" rx="6" fill="rgba(188,140,255,0.04)"/>
+      <text x="120" y="285" text-anchor="middle" fill="#bc8cff" font-size="10" font-weight="700">PYTHON BRIDGE</text>
+      <text x="120" y="300" text-anchor="middle" fill="#6e7681" font-size="9">bridge.mjs + bus_client.py</text>
+      <text x="120" y="315" text-anchor="middle" fill="#6e7681" font-size="9">subprocess · CLI · socket</text>
+      <rect x="70" y="322" width="100" height="12" rx="6" fill="rgba(188,140,255,0.15)"/>
+      <text x="120" y="331" text-anchor="middle" fill="#bc8cff" font-size="7" font-weight="600">stdlib only</text>
+
+      <!-- Arrow: Python Bridge ↔ Bus -->
+      <line x1="210" y1="300" x2="280" y2="300" stroke="#bc8cff" stroke-width="1.5" marker-end="url(#arrowPurple)"/>
+      <line x1="280" y1="290" x2="210" y2="290" stroke="#bc8cff" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrowPurple)"/>
+
+      <!-- Telemetry Channel (Right side, orange) -->
+      <rect x="670" y="262" width="180" height="76" rx="6" fill="#161b22" stroke="#d29922" stroke-width="1.5"/>
+      <rect x="670" y="262" width="180" height="76" rx="6" fill="rgba(210,153,34,0.04)"/>
+      <text x="760" y="285" text-anchor="middle" fill="#d29922" font-size="10" font-weight="700">TELEMETRY CHANNEL</text>
+      <text x="760" y="300" text-anchor="middle" fill="#6e7681" font-size="9">telemetry-channel.mjs</text>
+      <text x="760" y="315" text-anchor="middle" fill="#6e7681" font-size="9">buffered · batched · 100ms flush</text>
+      <rect x="700" y="322" width="120" height="12" rx="6" fill="rgba(210,153,34,0.12)"/>
+      <text x="760" y="331" text-anchor="middle" fill="#d29922" font-size="7" font-weight="600">1000-item buffer</text>
+
+      <!-- Arrow: Telemetry ↔ Bus -->
+      <line x1="670" y1="300" x2="600" y2="300" stroke="#d29922" stroke-width="1.5" marker-end="url(#arrowOrange)"/>
+      <text x="635" y="295" fill="#d29922" font-size="8" opacity="0.7">batch</text>
+
+      <!-- Vertical Lines from Bus to Agents -->
+      <line x1="280" y1="360" x2="160" y2="450" stroke="#58a6ff" stroke-width="1.5" stroke-dasharray="5,3"/>
+      <line x1="370" y1="360" x2="350" y2="450" stroke="#58a6ff" stroke-width="1.5" stroke-dasharray="5,3"/>
+      <line x1="440" y1="360" x2="500" y2="450" stroke="#58a6ff" stroke-width="1.5" stroke-dasharray="5,3"/>
+      <line x1="520" y1="360" x2="660" y2="450" stroke="#58a6ff" stroke-width="1.5" stroke-dasharray="5,3"/>
+
+      <!-- Unix Socket label on connections -->
+      <text x="440" y="415" text-anchor="middle" fill="#58a6ff" font-size="8" opacity="0.6">UDS connections (4-byte length-prefix + JSON)</text>
+
+      <!-- Agent Channels (Bottom, teal boxes) -->
+      <!-- Agent 01 -->
+      <rect x="70" y="450" width="170" height="80" rx="6" fill="#161b22" stroke="#39d2c0" stroke-width="1.5"/>
+      <rect x="70" y="450" width="170" height="80" rx="6" fill="rgba(57,210,192,0.04)"/>
+      <text x="155" y="475" text-anchor="middle" fill="#39d2c0" font-size="10" font-weight="700">AGENT CHANNEL</text>
+      <text x="155" y="492" text-anchor="middle" fill="#e6edf3" font-size="10">agent-01  (worker)</text>
+      <text x="155" y="507" text-anchor="middle" fill="#6e7681" font-size="8">auto-reconnect · heartbeat 30s</text>
+      <rect x="90" y="515" width="130" height="11" rx="5" fill="rgba(57,210,192,0.12)"/>
+      <text x="155" y="523" text-anchor="middle" fill="#39d2c0" font-size="7" font-weight="600">sonnet[1m]</text>
+
+      <!-- Agent 02 -->
+      <rect x="270" y="450" width="170" height="80" rx="6" fill="#161b22" stroke="#39d2c0" stroke-width="1.5"/>
+      <rect x="270" y="450" width="170" height="80" rx="6" fill="rgba(57,210,192,0.04)"/>
+      <text x="355" y="475" text-anchor="middle" fill="#39d2c0" font-size="10" font-weight="700">AGENT CHANNEL</text>
+      <text x="355" y="492" text-anchor="middle" fill="#e6edf3" font-size="10">agent-02  (worker)</text>
+      <text x="355" y="507" text-anchor="middle" fill="#6e7681" font-size="8">auto-reconnect · heartbeat 30s</text>
+      <rect x="290" y="515" width="130" height="11" rx="5" fill="rgba(57,210,192,0.12)"/>
+      <text x="355" y="523" text-anchor="middle" fill="#39d2c0" font-size="7" font-weight="600">sonnet[1m]</text>
+
+      <!-- Agent 03 (verifier) -->
+      <rect x="470" y="450" width="170" height="80" rx="6" fill="#161b22" stroke="#39d2c0" stroke-width="1.5"/>
+      <rect x="470" y="450" width="170" height="80" rx="6" fill="rgba(57,210,192,0.04)"/>
+      <text x="555" y="475" text-anchor="middle" fill="#39d2c0" font-size="10" font-weight="700">AGENT CHANNEL</text>
+      <text x="555" y="492" text-anchor="middle" fill="#e6edf3" font-size="10">agent-03  (verifier)</text>
+      <text x="555" y="507" text-anchor="middle" fill="#6e7681" font-size="8">auto-reconnect · heartbeat 30s</text>
+      <rect x="490" y="515" width="130" height="11" rx="5" fill="rgba(210,153,34,0.12)"/>
+      <text x="555" y="523" text-anchor="middle" fill="#d29922" font-size="7" font-weight="600">opus[1m]</text>
+
+      <!-- Python Hook Agent -->
+      <rect x="670" y="450" width="170" height="80" rx="6" fill="#161b22" stroke="#bc8cff" stroke-width="1.5"/>
+      <rect x="670" y="450" width="170" height="80" rx="6" fill="rgba(188,140,255,0.04)"/>
+      <text x="755" y="475" text-anchor="middle" fill="#bc8cff" font-size="10" font-weight="700">PYTHON BUS CLIENT</text>
+      <text x="755" y="492" text-anchor="middle" fill="#e6edf3" font-size="10">hook-proc  (hook)</text>
+      <text x="755" y="507" text-anchor="middle" fill="#6e7681" font-size="8">threading.Thread receiver</text>
+      <rect x="690" y="515" width="130" height="11" rx="5" fill="rgba(188,140,255,0.12)"/>
+      <text x="755" y="523" text-anchor="middle" fill="#bc8cff" font-size="7" font-weight="600">stdlib socket+json</text>
+
+      <!-- Telemetry sub-channels (small indicators) -->
+      <rect x="75" y="535" width="60" height="14" rx="4" fill="rgba(210,153,34,0.12)" stroke="#d29922" stroke-width="0.5"/>
+      <text x="105" y="545" text-anchor="middle" fill="#d29922" font-size="7">telemetry</text>
+      <rect x="275" y="535" width="60" height="14" rx="4" fill="rgba(210,153,34,0.12)" stroke="#d29922" stroke-width="0.5"/>
+      <text x="305" y="545" text-anchor="middle" fill="#d29922" font-size="7">telemetry</text>
+      <rect x="475" y="535" width="60" height="14" rx="4" fill="rgba(210,153,34,0.12)" stroke="#d29922" stroke-width="0.5"/>
+      <text x="505" y="545" text-anchor="middle" fill="#d29922" font-size="7">telemetry</text>
+
+      <!-- Legend -->
+      <g transform="translate(30, 575)">
+        <text x="0" y="0" fill="#6e7681" font-size="9" font-weight="600">LEGEND:</text>
+        <rect x="70" y="-9" width="10" height="10" rx="2" fill="none" stroke="#e3b341" stroke-width="1.5"/>
+        <text x="85" y="0" fill="#8b949e" font-size="8">Orchestrator</text>
+        <rect x="160" y="-9" width="10" height="10" rx="2" fill="none" stroke="#58a6ff" stroke-width="1.5"/>
+        <text x="175" y="0" fill="#8b949e" font-size="8">Message Bus</text>
+        <rect x="255" y="-9" width="10" height="10" rx="2" fill="none" stroke="#f85149" stroke-width="1.5"/>
+        <text x="270" y="0" fill="#8b949e" font-size="8">Control Plane</text>
+        <rect x="360" y="-9" width="10" height="10" rx="2" fill="none" stroke="#3fb950" stroke-width="1.5"/>
+        <text x="375" y="0" fill="#8b949e" font-size="8">Registry</text>
+        <rect x="430" y="-9" width="10" height="10" rx="2" fill="none" stroke="#39d2c0" stroke-width="1.5"/>
+        <text x="445" y="0" fill="#8b949e" font-size="8">Agent Channel</text>
+        <rect x="535" y="-9" width="10" height="10" rx="2" fill="none" stroke="#bc8cff" stroke-width="1.5"/>
+        <text x="550" y="0" fill="#8b949e" font-size="8">Python Bridge</text>
+        <rect x="635" y="-9" width="10" height="10" rx="2" fill="none" stroke="#d29922" stroke-width="1.5"/>
+        <text x="650" y="0" fill="#8b949e" font-size="8">Telemetry</text>
+      </g>
+    </svg>
+  </div>
+  <div class="diagram-label">Multi-tier architecture: Orchestrator → Control Plane → Message Bus → Agent Channels</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- Section 3: Message Flows -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="flows">
+  <div class="section-header">
+    <span class="section-number">03</span>
+    <h2>Message Flow Diagrams</h2>
+  </div>
+
+  <div class="flow-tabs">
+    <div class="flow-tab active" onclick="switchFlow('pubsub', this)">Pub/Sub</div>
+    <div class="flow-tab" onclick="switchFlow('reqres', this)">Request/Response</div>
+    <div class="flow-tab" onclick="switchFlow('direct', this)">Direct Messaging</div>
+    <div class="flow-tab" onclick="switchFlow('intercept', this)">Orchestrator Intercept</div>
+    <div class="flow-tab" onclick="switchFlow('telemetry', this)">Telemetry Batching</div>
+  </div>
+
+  <!-- Pub/Sub Flow -->
+  <div id="flow-pubsub" class="flow-panel active">
+    <div class="diagram-container">
+      <svg width="750" height="340" viewBox="0 0 750 340" xmlns="http://www.w3.org/2000/svg" font-family="'SF Mono', Consolas, monospace">
+        <!-- Lifelines -->
+        <text x="100" y="25" text-anchor="middle" fill="#39d2c0" font-size="11" font-weight="700">agent-01</text>
+        <line x1="100" y1="35" x2="100" y2="330" stroke="#30363d" stroke-width="1" stroke-dasharray="4,4"/>
+        <text x="375" y="25" text-anchor="middle" fill="#58a6ff" font-size="11" font-weight="700">MessageBus</text>
+        <line x1="375" y1="35" x2="375" y2="330" stroke="#30363d" stroke-width="1" stroke-dasharray="4,4"/>
+        <text x="575" y="25" text-anchor="middle" fill="#39d2c0" font-size="11" font-weight="700">agent-02</text>
+        <line x1="575" y1="35" x2="575" y2="330" stroke="#30363d" stroke-width="1" stroke-dasharray="4,4"/>
+        <text x="700" y="25" text-anchor="middle" fill="#39d2c0" font-size="11" font-weight="700">agent-03</text>
+        <line x1="700" y1="35" x2="700" y2="330" stroke="#30363d" stroke-width="1" stroke-dasharray="4,4"/>
+
+        <!-- Step 1: Subscribe -->
+        <line x1="575" y1="65" x2="380" y2="65" stroke="#3fb950" stroke-width="1.5" marker-end="url(#arrowGreen)"/>
+        <text x="478" y="58" text-anchor="middle" fill="#3fb950" font-size="9">SUBSCRIBE("progress")</text>
+        <line x1="700" y1="95" x2="380" y2="95" stroke="#3fb950" stroke-width="1.5" marker-end="url(#arrowGreen)"/>
+        <text x="540" y="88" text-anchor="middle" fill="#3fb950" font-size="9">SUBSCRIBE("progress")</text>
+
+        <!-- Step 2: Registered -->
+        <rect x="340" y="110" width="70" height="18" rx="3" fill="rgba(88,166,255,0.1)"/>
+        <text x="375" y="123" text-anchor="middle" fill="#58a6ff" font-size="8">registered</text>
+
+        <!-- Step 3: Publish -->
+        <line x1="105" y1="155" x2="370" y2="155" stroke="#d29922" stroke-width="1.5" marker-end="url(#arrowOrange)"/>
+        <text x="238" y="148" text-anchor="middle" fill="#d29922" font-size="9">PUBLISH("progress", {step: 5})</text>
+
+        <!-- Step 4: Route to subscribers -->
+        <rect x="340" y="170" width="70" height="18" rx="3" fill="rgba(88,166,255,0.1)"/>
+        <text x="375" y="183" text-anchor="middle" fill="#58a6ff" font-size="8">route</text>
+
+        <line x1="380" y1="210" x2="570" y2="210" stroke="#58a6ff" stroke-width="1.5" marker-end="url(#arrowBlue)"/>
+        <text x="475" y="203" text-anchor="middle" fill="#58a6ff" font-size="9">PUBLISH (routed)</text>
+
+        <line x1="380" y1="240" x2="695" y2="240" stroke="#58a6ff" stroke-width="1.5" marker-end="url(#arrowBlue)"/>
+        <text x="538" y="233" text-anchor="middle" fill="#58a6ff" font-size="9">PUBLISH (routed)</text>
+
+        <!-- Note -->
+        <rect x="360" y="270" width="180" height="30" rx="4" fill="rgba(63,185,80,0.08)" stroke="#3fb950" stroke-width="0.5"/>
+        <text x="450" y="284" text-anchor="middle" fill="#3fb950" font-size="8">Sender does NOT receive its</text>
+        <text x="450" y="295" text-anchor="middle" fill="#3fb950" font-size="8">own published messages</text>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Request/Response Flow -->
+  <div id="flow-reqres" class="flow-panel">
+    <div class="diagram-container">
+      <svg width="750" height="320" viewBox="0 0 750 320" xmlns="http://www.w3.org/2000/svg" font-family="'SF Mono', Consolas, monospace">
+        <text x="120" y="25" text-anchor="middle" fill="#39d2c0" font-size="11" font-weight="700">agent-01</text>
+        <line x1="120" y1="35" x2="120" y2="310" stroke="#30363d" stroke-width="1" stroke-dasharray="4,4"/>
+        <text x="375" y="25" text-anchor="middle" fill="#58a6ff" font-size="11" font-weight="700">MessageBus</text>
+        <line x1="375" y1="35" x2="375" y2="310" stroke="#30363d" stroke-width="1" stroke-dasharray="4,4"/>
+        <text x="630" y="25" text-anchor="middle" fill="#e3b341" font-size="11" font-weight="700">orchestrator</text>
+        <line x1="630" y1="35" x2="630" y2="310" stroke="#30363d" stroke-width="1" stroke-dasharray="4,4"/>
+
+        <!-- Request -->
+        <line x1="125" y1="65" x2="370" y2="65" stroke="#d29922" stroke-width="1.5" marker-end="url(#arrowOrange)"/>
+        <text x="248" y="58" text-anchor="middle" fill="#d29922" font-size="9">REQUEST(to:"orchestrator", id:"abc-123")</text>
+
+        <!-- Bus tracks -->
+        <rect x="310" y="78" width="130" height="18" rx="3" fill="rgba(88,166,255,0.1)"/>
+        <text x="375" y="91" text-anchor="middle" fill="#58a6ff" font-size="8">pendingRequests.set(id)</text>
+
+        <!-- Forward to target -->
+        <line x1="380" y1="115" x2="625" y2="115" stroke="#58a6ff" stroke-width="1.5" marker-end="url(#arrowBlue)"/>
+        <text x="503" y="108" text-anchor="middle" fill="#58a6ff" font-size="9">REQUEST (forwarded)</text>
+
+        <!-- Processing -->
+        <rect x="605" y="130" width="50" height="40" rx="3" fill="rgba(227,179,65,0.08)" stroke="#e3b341" stroke-width="0.5"/>
+        <text x="630" y="155" text-anchor="middle" fill="#e3b341" font-size="8">process</text>
+
+        <!-- Response -->
+        <line x1="625" y1="190" x2="380" y2="190" stroke="#3fb950" stroke-width="1.5" marker-end="url(#arrowGreen)"/>
+        <text x="503" y="183" text-anchor="middle" fill="#3fb950" font-size="9">RESPONSE(correlationId:"abc-123")</text>
+
+        <!-- Bus resolves -->
+        <rect x="310" y="203" width="130" height="18" rx="3" fill="rgba(88,166,255,0.1)"/>
+        <text x="375" y="216" text-anchor="middle" fill="#58a6ff" font-size="8">pendingRequests.delete(id)</text>
+
+        <!-- Forward response -->
+        <line x1="370" y1="240" x2="125" y2="240" stroke="#3fb950" stroke-width="1.5" marker-end="url(#arrowGreen)"/>
+        <text x="248" y="233" text-anchor="middle" fill="#3fb950" font-size="9">RESPONSE (routed to requester)</text>
+
+        <!-- Resolve note -->
+        <rect x="50" y="255" width="140" height="18" rx="3" fill="rgba(57,210,192,0.08)"/>
+        <text x="120" y="268" text-anchor="middle" fill="#39d2c0" font-size="8">Promise.resolve(payload)</text>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Direct Messaging Flow -->
+  <div id="flow-direct" class="flow-panel">
+    <div class="diagram-container">
+      <svg width="750" height="220" viewBox="0 0 750 220" xmlns="http://www.w3.org/2000/svg" font-family="'SF Mono', Consolas, monospace">
+        <text x="120" y="25" text-anchor="middle" fill="#39d2c0" font-size="11" font-weight="700">agent-01</text>
+        <line x1="120" y1="35" x2="120" y2="210" stroke="#30363d" stroke-width="1" stroke-dasharray="4,4"/>
+        <text x="375" y="25" text-anchor="middle" fill="#58a6ff" font-size="11" font-weight="700">MessageBus</text>
+        <line x1="375" y1="35" x2="375" y2="210" stroke="#30363d" stroke-width="1" stroke-dasharray="4,4"/>
+        <text x="630" y="25" text-anchor="middle" fill="#39d2c0" font-size="11" font-weight="700">agent-02</text>
+        <line x1="630" y1="35" x2="630" y2="210" stroke="#30363d" stroke-width="1" stroke-dasharray="4,4"/>
+
+        <!-- Send -->
+        <line x1="125" y1="70" x2="370" y2="70" stroke="#d29922" stroke-width="1.5" marker-end="url(#arrowOrange)"/>
+        <text x="248" y="63" text-anchor="middle" fill="#d29922" font-size="9">DIRECT_SEND(to:"agent-02", payload:{...})</text>
+
+        <!-- Bus identity check -->
+        <rect x="310" y="83" width="130" height="18" rx="3" fill="rgba(88,166,255,0.1)"/>
+        <text x="375" y="96" text-anchor="middle" fill="#58a6ff" font-size="8">verify from = socketToAgent</text>
+
+        <!-- Route -->
+        <rect x="340" y="112" width="70" height="18" rx="3" fill="rgba(88,166,255,0.1)"/>
+        <text x="375" y="125" text-anchor="middle" fill="#58a6ff" font-size="8">clients.get(to)</text>
+
+        <line x1="380" y1="145" x2="625" y2="145" stroke="#58a6ff" stroke-width="1.5" marker-end="url(#arrowBlue)"/>
+        <text x="503" y="138" text-anchor="middle" fill="#58a6ff" font-size="9">DIRECT_SEND (delivered)</text>
+
+        <!-- Note -->
+        <rect x="310" y="170" width="220" height="18" rx="3" fill="rgba(248,81,73,0.06)" stroke="#f85149" stroke-width="0.5"/>
+        <text x="420" y="183" text-anchor="middle" fill="#f85149" font-size="8">If agent-02 not connected → returns false</text>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Orchestrator Intercept Flow -->
+  <div id="flow-intercept" class="flow-panel">
+    <div class="diagram-container">
+      <svg width="750" height="360" viewBox="0 0 750 360" xmlns="http://www.w3.org/2000/svg" font-family="'SF Mono', Consolas, monospace">
+        <text x="100" y="25" text-anchor="middle" fill="#39d2c0" font-size="11" font-weight="700">agent-01</text>
+        <line x1="100" y1="35" x2="100" y2="350" stroke="#30363d" stroke-width="1" stroke-dasharray="4,4"/>
+        <text x="350" y="25" text-anchor="middle" fill="#58a6ff" font-size="11" font-weight="700">MessageBus</text>
+        <line x1="350" y1="35" x2="350" y2="350" stroke="#30363d" stroke-width="1" stroke-dasharray="4,4"/>
+        <text x="620" y="25" text-anchor="middle" fill="#f85149" font-size="11" font-weight="700">OrchestratorControl</text>
+        <line x1="620" y1="35" x2="620" y2="350" stroke="#30363d" stroke-width="1" stroke-dasharray="4,4"/>
+
+        <!-- Agent publishes -->
+        <line x1="105" y1="65" x2="345" y2="65" stroke="#d29922" stroke-width="1.5" marker-end="url(#arrowOrange)"/>
+        <text x="225" y="58" text-anchor="middle" fill="#d29922" font-size="9">PUBLISH("progress", {step:5})</text>
+
+        <!-- Hook fires -->
+        <rect x="285" y="78" width="130" height="18" rx="3" fill="rgba(248,81,73,0.08)"/>
+        <text x="350" y="91" text-anchor="middle" fill="#f85149" font-size="8">onMessageReceived hook</text>
+
+        <!-- Hook can block -->
+        <line x1="355" y1="110" x2="615" y2="110" stroke="#f85149" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrowRed)"/>
+        <text x="485" y="103" text-anchor="middle" fill="#f85149" font-size="9">hook(msg) → return false?</text>
+
+        <!-- Blocked path -->
+        <rect x="550" y="122" width="140" height="18" rx="3" fill="rgba(248,81,73,0.08)"/>
+        <text x="620" y="135" text-anchor="middle" fill="#f85149" font-size="8">BLOCKED (messagesBlocked++)</text>
+
+        <!-- OR allowed path -->
+        <text x="350" y="168" text-anchor="middle" fill="#6e7681" font-size="9">─── if hook allows (or no hook) ───</text>
+
+        <!-- Monitor copy -->
+        <line x1="355" y1="190" x2="615" y2="190" stroke="#d29922" stroke-width="1" stroke-dasharray="3,3" marker-end="url(#arrowOrange)"/>
+        <text x="485" y="183" text-anchor="middle" fill="#d29922" font-size="8">monitoring copy (shadow)</text>
+
+        <!-- Normal routing continues -->
+        <rect x="285" y="205" width="130" height="18" rx="3" fill="rgba(88,166,255,0.1)"/>
+        <text x="350" y="218" text-anchor="middle" fill="#58a6ff" font-size="8">route to subscribers</text>
+
+        <!-- Pause command -->
+        <text x="485" y="258" text-anchor="middle" fill="#6e7681" font-size="9">─── control plane commands ───</text>
+        <line x1="615" y1="280" x2="355" y2="280" stroke="#f85149" stroke-width="1.5" marker-end="url(#arrowRed)"/>
+        <text x="485" y="273" text-anchor="middle" fill="#f85149" font-size="9">pause_agent(to:"bus", target:"agent-01")</text>
+        <rect x="285" y="293" width="130" height="18" rx="3" fill="rgba(248,81,73,0.08)"/>
+        <text x="350" y="306" text-anchor="middle" fill="#f85149" font-size="8">pausedAgents.add(agent-01)</text>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Telemetry Batching Flow -->
+  <div id="flow-telemetry" class="flow-panel">
+    <div class="diagram-container">
+      <svg width="750" height="320" viewBox="0 0 750 320" xmlns="http://www.w3.org/2000/svg" font-family="'SF Mono', Consolas, monospace">
+        <text x="100" y="25" text-anchor="middle" fill="#39d2c0" font-size="11" font-weight="700">Agent Code</text>
+        <line x1="100" y1="35" x2="100" y2="310" stroke="#30363d" stroke-width="1" stroke-dasharray="4,4"/>
+        <text x="310" y="25" text-anchor="middle" fill="#d29922" font-size="11" font-weight="700">TelemetryChannel</text>
+        <line x1="310" y1="35" x2="310" y2="310" stroke="#30363d" stroke-width="1" stroke-dasharray="4,4"/>
+        <text x="520" y="25" text-anchor="middle" fill="#39d2c0" font-size="11" font-weight="700">AgentChannel</text>
+        <line x1="520" y1="35" x2="520" y2="310" stroke="#30363d" stroke-width="1" stroke-dasharray="4,4"/>
+        <text x="700" y="25" text-anchor="middle" fill="#58a6ff" font-size="11" font-weight="700">MessageBus</text>
+        <line x1="700" y1="35" x2="700" y2="310" stroke="#30363d" stroke-width="1" stroke-dasharray="4,4"/>
+
+        <!-- Emit calls (non-blocking) -->
+        <line x1="105" y1="60" x2="305" y2="60" stroke="#d29922" stroke-width="1" marker-end="url(#arrowOrange)"/>
+        <text x="205" y="53" text-anchor="middle" fill="#d29922" font-size="8">emit("tool_call", {tool:"Read"})</text>
+
+        <line x1="105" y1="80" x2="305" y2="80" stroke="#d29922" stroke-width="1" marker-end="url(#arrowOrange)"/>
+        <text x="205" y="73" text-anchor="middle" fill="#d29922" font-size="8">emit("memory", {peak: 512MB})</text>
+
+        <line x1="105" y1="100" x2="305" y2="100" stroke="#d29922" stroke-width="1" marker-end="url(#arrowOrange)"/>
+        <text x="205" y="93" text-anchor="middle" fill="#d29922" font-size="8">emit("progress", {step: 3})</text>
+
+        <!-- Buffer -->
+        <rect x="270" y="115" width="80" height="45" rx="4" fill="rgba(210,153,34,0.08)" stroke="#d29922" stroke-width="1"/>
+        <text x="310" y="133" text-anchor="middle" fill="#d29922" font-size="8" font-weight="600">BUFFER</text>
+        <text x="310" y="148" text-anchor="middle" fill="#6e7681" font-size="7">3/1000 items</text>
+
+        <!-- Timer fires -->
+        <rect x="270" y="172" width="80" height="18" rx="3" fill="rgba(210,153,34,0.12)"/>
+        <text x="310" y="185" text-anchor="middle" fill="#d29922" font-size="8">100ms timer</text>
+
+        <!-- Flush to channel -->
+        <line x1="315" y1="205" x2="515" y2="205" stroke="#d29922" stroke-width="1.5" marker-end="url(#arrowOrange)"/>
+        <text x="415" y="198" text-anchor="middle" fill="#d29922" font-size="9">publish("telemetry", {batch: [...]})</text>
+
+        <!-- Channel to bus -->
+        <line x1="525" y1="235" x2="695" y2="235" stroke="#58a6ff" stroke-width="1.5" marker-end="url(#arrowBlue)"/>
+        <text x="610" y="228" text-anchor="middle" fill="#58a6ff" font-size="9">PUBLISH(topic:"telemetry")</text>
+
+        <!-- Backpressure note -->
+        <rect x="230" y="265" width="250" height="30" rx="4" fill="rgba(248,81,73,0.06)" stroke="#f85149" stroke-width="0.5"/>
+        <text x="355" y="279" text-anchor="middle" fill="#f85149" font-size="8">At 80% capacity (800/1000): backpressure warning</text>
+        <text x="355" y="290" text-anchor="middle" fill="#f85149" font-size="8">At 100%: drop-oldest policy (FIFO eviction)</text>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- Section 4: Protocol -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="protocol">
+  <div class="section-header">
+    <span class="section-number">04</span>
+    <h2>Wire Protocol</h2>
+  </div>
+
+  <p style="color:var(--text-muted); margin-bottom:1.25rem; font-size:0.9rem;">
+    Length-prefixed JSON framing over Unix domain sockets. Both Node.js and Python use identical wire format — no protocol negotiation needed.
+  </p>
+
+  <div class="frame-diagram">
+    <div class="frame-part length">
+      <div class="frame-label">4-Byte Length Prefix</div>
+      <div class="frame-content">
+        <div>
+          <div style="font-family:var(--font-mono); font-size:0.95rem; color:var(--orange); font-weight:600;">uint32 BE</div>
+          <div style="font-size:0.75rem; margin-top:0.25rem;">Big-endian network byte order</div>
+        </div>
+      </div>
+    </div>
+    <div class="frame-part payload">
+      <div class="frame-label">N-Byte JSON Payload (UTF-8)</div>
+      <div class="frame-content">
+        <div style="text-align:left; width:100%; padding:0 0.5rem;">
+          <div style="font-family:var(--font-mono); font-size:0.8rem; line-height:1.6;">
+            <span style="color:var(--text-subtle);">{</span><br>
+            &nbsp;&nbsp;<span style="color:var(--pink);">"id"</span>: <span style="color:var(--green);">"uuid-v4"</span>,<br>
+            &nbsp;&nbsp;<span style="color:var(--pink);">"type"</span>: <span style="color:var(--green);">"PUBLISH | SUBSCRIBE | DIRECT_SEND | REQUEST | RESPONSE | ..."</span>,<br>
+            &nbsp;&nbsp;<span style="color:var(--pink);">"from"</span>: <span style="color:var(--green);">"agent-01"</span>,<br>
+            &nbsp;&nbsp;<span style="color:var(--pink);">"to"</span>: <span style="color:var(--green);">"agent-02"</span> <span style="color:var(--text-subtle);">| null</span>,<br>
+            &nbsp;&nbsp;<span style="color:var(--pink);">"topic"</span>: <span style="color:var(--green);">"progress"</span> <span style="color:var(--text-subtle);">| null</span>,<br>
+            &nbsp;&nbsp;<span style="color:var(--pink);">"correlationId"</span>: <span style="color:var(--green);">"uuid"</span> <span style="color:var(--text-subtle);">| null</span>,<br>
+            &nbsp;&nbsp;<span style="color:var(--pink);">"priority"</span>: <span style="color:var(--green);">"HIGH | NORMAL | LOW"</span>,<br>
+            &nbsp;&nbsp;<span style="color:var(--pink);">"timestamp"</span>: <span style="color:var(--orange);">1710000000000</span>,<br>
+            &nbsp;&nbsp;<span style="color:var(--pink);">"payload"</span>: <span style="color:var(--text-subtle);">{ ... any JSON ... }</span><br>
+            <span style="color:var(--text-subtle);">}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1rem; margin-top:1.5rem;">
+    <div class="code-block">
+      <div class="code-header">Serialize (Node.js) <span class="code-lang">JS</span></div>
+<pre><span class="kw">const</span> json = JSON.<span class="fn">stringify</span>(message);
+<span class="kw">const</span> jsonBuf = Buffer.<span class="fn">from</span>(json, <span class="str">"utf-8"</span>);
+<span class="kw">const</span> buf = Buffer.<span class="fn">allocUnsafe</span>(<span class="num">4</span> + jsonBuf.length);
+buf.<span class="fn">writeUInt32BE</span>(jsonBuf.length, <span class="num">0</span>);
+jsonBuf.<span class="fn">copy</span>(buf, <span class="num">4</span>);
+socket.<span class="fn">write</span>(buf);</pre>
+    </div>
+    <div class="code-block">
+      <div class="code-header">Serialize (Python) <span class="code-lang">PY</span></div>
+<pre>json_str = json.<span class="fn">dumps</span>(message)
+json_bytes = json_str.<span class="fn">encode</span>(<span class="str">"utf-8"</span>)
+header = struct.<span class="fn">pack</span>(<span class="str">"&gt;I"</span>, <span class="fn">len</span>(json_bytes))
+sock.<span class="fn">sendall</span>(header + json_bytes)</pre>
+    </div>
+  </div>
+
+  <div style="margin-top:1.5rem;">
+    <h3 style="font-size:1rem; color:var(--text); margin-bottom:0.75rem;">Message Types</h3>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>Direction</th>
+            <th>Required Fields</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code style="color:var(--blue);">PUBLISH</code></td>
+            <td>Agent → Bus → Subscribers</td>
+            <td><code>topic</code></td>
+            <td>Broadcast to all topic subscribers</td>
+          </tr>
+          <tr>
+            <td><code style="color:var(--blue);">SUBSCRIBE</code></td>
+            <td>Agent → Bus</td>
+            <td><code>topic</code></td>
+            <td>Register interest in a topic</td>
+          </tr>
+          <tr>
+            <td><code style="color:var(--blue);">UNSUBSCRIBE</code></td>
+            <td>Agent → Bus</td>
+            <td><code>topic</code></td>
+            <td>Remove topic subscription</td>
+          </tr>
+          <tr>
+            <td><code style="color:var(--green);">DIRECT_SEND</code></td>
+            <td>Agent → Bus → Agent</td>
+            <td><code>to</code></td>
+            <td>Point-to-point message delivery</td>
+          </tr>
+          <tr>
+            <td><code style="color:var(--orange);">REQUEST</code></td>
+            <td>Agent → Bus → Agent</td>
+            <td><code>to</code></td>
+            <td>Request expecting correlated response</td>
+          </tr>
+          <tr>
+            <td><code style="color:var(--orange);">RESPONSE</code></td>
+            <td>Agent → Bus → Agent</td>
+            <td><code>to</code>, <code>correlationId</code></td>
+            <td>Response to a prior REQUEST</td>
+          </tr>
+          <tr>
+            <td><code style="color:var(--purple);">REGISTER</code></td>
+            <td>Agent → Bus</td>
+            <td>—</td>
+            <td>Agent announces presence</td>
+          </tr>
+          <tr>
+            <td><code style="color:var(--purple);">UNREGISTER</code></td>
+            <td>Agent → Bus</td>
+            <td>—</td>
+            <td>Agent gracefully disconnects</td>
+          </tr>
+          <tr>
+            <td><code style="color:var(--teal);">HEARTBEAT</code></td>
+            <td>Agent ↔ Bus</td>
+            <td>—</td>
+            <td>Liveness probe (every 30s, bus echoes)</td>
+          </tr>
+          <tr>
+            <td><code style="color:var(--red);">ERROR</code></td>
+            <td>Bus → Agent</td>
+            <td>—</td>
+            <td>Error notification</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div style="margin-top:1.5rem; display:grid; grid-template-columns: 1fr 1fr 1fr; gap:1rem;">
+    <div style="background:var(--bg-surface); border:1px solid var(--border); border-radius:8px; padding:1rem; text-align:center;">
+      <div style="color:var(--orange); font-family:var(--font-mono); font-size:1.2rem; font-weight:700;">16 MB</div>
+      <div style="color:var(--text-muted); font-size:0.8rem;">Max Message Size</div>
+    </div>
+    <div style="background:var(--bg-surface); border:1px solid var(--border); border-radius:8px; padding:1rem; text-align:center;">
+      <div style="color:var(--blue); font-family:var(--font-mono); font-size:1.2rem; font-weight:700;">UTF-8</div>
+      <div style="color:var(--text-muted); font-size:0.8rem;">Encoding</div>
+    </div>
+    <div style="background:var(--bg-surface); border:1px solid var(--border); border-radius:8px; padding:1rem; text-align:center;">
+      <div style="color:var(--green); font-family:var(--font-mono); font-size:1.2rem; font-weight:700;">BE</div>
+      <div style="color:var(--text-muted); font-size:0.8rem;">Big-Endian Byte Order</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- Section 5: API Reference -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="api">
+  <div class="section-header">
+    <span class="section-number">05</span>
+    <h2>API Reference</h2>
+  </div>
+
+  <!-- protocol.mjs -->
+  <div class="collapsible" onclick="toggleCollapsible(this)">
+    <div class="collapsible-header">
+      <span class="collapsible-icon">&#9654;</span>
+      <span class="collapsible-title">protocol.mjs</span>
+      <span class="collapsible-badge badge-protocol">339 lines</span>
+    </div>
+    <div class="collapsible-body">
+      <div class="collapsible-content">
+        <div class="fn-sig">
+          <span class="fn-name">MessageType</span> : <span class="fn-type">enum</span>
+          <span class="fn-desc">{ PUBLISH, SUBSCRIBE, UNSUBSCRIBE, DIRECT_SEND, REQUEST, RESPONSE, REGISTER, UNREGISTER, HEARTBEAT, ERROR }</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">Priority</span> : <span class="fn-type">enum</span>
+          <span class="fn-desc">{ HIGH, NORMAL, LOW }</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">HealthStatus</span> : <span class="fn-type">enum</span>
+          <span class="fn-desc">{ HEALTHY, DEGRADED, OFFLINE }</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">MAX_MESSAGE_SIZE</span> : <span class="fn-type">number</span> = <span class="fn-param">16 * 1024 * 1024</span>
+          <span class="fn-desc">Maximum allowed message size in bytes (16MB)</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">generateCorrelationId</span>() → <span class="fn-ret">string</span>
+          <span class="fn-desc">Generate UUID v4 for request-response tracking</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">createMessage</span>(<span class="fn-param">type, from, payload, options?</span>) → <span class="fn-ret">Message</span>
+          <span class="fn-desc">Create complete message envelope with all required fields. Options: { to?, topic?, correlationId?, priority? }</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">validateMessage</span>(<span class="fn-param">msg</span>) → <span class="fn-ret">{ valid: boolean, error?: string }</span>
+          <span class="fn-desc">Validate message structure and type-specific required fields</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">serializeMessage</span>(<span class="fn-param">message</span>) → <span class="fn-ret">Buffer</span>
+          <span class="fn-desc">Serialize to [4-byte length][JSON payload] binary buffer</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">MessageParser</span>
+          <span class="fn-desc">Streaming parser for length-prefixed JSON. Methods: feed(chunk) → Message[], reset(), getBufferSize() → number</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- message-bus.mjs -->
+  <div class="collapsible" onclick="toggleCollapsible(this)">
+    <div class="collapsible-header">
+      <span class="collapsible-icon">&#9654;</span>
+      <span class="collapsible-title">message-bus.mjs — MessageBus</span>
+      <span class="collapsible-badge badge-bus">855 lines</span>
+    </div>
+    <div class="collapsible-body">
+      <div class="collapsible-content">
+        <div class="fn-sig">
+          <span class="fn-name">constructor</span>(<span class="fn-param">options?: { socketPath?, enableLogging?, logger?, orchestratorToken? }</span>)
+          <span class="fn-desc">Create message bus broker. Default socket: /tmp/claude-ipc-bus.sock</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">start</span>() → <span class="fn-ret">Promise&lt;void&gt;</span>
+          <span class="fn-desc">Start Unix socket server, remove stale socket file if present</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">stop</span>() → <span class="fn-ret">Promise&lt;void&gt;</span>
+          <span class="fn-desc">Graceful shutdown: close all clients, clear state, remove socket file</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">registerHook</span>(<span class="fn-param">hookName, handler</span>) → <span class="fn-ret">void</span>
+          <span class="fn-desc">Register orchestrator hook: onMessageReceived, onMessageRouted, onAgentConnected, onAgentDisconnected</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">publish</span>(<span class="fn-param">topic, from, payload, priority?</span>) → <span class="fn-ret">number</span>
+          <span class="fn-desc">Broadcast to all topic subscribers, returns recipient count</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">directSend</span>(<span class="fn-param">to, from, payload, priority?</span>) → <span class="fn-ret">boolean</span>
+          <span class="fn-desc">Send direct message to specific agent</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">request</span>(<span class="fn-param">to, from, payload, priority?</span>) → <span class="fn-ret">{ correlationId, sent }</span>
+          <span class="fn-desc">Send request and register for response correlation tracking</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">getMetrics</span>() → <span class="fn-ret">Object</span>
+          <span class="fn-desc">messagesRouted, messagesBlocked, errorsEncountered, connectedClients, bytes sent/received</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">getConnectedAgents</span>() → <span class="fn-ret">string[]</span>
+          <span class="fn-desc">List of currently connected agent IDs</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">getSubscribers</span>(<span class="fn-param">topic</span>) → <span class="fn-ret">string[]</span>
+          <span class="fn-desc">List agent IDs subscribed to a topic</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- agent-channel.mjs -->
+  <div class="collapsible" onclick="toggleCollapsible(this)">
+    <div class="collapsible-header">
+      <span class="collapsible-icon">&#9654;</span>
+      <span class="collapsible-title">agent-channel.mjs — AgentChannel</span>
+      <span class="collapsible-badge badge-channel">548 lines</span>
+    </div>
+    <div class="collapsible-body">
+      <div class="collapsible-content">
+        <div class="fn-sig">
+          <span class="fn-name">constructor</span>(<span class="fn-param">agentId, options?: { socketPath?, autoReconnect?, heartbeatInterval? }</span>)
+          <span class="fn-desc">Create agent-side IPC client. Extends EventEmitter.</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">connect</span>() → <span class="fn-ret">Promise&lt;void&gt;</span>
+          <span class="fn-desc">Connect to bus, send REGISTER, start heartbeat (30s)</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">send</span>(<span class="fn-param">targetAgentId, message</span>) → <span class="fn-ret">Promise&lt;void&gt;</span>
+          <span class="fn-desc">Send DIRECT_SEND to specific agent</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">publish</span>(<span class="fn-param">topic, message</span>) → <span class="fn-ret">Promise&lt;void&gt;</span>
+          <span class="fn-desc">Publish message to topic</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">subscribe</span>(<span class="fn-param">topic, handler</span>) → <span class="fn-ret">void</span>
+          <span class="fn-desc">Subscribe to topic with handler callback</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">unsubscribe</span>(<span class="fn-param">topic, handler?</span>) → <span class="fn-ret">void</span>
+          <span class="fn-desc">Unsubscribe from topic (specific handler or all)</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">request</span>(<span class="fn-param">targetAgentId, message, timeoutMs?</span>) → <span class="fn-ret">Promise&lt;Object&gt;</span>
+          <span class="fn-desc">Request-response with correlation ID tracking. Default timeout: 5000ms.</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">onMessage</span>(<span class="fn-param">handler</span>) → <span class="fn-ret">void</span>
+          <span class="fn-desc">Register global message handler for all incoming messages</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">close</span>() → <span class="fn-ret">Promise&lt;void&gt;</span>
+          <span class="fn-desc">Send UNREGISTER, reject pending requests, close socket</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">createAgentChannel</span>(<span class="fn-param">agentId, options?</span>) → <span class="fn-ret">Promise&lt;AgentChannel&gt;</span>
+          <span class="fn-desc">Factory: create and connect a new agent channel</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- orchestrator-control.mjs -->
+  <div class="collapsible" onclick="toggleCollapsible(this)">
+    <div class="collapsible-header">
+      <span class="collapsible-icon">&#9654;</span>
+      <span class="collapsible-title">orchestrator-control.mjs — OrchestratorControl</span>
+      <span class="collapsible-badge badge-control">432 lines</span>
+    </div>
+    <div class="collapsible-body">
+      <div class="collapsible-content">
+        <div class="fn-sig">
+          <span class="fn-name">constructor</span>(<span class="fn-param">options?: { orchestratorToken?, socketPath? }</span>)
+          <span class="fn-desc">Privileged orchestrator channel. Extends AgentChannel with agentId="orchestrator".</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">connect</span>() → <span class="fn-ret">Promise&lt;void&gt;</span>
+          <span class="fn-desc">Connect + request privileged mode with auth token</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">monitorAll</span>(<span class="fn-param">handler</span>) → <span class="fn-ret">Promise&lt;void&gt;</span>
+          <span class="fn-desc">Enable wiretap: receive shadow copies of all bus messages</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">stopMonitoring</span>() → <span class="fn-ret">Promise&lt;void&gt;</span>
+          <span class="fn-desc">Disable message monitoring</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">filterMessages</span>(<span class="fn-param">predicate</span>) → <span class="fn-ret">string</span>
+          <span class="fn-desc">Block messages matching predicate. Returns filterId for removal.</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">removeFilter</span>(<span class="fn-param">filterId</span>) → <span class="fn-ret">Promise&lt;void&gt;</span>
+          <span class="fn-desc">Remove a previously added message filter</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">injectMessage</span>(<span class="fn-param">message</span>) → <span class="fn-ret">Promise&lt;void&gt;</span>
+          <span class="fn-desc">Inject synthetic message into bus for testing/orchestration</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">pauseAgent</span>(<span class="fn-param">agentId</span>) → <span class="fn-ret">Promise&lt;void&gt;</span>
+          <span class="fn-desc">Pause agent's message flow (queued until resumed)</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">resumeAgent</span>(<span class="fn-param">agentId</span>) → <span class="fn-ret">Promise&lt;void&gt;</span>
+          <span class="fn-desc">Resume paused agent, deliver queued messages</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">queryBusState</span>() → <span class="fn-ret">Promise&lt;Object&gt;</span>
+          <span class="fn-desc">Returns { agents, stats, topics, pausedAgents }</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">setRateLimit</span>(<span class="fn-param">agentId, msgsPerSec</span>) → <span class="fn-ret">Promise&lt;void&gt;</span>
+          <span class="fn-desc">Set per-agent rate limit (0 = unlimited)</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">disconnectAgent</span>(<span class="fn-param">agentId, reason?</span>) → <span class="fn-ret">Promise&lt;void&gt;</span>
+          <span class="fn-desc">Force-disconnect an agent from the bus</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- registry.mjs -->
+  <div class="collapsible" onclick="toggleCollapsible(this)">
+    <div class="collapsible-header">
+      <span class="collapsible-icon">&#9654;</span>
+      <span class="collapsible-title">registry.mjs — AgentRegistry</span>
+      <span class="collapsible-badge badge-registry">324 lines</span>
+    </div>
+    <div class="collapsible-body">
+      <div class="collapsible-content">
+        <div class="fn-sig">
+          <span class="fn-name">constructor</span>(<span class="fn-param">options?: { messageBus? }</span>)
+          <span class="fn-desc">Create registry, optionally auto-integrate with MessageBus hooks</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">register</span>(<span class="fn-param">agentId, metadata?</span>) → <span class="fn-ret">boolean</span>
+          <span class="fn-desc">Register agent with capabilities, role, model, worktreePath, pid</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">deregister</span>(<span class="fn-param">agentId</span>) → <span class="fn-ret">boolean</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">updateHealth</span>(<span class="fn-param">agentId, healthStatus</span>) → <span class="fn-ret">boolean</span>
+          <span class="fn-desc">Set HEALTHY / DEGRADED / OFFLINE</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">findByRole</span>(<span class="fn-param">role</span>) → <span class="fn-ret">AgentRegistryEntry[]</span>
+          <span class="fn-desc">Find agents by role (worker, verifier, orchestrator)</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">findByCapability</span>(<span class="fn-param">capability</span>) → <span class="fn-ret">AgentRegistryEntry[]</span>
+          <span class="fn-desc">Find agents with specific capability (code-review, testing, etc.)</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">getStaleAgents</span>(<span class="fn-param">thresholdMs?</span>) → <span class="fn-ret">AgentRegistryEntry[]</span>
+          <span class="fn-desc">Find agents past heartbeat threshold (default: 60s)</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">getStats</span>() → <span class="fn-ret">Object</span>
+          <span class="fn-desc">Summary: totalAgents, byHealth, byRole, byModel, messageStats</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- telemetry-channel.mjs -->
+  <div class="collapsible" onclick="toggleCollapsible(this)">
+    <div class="collapsible-header">
+      <span class="collapsible-icon">&#9654;</span>
+      <span class="collapsible-title">telemetry-channel.mjs — TelemetryChannel</span>
+      <span class="collapsible-badge badge-telemetry">396 lines</span>
+    </div>
+    <div class="collapsible-body">
+      <div class="collapsible-content">
+        <div class="fn-sig">
+          <span class="fn-name">init</span>(<span class="fn-param">agentChannel, options?</span>) → <span class="fn-ret">TelemetryChannel</span>
+          <span class="fn-desc">Static factory. Options: { bufferSize: 1000, flushInterval: 100, dropOnFull: true }</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">emit</span>(<span class="fn-param">metric, data</span>) → <span class="fn-ret">boolean</span>
+          <span class="fn-desc">Non-blocking metric emission, returns true if buffered</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">emitEvent</span>(<span class="fn-param">event, data?</span>) → <span class="fn-ret">boolean</span>
+          <span class="fn-desc">Non-blocking event emission</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">emitLog</span>(<span class="fn-param">level, message, context?</span>) → <span class="fn-ret">boolean</span>
+          <span class="fn-desc">Emit structured log (debug/info/warn/error)</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">toolCall</span>(<span class="fn-param">toolName, params?</span>) → <span class="fn-ret">boolean</span>
+          <span class="fn-desc">Convenience: emit tool call event</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">checklistItem</span>(<span class="fn-param">status, description, file?, line?</span>) → <span class="fn-ret">boolean</span>
+          <span class="fn-desc">Convenience: emit checklist pass/fail/skip</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">progress</span>(<span class="fn-param">toolCount, elapsedMs, lastTool?, stdoutBytes?</span>) → <span class="fn-ret">boolean</span>
+          <span class="fn-desc">Convenience: emit progress update</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">flush</span>() → <span class="fn-ret">Promise&lt;void&gt;</span>
+          <span class="fn-desc">Force flush buffer (blocks until published)</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">getStats</span>() → <span class="fn-ret">Object</span>
+          <span class="fn-desc">{ emitted, flushed, dropped, buffered, bufferSize, utilizationPercent, backpressure }</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">close</span>() → <span class="fn-ret">Promise&lt;void&gt;</span>
+          <span class="fn-desc">Stop timer, flush remaining buffer</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- bridge.mjs -->
+  <div class="collapsible" onclick="toggleCollapsible(this)">
+    <div class="collapsible-header">
+      <span class="collapsible-icon">&#9654;</span>
+      <span class="collapsible-title">bridge.mjs — Python Bridge</span>
+      <span class="collapsible-badge badge-bridge">405 lines</span>
+    </div>
+    <div class="collapsible-body">
+      <div class="collapsible-content">
+        <div class="fn-sig">
+          <span class="fn-name">sendToPython</span>(<span class="fn-param">hookName, payload, options?</span>) → <span class="fn-ret">Promise&lt;{ success, output, error? }&gt;</span>
+          <span class="fn-desc">Spawn Python hook as subprocess, send JSON via stdin, collect stdout</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">registerPythonHook</span>(<span class="fn-param">hookName, socketPath</span>) → <span class="fn-ret">void</span>
+          <span class="fn-desc">Register a Python hook's socket path for direct communication</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">unregisterPythonHook</span>(<span class="fn-param">hookName</span>) → <span class="fn-ret">void</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">getPythonHooks</span>() → <span class="fn-ret">Map&lt;string, {socketPath, lastSeen}&gt;</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">startBridgeServer</span>(<span class="fn-param">socketPath, handler</span>) → <span class="fn-ret">Promise&lt;{ server, close() }&gt;</span>
+          <span class="fn-desc">Start Unix socket server for long-running Python hook connections</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- bus_client.py -->
+  <div class="collapsible" onclick="toggleCollapsible(this)">
+    <div class="collapsible-header">
+      <span class="collapsible-icon">&#9654;</span>
+      <span class="collapsible-title">bus_client.py — BusClient (Python)</span>
+      <span class="collapsible-badge badge-python">589 lines</span>
+    </div>
+    <div class="collapsible-body">
+      <div class="collapsible-content">
+        <div class="fn-sig">
+          <span class="fn-name">__init__</span>(<span class="fn-param">agent_id, socket_path=None, auto_reconnect=False</span>)
+          <span class="fn-desc">Python stdlib-only IPC client (socket + json + struct + threading)</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">connect</span>() → <span class="fn-ret">None</span>
+          <span class="fn-desc">Connect to bus, send REGISTER, start background receiver thread</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">send</span>(<span class="fn-param">target_agent_id, message</span>) → <span class="fn-ret">None</span>
+          <span class="fn-desc">Send DIRECT_SEND to specific agent</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">publish</span>(<span class="fn-param">topic, message</span>) → <span class="fn-ret">None</span>
+          <span class="fn-desc">Publish message to topic</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">subscribe</span>(<span class="fn-param">topic, handler</span>) → <span class="fn-ret">None</span>
+          <span class="fn-desc">Subscribe to topic with callback handler</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">request</span>(<span class="fn-param">target_agent_id, message, timeout=5.0</span>) → <span class="fn-ret">dict</span>
+          <span class="fn-desc">Blocking request-response with threading.Event for synchronization</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">on_message</span>(<span class="fn-param">handler</span>) → <span class="fn-ret">None</span>
+          <span class="fn-desc">Register global message handler</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">close</span>() → <span class="fn-ret">None</span>
+          <span class="fn-desc">Stop receiver thread, send UNREGISTER, close socket</span>
+        </div>
+        <div class="fn-sig">
+          <span class="fn-name">cli_main</span>() → <span class="fn-ret">None</span>
+          <span class="fn-desc">CLI entry point: send | publish | request | subscribe</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- Section 6: File Map -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="filemap">
+  <div class="section-header">
+    <span class="section-number">06</span>
+    <h2>File Map</h2>
+  </div>
+
+  <div style="background:var(--bg-surface); border:1px solid var(--border); border-radius:8px; padding:1.5rem;">
+    <div class="file-tree">
+      <div class="file-entry">
+        <span class="dir">remote-agent/lib/ipc/</span>
+        <span class="file-desc">Inter-Agent Communication Layer</span>
+      </div>
+
+      <div class="file-entry indent">
+        <span class="file-name">index.mjs</span>
+        <span class="file-lines"><span class="lines-bar" style="width:4px;"></span>35</span>
+        <span class="file-desc">Barrel re-export — 21 public exports</span>
+      </div>
+
+      <div class="file-entry indent">
+        <span class="file-name">protocol.mjs</span>
+        <span class="file-lines"><span class="lines-bar" style="width:35px;"></span>339</span>
+        <span class="file-desc">Wire protocol — types, framing, parser, validation</span>
+      </div>
+
+      <div class="file-entry indent">
+        <span class="file-name">message-bus.mjs</span>
+        <span class="file-lines"><span class="lines-bar" style="width:85px;"></span>855</span>
+        <span class="file-desc">Central broker — routing, hooks, commands, metrics</span>
+      </div>
+
+      <div class="file-entry indent">
+        <span class="file-name">agent-channel.mjs</span>
+        <span class="file-lines"><span class="lines-bar" style="width:55px;"></span>548</span>
+        <span class="file-desc">Agent client — reconnect, heartbeat, pub/sub, req/res</span>
+      </div>
+
+      <div class="file-entry indent">
+        <span class="file-name">orchestrator-control.mjs</span>
+        <span class="file-lines"><span class="lines-bar" style="width:43px;"></span>432</span>
+        <span class="file-desc">Privileged control — monitor, filter, inject, pause</span>
+      </div>
+
+      <div class="file-entry indent">
+        <span class="file-name">registry.mjs</span>
+        <span class="file-lines"><span class="lines-bar" style="width:32px;"></span>324</span>
+        <span class="file-desc">Agent registry — capabilities, health, discovery</span>
+      </div>
+
+      <div class="file-entry indent">
+        <span class="file-name">telemetry-channel.mjs</span>
+        <span class="file-lines"><span class="lines-bar" style="width:40px;"></span>396</span>
+        <span class="file-desc">Telemetry — buffered, batched, backpressure, 100ms flush</span>
+      </div>
+
+      <div class="file-entry indent">
+        <span class="file-name">bridge.mjs</span>
+        <span class="file-lines"><span class="lines-bar" style="width:40px;"></span>405</span>
+        <span class="file-desc">Python bridge — subprocess, CLI, socket server</span>
+      </div>
+
+      <div class="file-entry indent" style="margin-top:0.5rem;">
+        <span class="dir">python-bridge/</span>
+      </div>
+
+      <div class="file-entry indent2">
+        <span class="file-name">bus_client.py</span>
+        <span class="file-lines"><span class="lines-bar" style="width:60px;"></span>589</span>
+        <span class="file-desc">Python client — stdlib only, threaded receiver, CLI</span>
+      </div>
+
+      <div class="file-entry" style="margin-top:1rem; padding-top:0.75rem; border-top:1px solid var(--border-muted);">
+        <span style="color:var(--text-muted); font-weight:600;">TOTAL</span>
+        <span class="file-lines" style="margin-left:auto;"><span class="lines-bar" style="width:100px; background:var(--blue);"></span><strong style="color:var(--blue);">3,923 lines</strong></span>
+        <span class="file-desc">9 modules · 2 languages · 0 external deps</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- Section 7: Integration Points -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="integration">
+  <div class="section-header">
+    <span class="section-number">07</span>
+    <h2>Integration Points</h2>
+  </div>
+  <p style="color:var(--text-muted); margin-bottom:1.25rem; font-size:0.9rem;">
+    The IPC layer integrates with six existing modules. All integration is non-fatal — if the bus is unavailable, the system degrades to its original file-based communication.
+  </p>
+
+  <div class="integration-grid">
+    <div class="integration-card">
+      <h4>swarm.mjs</h4>
+      <div class="arrow">creates →</div>
+      <div class="uses">MessageBus + AgentRegistry</div>
+      <p>Creates and starts the bus server. Initializes the registry with bus integration hooks. Passes <code>CLAUDE_IPC_SOCKET</code> env to spawned agents. Registers cleanup handler on shutdown.</p>
+    </div>
+
+    <div class="integration-card">
+      <h4>orchestration.mjs</h4>
+      <div class="arrow">creates →</div>
+      <div class="uses">OrchestratorControl</div>
+      <p>Creates privileged orchestrator control channel with auth token. Monitors bus state for agent coordination. Passes IPC socket path to agent spawn configuration.</p>
+    </div>
+
+    <div class="integration-card">
+      <h4>agent-spawn.mjs</h4>
+      <div class="arrow">uses →</div>
+      <div class="uses">AgentRegistry</div>
+      <p>Registers agents in registry on spawn with role, model, capabilities, worktree path. Deregisters agents on exit. Passes <code>CLAUDE_IPC_SOCKET</code> environment variable to child processes.</p>
+    </div>
+
+    <div class="integration-card">
+      <h4>lifecycle.mjs</h4>
+      <div class="arrow">creates →</div>
+      <div class="uses">AgentChannel</div>
+      <p>Connects to bus on agent startup. Publishes <code>agent.lifecycle</code> events (online/offline). Disconnects gracefully during cleanup. All wrapped in try/catch for non-fatal IPC.</p>
+    </div>
+
+    <div class="integration-card">
+      <h4>telemetry.mjs</h4>
+      <div class="arrow">creates →</div>
+      <div class="uses">TelemetryChannel</div>
+      <p>Initializes via <code>TelemetryChannel.init(agentChannel)</code>. Routes tool calls, checklist items, memory stats, and progress updates through the batched telemetry bus topic.</p>
+    </div>
+
+    <div class="integration-card">
+      <h4>agent-entry.mjs</h4>
+      <div class="arrow">creates →</div>
+      <div class="uses">AgentChannel + TelemetryChannel</div>
+      <p>Initializes both IPC channel and telemetry routing on agent startup. Entry point for all spawned agent processes to connect to the bus.</p>
+    </div>
+  </div>
+
+  <!-- Integration Architecture SVG -->
+  <div class="diagram-container" style="margin-top:1.5rem;">
+    <svg width="800" height="280" viewBox="0 0 800 280" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+      <defs>
+        <marker id="arrowGray" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L8,3 L0,6" fill="none" stroke="#8b949e" stroke-width="1.5"/>
+        </marker>
+      </defs>
+
+      <!-- swarm.mjs -->
+      <rect x="320" y="10" width="160" height="44" rx="6" fill="#161b22" stroke="#e3b341" stroke-width="1.5"/>
+      <text x="400" y="28" text-anchor="middle" fill="#e3b341" font-size="10" font-weight="700">swarm.mjs</text>
+      <text x="400" y="42" text-anchor="middle" fill="#6e7681" font-size="8">creates bus + registry</text>
+
+      <!-- orchestration.mjs -->
+      <rect x="60" y="90" width="160" height="44" rx="6" fill="#161b22" stroke="#f85149" stroke-width="1.5"/>
+      <text x="140" y="108" text-anchor="middle" fill="#f85149" font-size="10" font-weight="700">orchestration.mjs</text>
+      <text x="140" y="122" text-anchor="middle" fill="#6e7681" font-size="8">OrchestratorControl</text>
+
+      <!-- agent-spawn.mjs -->
+      <rect x="250" y="90" width="160" height="44" rx="6" fill="#161b22" stroke="#3fb950" stroke-width="1.5"/>
+      <text x="330" y="108" text-anchor="middle" fill="#3fb950" font-size="10" font-weight="700">agent-spawn.mjs</text>
+      <text x="330" y="122" text-anchor="middle" fill="#6e7681" font-size="8">AgentRegistry</text>
+
+      <!-- lifecycle.mjs -->
+      <rect x="440" y="90" width="160" height="44" rx="6" fill="#161b22" stroke="#39d2c0" stroke-width="1.5"/>
+      <text x="520" y="108" text-anchor="middle" fill="#39d2c0" font-size="10" font-weight="700">lifecycle.mjs</text>
+      <text x="520" y="122" text-anchor="middle" fill="#6e7681" font-size="8">AgentChannel</text>
+
+      <!-- telemetry.mjs -->
+      <rect x="580" y="90" width="160" height="44" rx="6" fill="#161b22" stroke="#d29922" stroke-width="1.5"/>
+      <text x="660" y="108" text-anchor="middle" fill="#d29922" font-size="10" font-weight="700">telemetry.mjs</text>
+      <text x="660" y="122" text-anchor="middle" fill="#6e7681" font-size="8">TelemetryChannel</text>
+
+      <!-- Arrows from swarm -->
+      <line x1="350" y1="54" x2="180" y2="90" stroke="#8b949e" stroke-width="1" marker-end="url(#arrowGray)"/>
+      <line x1="380" y1="54" x2="340" y2="90" stroke="#8b949e" stroke-width="1" marker-end="url(#arrowGray)"/>
+      <line x1="430" y1="54" x2="500" y2="90" stroke="#8b949e" stroke-width="1" marker-end="url(#arrowGray)"/>
+      <line x1="460" y1="54" x2="640" y2="90" stroke="#8b949e" stroke-width="1" marker-end="url(#arrowGray)"/>
+
+      <!-- IPC Layer box -->
+      <rect x="60" y="170" width="680" height="70" rx="10" fill="none" stroke="#58a6ff" stroke-width="2" stroke-dasharray="6,3"/>
+      <text x="400" y="195" text-anchor="middle" fill="#58a6ff" font-size="12" font-weight="700">IPC Layer</text>
+      <text x="400" y="215" text-anchor="middle" fill="#8b949e" font-size="10">MessageBus · AgentChannel · OrchestratorControl · AgentRegistry · TelemetryChannel · Bridge</text>
+      <text x="400" y="230" text-anchor="middle" fill="#6e7681" font-size="9">Unix Domain Socket · Length-Prefixed JSON · /tmp/claude-ipc-bus.sock</text>
+
+      <!-- Arrows down -->
+      <line x1="140" y1="134" x2="140" y2="170" stroke="#f85149" stroke-width="1" stroke-dasharray="3,3"/>
+      <line x1="330" y1="134" x2="330" y2="170" stroke="#3fb950" stroke-width="1" stroke-dasharray="3,3"/>
+      <line x1="520" y1="134" x2="520" y2="170" stroke="#39d2c0" stroke-width="1" stroke-dasharray="3,3"/>
+      <line x1="660" y1="134" x2="660" y2="170" stroke="#d29922" stroke-width="1" stroke-dasharray="3,3"/>
+
+      <!-- agent-entry note -->
+      <rect x="250" y="255" width="300" height="20" rx="4" fill="rgba(88,166,255,0.06)" stroke="#58a6ff" stroke-width="0.5"/>
+      <text x="400" y="269" text-anchor="middle" fill="#58a6ff" font-size="8">agent-entry.mjs initializes AgentChannel + TelemetryChannel per agent</text>
+    </svg>
+  </div>
+</section>
+
+</div>
+
+<!-- Footer -->
+<div class="footer">
+  Inter-Agent Communication Layer &mdash; 9 modules &middot; 3,923 lines &middot; Node.js + Python &middot; Zero external dependencies<br>
+  <span style="color:var(--text-subtle);">Architecture visualization generated from source analysis</span>
+</div>
+
+<script>
+// ─── Navigation active state ───
+function setActive(el) {
+  document.querySelectorAll('.nav a').forEach(a => a.classList.remove('active'));
+  el.classList.add('active');
+}
+
+// Highlight nav on scroll
+const sections = document.querySelectorAll('section[id]');
+const navLinks = document.querySelectorAll('.nav a');
+window.addEventListener('scroll', () => {
+  let current = '';
+  sections.forEach(section => {
+    const top = section.offsetTop - 80;
+    if (window.scrollY >= top) current = section.id;
+  });
+  navLinks.forEach(link => {
+    link.classList.remove('active');
+    if (link.getAttribute('href') === '#' + current) link.classList.add('active');
+  });
+});
+
+// ─── Flow Tab Switching ───
+function switchFlow(flowId, tabEl) {
+  document.querySelectorAll('.flow-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.flow-panel').forEach(p => p.classList.remove('active'));
+  tabEl.classList.add('active');
+  document.getElementById('flow-' + flowId).classList.add('active');
+}
+
+// ─── Collapsible Toggle ───
+function toggleCollapsible(el) {
+  el.classList.toggle('open');
+}
+</script>
+
+</body>
+</html>
