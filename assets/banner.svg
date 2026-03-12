@@ -1,140 +1,153 @@
-<svg viewBox="0 0 1200 300" xmlns="http://www.w3.org/2000/svg">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 300">
+  <title>Arbor — Multi-Agent Orchestrator</title>
   <defs>
-    <!-- Banner background -->
-    <linearGradient id="bannerBg" x1="0" y1="0" x2="0" y2="300" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#0d0d14"/>
-      <stop offset="100%" stop-color="#0a0c12"/>
+    <!-- Background gradients -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1a2332"/>
+      <stop offset="100%" stop-color="#0a0c10"/>
     </linearGradient>
 
-    <!-- Logo squircle background -->
-    <linearGradient id="logoBg" x1="150" y1="40" x2="150" y2="260" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#1c2133"/>
-      <stop offset="100%" stop-color="#0c0f18"/>
+    <radialGradient id="vignette" cx="50%" cy="50%" r="65%">
+      <stop offset="0%" stop-color="#000" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000" stop-opacity="0.4"/>
+    </radialGradient>
+
+    <linearGradient id="glassShine" x1="0%" y1="0%" x2="0%" y2="50%">
+      <stop offset="0%" stop-color="#fff" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
     </linearGradient>
 
     <!-- Trunk gradient -->
-    <linearGradient id="trunk" x1="150" y1="210" x2="150" y2="150" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#78350F"/>
-      <stop offset="50%" stop-color="#B45309"/>
-      <stop offset="100%" stop-color="#F59E0B"/>
-    </linearGradient>
-
-    <!-- Branch gradient -->
-    <linearGradient id="branch" x1="150" y1="150" x2="150" y2="85" gradientUnits="userSpaceOnUse">
+    <linearGradient id="trunkGrad" x1="0%" y1="100%" x2="0%" y2="0%">
       <stop offset="0%" stop-color="#D97706"/>
-      <stop offset="60%" stop-color="#0891B2"/>
-      <stop offset="100%" stop-color="#06B6D4"/>
+      <stop offset="100%" stop-color="#c0c0c0"/>
     </linearGradient>
 
-    <!-- Node gradients -->
-    <radialGradient id="leafNode" cx="38%" cy="32%">
-      <stop offset="0%" stop-color="#67E8F9"/>
-      <stop offset="50%" stop-color="#22D3EE"/>
-      <stop offset="100%" stop-color="#0891B2"/>
-    </radialGradient>
-    <radialGradient id="centerNode" cx="38%" cy="32%">
-      <stop offset="0%" stop-color="#A5F3FC"/>
-      <stop offset="40%" stop-color="#22D3EE"/>
-      <stop offset="100%" stop-color="#0E7490"/>
+    <!-- Fork junction gradient -->
+    <radialGradient id="forkGrad">
+      <stop offset="0%" stop-color="#FCD34D"/>
+      <stop offset="100%" stop-color="#D97706"/>
     </radialGradient>
 
-    <!-- Logo drop shadow -->
-    <filter id="logoShadow" x="-15%" y="-10%" width="130%" height="135%">
-      <feGaussianBlur in="SourceAlpha" stdDeviation="6" result="blur"/>
-      <feOffset in="blur" dx="0" dy="4" result="offset"/>
-      <feFlood flood-color="#000" flood-opacity="0.3" result="color"/>
-      <feComposite in="color" in2="offset" operator="in" result="shadow"/>
+    <!-- Glass sphere gradients - 3D effect -->
+    <radialGradient id="glassLeft" cx="35%" cy="30%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="50%" stop-color="#e8e8e8"/>
+      <stop offset="100%" stop-color="#909090"/>
+    </radialGradient>
+
+    <radialGradient id="glassCenter" cx="35%" cy="30%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="50%" stop-color="#ebebeb"/>
+      <stop offset="100%" stop-color="#959595"/>
+    </radialGradient>
+
+    <radialGradient id="glassRight" cx="35%" cy="30%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="50%" stop-color="#e8e8e8"/>
+      <stop offset="100%" stop-color="#909090"/>
+    </radialGradient>
+
+    <!-- Typography gradient -->
+    <linearGradient id="titleGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FCD34D"/>
+      <stop offset="100%" stop-color="#D97706"/>
+    </linearGradient>
+
+    <linearGradient id="separator" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#D97706" stop-opacity="0.3"/>
+      <stop offset="50%" stop-color="#FCD34D" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#D97706" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Filters -->
+    <filter id="containerShadow">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="14"/>
+      <feOffset dx="0" dy="10"/>
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.4"/>
+      </feComponentTransfer>
       <feMerge>
-        <feMergeNode in="shadow"/>
+        <feMergeNode/>
         <feMergeNode in="SourceGraphic"/>
       </feMerge>
     </filter>
 
-    <!-- Node glow -->
-    <filter id="glow" x="-100%" y="-100%" width="300%" height="300%">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+    <filter id="forkGlow">
+      <feGaussianBlur stdDeviation="6"/>
+      <feColorMatrix values="1 0 0 0 0  0 0.8 0 0 0  0 0 0.2 0 0  0 0 0 0.5 0"/>
       <feMerge>
-        <feMergeNode in="blur"/>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <filter id="sphereGlow">
+      <feGaussianBlur stdDeviation="8"/>
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.4"/>
+      </feComponentTransfer>
+      <feMerge>
+        <feMergeNode/>
         <feMergeNode in="SourceGraphic"/>
       </feMerge>
     </filter>
   </defs>
 
-  <!-- Banner background -->
-  <rect width="1200" height="300" rx="16" fill="url(#bannerBg)" stroke="#1a1a28" stroke-width="1"/>
+  <!-- Full dark gradient background -->
+  <rect width="1200" height="300" fill="url(#bgGrad)"/>
+  <rect width="1200" height="300" fill="url(#vignette)"/>
 
-  <!-- ═══ LEFT: Logo in squircle ═══ -->
+  <!-- LEFT SIDE: Squircle container with tree -->
+  <rect x="50" y="50" width="200" height="200" rx="44" fill="url(#bgGrad)" filter="url(#containerShadow)"/>
+  <rect x="50" y="50" width="200" height="200" rx="44" fill="url(#vignette)"/>
+  <rect x="50" y="50" width="200" height="100" rx="44" fill="url(#glassShine)"/>
+  <rect x="50.5" y="50.5" width="199" height="199" rx="43.5" fill="none" stroke="#fff" stroke-opacity="0.04" stroke-width="1"/>
 
-  <!-- Squircle background with shadow -->
-  <rect x="40" y="40" width="220" height="220" rx="50" ry="50"
-        fill="url(#logoBg)" filter="url(#logoShadow)"/>
+  <!-- Tree structure scaled proportionally -->
+  <!-- Trunk line -->
+  <line x1="150" y1="215" x2="150" y2="152" stroke="url(#trunkGrad)" stroke-width="3" stroke-linecap="round"/>
 
-  <!-- Glass highlight -->
-  <rect x="40" y="40" width="220" height="220" rx="50" ry="50"
-        fill="white" opacity="0.03"/>
+  <!-- Three branches -->
+  <g stroke="#e8e8e8" stroke-width="2.5" stroke-linecap="round" fill="none">
+    <path d="M 150 152 Q 129 130 108 108"/>
+    <line x1="150" y1="150" x2="150" y2="92"/>
+    <path d="M 150 152 Q 171 130 192 108"/>
+  </g>
 
-  <!-- Edge border -->
-  <rect x="40.5" y="40.5" width="219" height="219" rx="49.5" ry="49.5"
-        fill="none" stroke="white" stroke-opacity="0.05" stroke-width="0.5"/>
+  <!-- Fork junction with golden glow -->
+  <circle cx="150" cy="152" r="7" fill="url(#forkGrad)" filter="url(#forkGlow)"/>
+  <circle cx="147" cy="149" r="2" fill="#fff" opacity="0.5"/>
 
-  <!-- Root base -->
-  <rect x="138" y="215" width="24" height="6" rx="3" fill="#78350F"/>
+  <!-- Left glass sphere node -->
+  <g filter="url(#sphereGlow)">
+    <circle cx="108" cy="108" r="11" fill="url(#glassLeft)"/>
+  </g>
+  <ellipse cx="104" cy="104" rx="4" ry="3" fill="#fff" opacity="0.5"/>
+  <circle cx="103.5" cy="103.5" r="1.5" fill="#fff" opacity="0.65"/>
+  <ellipse cx="108" cy="114" rx="5" ry="1.5" fill="#000" opacity="0.15"/>
 
-  <!-- Trunk -->
-  <line x1="150" y1="213" x2="150" y2="150"
-        stroke="url(#trunk)" stroke-width="5" stroke-linecap="round"/>
+  <!-- Center glass sphere node (primary, largest) -->
+  <g filter="url(#sphereGlow)">
+    <circle cx="150" cy="90" r="13" fill="url(#glassCenter)"/>
+  </g>
+  <ellipse cx="146" cy="86" rx="4.5" ry="3.5" fill="#fff" opacity="0.5"/>
+  <circle cx="145.5" cy="85.5" r="1.5" fill="#fff" opacity="0.65"/>
+  <ellipse cx="150" cy="98" rx="6" ry="1.8" fill="#000" opacity="0.15"/>
 
-  <!-- Fork node -->
-  <circle cx="150" cy="150" r="4" fill="#B45309"/>
-  <circle cx="150" cy="150" r="2.2" fill="#F59E0B"/>
+  <!-- Right glass sphere node -->
+  <g filter="url(#sphereGlow)">
+    <circle cx="192" cy="108" r="11" fill="url(#glassRight)"/>
+  </g>
+  <ellipse cx="188" cy="104" rx="4" ry="3" fill="#fff" opacity="0.5"/>
+  <circle cx="187.5" cy="103.5" r="1.5" fill="#fff" opacity="0.65"/>
+  <ellipse cx="192" cy="114" rx="5" ry="1.5" fill="#000" opacity="0.15"/>
 
-  <!-- Left branch -->
-  <path d="M 150 150 Q 132 120 100 92"
-        fill="none" stroke="url(#branch)" stroke-width="3" stroke-linecap="round"/>
+  <!-- RIGHT SIDE: Typography -->
+  <text x="310" y="148" font-family="system-ui,-apple-system,sans-serif" font-size="80" font-weight="700" fill="url(#titleGrad)" letter-spacing="10">ARBOR</text>
+  <text x="310" y="180" font-family="system-ui,-apple-system,sans-serif" font-size="15" font-weight="400" fill="#9CA3AF" letter-spacing="6">MULTI-AGENT ORCHESTRATOR</text>
+  <text x="310" y="210" font-family="system-ui,-apple-system,sans-serif" font-size="12" fill="#6B7280" letter-spacing="1">worktree isolation &#183; fork-join concurrency &#183; verified merge</text>
 
-  <!-- Center branch -->
-  <line x1="150" y1="148" x2="150" y2="88"
-        stroke="url(#branch)" stroke-width="3" stroke-linecap="round"/>
-
-  <!-- Right branch -->
-  <path d="M 150 150 Q 168 120 200 92"
-        fill="none" stroke="url(#branch)" stroke-width="3" stroke-linecap="round"/>
-
-  <!-- Canopy arcs -->
-  <path d="M 100 92 Q 125 78 150 83"
-        fill="none" stroke="#10B981" stroke-width="1" stroke-opacity="0.3"/>
-  <path d="M 150 83 Q 175 78 200 92"
-        fill="none" stroke="#10B981" stroke-width="1" stroke-opacity="0.3"/>
-
-  <!-- Leaf nodes -->
-  <circle cx="100" cy="92" r="8" fill="url(#leafNode)" filter="url(#glow)"/>
-  <circle cx="150" cy="83" r="9" fill="url(#centerNode)" filter="url(#glow)"/>
-  <circle cx="200" cy="92" r="8" fill="url(#leafNode)" filter="url(#glow)"/>
-
-  <!-- Specular highlights -->
-  <circle cx="97" cy="89" r="2.5" fill="white" opacity="0.18"/>
-  <circle cx="147" cy="79" r="3" fill="white" opacity="0.22"/>
-  <circle cx="197" cy="89" r="2.5" fill="white" opacity="0.18"/>
-
-  <!-- ═══ RIGHT: Typography ═══ -->
-
-  <!-- Title -->
-  <text x="320" y="140" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif"
-        font-size="88" font-weight="800" fill="#F59E0B" letter-spacing="10">ARBOR</text>
-
-  <!-- Subtitle -->
-  <text x="320" y="175" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif"
-        font-size="16" font-weight="400" fill="#6b7280" letter-spacing="6">MULTI-AGENT ORCHESTRATOR</text>
-
-  <!-- Tagline -->
-  <text x="320" y="205" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif"
-        font-size="13" fill="#4a5568" letter-spacing="1">worktree isolation &#183; fork-join concurrency &#183; verified merge</text>
-
-  <!-- Version badge -->
-  <rect x="320" y="225" width="50" height="22" rx="4" fill="none" stroke="#F59E0B" stroke-width="1" opacity="0.4"/>
-  <text x="345" y="239" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif"
-        font-size="11" fill="#F59E0B" opacity="0.6" text-anchor="middle">v1.0</text>
-
-  <!-- Decorative line -->
-  <line x1="310" y1="265" x2="1100" y2="265" stroke="#1a1a2e" opacity="0.25"/>
+  <!-- Thin decorative line -->
+  <line x1="310" y1="232" x2="1100" y2="232" stroke="url(#separator)" stroke-width="1"/>
 </svg>
