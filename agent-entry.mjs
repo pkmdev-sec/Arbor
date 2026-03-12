@@ -134,7 +134,7 @@ if (existsSync(localPath)) {
 
 // ── Version checking ─────────────────────────────────────────────
 try {
-  const remoteAgentPkgPath = join(dirname(CLI_JS), "..", "package.json");
+  const remoteAgentPkgPath = join(dirname(CLI_JS), "package.json");
   const remoteAgentPkg = JSON.parse(readFileSync(remoteAgentPkgPath, "utf-8"));
   const remoteVersion = remoteAgentPkg.version;
 
@@ -146,9 +146,8 @@ try {
         readFileSync(join(process.env.HOME, ".claude", "node_modules", "@anthropic-ai", "claude-code", "package.json"), "utf-8")
       );
       mainVersion = mainPkg.version;
-    } catch (err) {
-      // TASK 4: Error logging - main package.json read failure
-      console.error("[agent-entry:versionCheck] Error reading main package.json:", err.message || err);
+    } catch {
+      // Main Claude Code install not found — not an error, just skip version comparison
     }
   }
 
@@ -171,7 +170,7 @@ async function main() {
 
   if (args.version) {
     try {
-      const pkg = JSON.parse(readFileSync(join(dirname(CLI_JS), "..", "package.json"), "utf-8"));
+      const pkg = JSON.parse(readFileSync(join(dirname(CLI_JS), "package.json"), "utf-8"));
       process.stdout.write(`arbor 1.0.0 (claude-code ${pkg.version})\n`);
     } catch (err) {
       // TASK 4: Error logging - package.json read failure
