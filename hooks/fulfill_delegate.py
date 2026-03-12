@@ -23,6 +23,7 @@ STATE_FILE = (
     Path.home() / ".claude" / "hooks" / ".acontext_state" / "delegate_mode.json"
 )
 SESSION_LOCK = Path("/tmp/.claude-orchestrator-lock")
+READ_BUDGET_FILE = Path("/tmp/.claude-orchestrator-reads")
 
 
 def _record_skill_invocation(event: dict) -> None:
@@ -109,13 +110,14 @@ def main() -> None:
         state["fulfilled_command"] = command[:200]
         STATE_FILE.write_text(json.dumps(state), encoding="utf-8")
 
-        # Remove session lock so post-delegation tools (Read, Grep, etc.) are
-        # allowed for reviewing arbor output.  Without this, the lock
-        # persists for 4 hours and blocks everything even after fulfillment.
-        try:
-            SESSION_LOCK.unlink(missing_ok=True)
-        except OSError:
-            pass
+        # Remove session lock and read budget so post-delegation tools
+        # (Read, Grep, etc.) are allowed for reviewing arbor output.
+        # Without this, the lock persists for 4h and blocks everything.
+        for lock_file in (SESSION_LOCK, READ_BUDGET_FILE):
+            try:
+                lock_file.unlink(missing_ok=True)
+            except OSError:
+                pass
 
     except Exception:
         pass  # PostToolUse hooks should not interfere with tool execution

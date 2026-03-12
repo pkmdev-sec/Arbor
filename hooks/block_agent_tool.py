@@ -1,21 +1,25 @@
 #!/usr/bin/env python3
-"""PreToolUse hook v7: Hardened allowlist with protected-path guards.
+"""PreToolUse hook v8: Cumulative read budget + hierarchical mode enforcement.
 
-Changes from v6:
-  - Removed python3 from Bash allowlist (arbitrary code execution vector)
-  - Added protected-path guard: commands referencing state/lock files are
-    always rejected, even if they match the allowlist prefix
-  - Session lock remains primary enforcement (checked before state file)
+Changes from v7:
+  - Added cumulative read budget (50KB/session): individual reads that pass the
+    per-file size gate are now also charged against a session-wide byte budget.
+    Once exhausted, ALL reads are blocked and redirected to arbor.
+  - Hierarchical delegation mode: zero read budget — ALL reads blocked.  The
+    orchestrator should only run the hierarchical swarm command.
+  - Session lock now stores delegation_mode (swarm/hierarchical/parallel/etc.)
+    from the AI classifier for mode-specific enforcement.
+  - Budget file (/tmp/.claude-orchestrator-reads) cleaned up on fulfillment.
 
 State lifecycle:
   DELEGATE  → Lock file created on first detection, persists for session (4h TTL).
-              Only allowlisted Bash commands pass. Everything else blocked.
-  FULFILLED → Lock file absent, all tools allowed.
+              Only allowlisted Bash commands pass. Reads gated by cumulative budget.
+  FULFILLED → Lock file absent, budget file removed, all tools allowed.
   DIRECT    → Lock file absent, all tools allowed.
 
 Session lock:
   - Created at /tmp/.claude-orchestrator-lock when DELEGATE first detected
-  - Contains: creation timestamp, delegation command
+  - Contains: creation timestamp, delegation command, delegation_mode
   - Checked BEFORE state file on every call (fast path)
   - Auto-expires after 4 hours (stale session cleanup)
   - Protected-path guard blocks commands referencing lock/state file paths
@@ -33,9 +37,18 @@ STATE_FILE = (
 )
 LOG = Path.home() / ".claude" / "hooks" / ".acontext_state" / "blocker.log"
 SESSION_LOCK = Path("/tmp/.claude-orchestrator-lock")
+READ_BUDGET_FILE = Path("/tmp/.claude-orchestrator-reads")
 
 # Lock file TTL: 4 hours in seconds
 SESSION_LOCK_TTL = 4 * 60 * 60
+
+# Cumulative read budget: total bytes the orchestrator may read during delegation.
+# Individual files pass the per-file gate (FILE_SIZE_THRESHOLD) but are also
+# charged against this session-wide budget.  Once exhausted, ALL reads are
+# blocked and redirected to arbor.
+# 50KB ≈ 12-15k tokens ≈ ~6% of a 200K context window — enough for the
+# orchestrator to glance at configs/READMEs without gorging on source files.
+READ_BUDGET_BYTES = 50 * 1024  # 50KB cumulative across all reads
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # Bash ALLOWLIST — only these commands permitted during DELEGATE mode.
@@ -164,10 +177,43 @@ def _file_size(file_path: str) -> int | None:
         return None
 
 
-def _should_pass_through(tool_name: str, tool_input: dict[str, object]) -> bool:
-    """Allow small file reads during delegation (context-friendly).
+def _read_budget_remaining() -> int:
+    """Return how many bytes the orchestrator can still read this session.
 
-    Read: pass if file exists and < FILE_SIZE_THRESHOLD.
+    Returns READ_BUDGET_BYTES if no tracking file exists (fresh session).
+    """
+    try:
+        if not READ_BUDGET_FILE.exists():
+            return READ_BUDGET_BYTES
+        data = json.loads(READ_BUDGET_FILE.read_text(encoding="utf-8"))
+        created = data.get("created", 0)
+        # Reset if older than lock TTL (stale session)
+        if time.time() - created > SESSION_LOCK_TTL:
+            READ_BUDGET_FILE.unlink(missing_ok=True)
+            return READ_BUDGET_BYTES
+        return max(0, READ_BUDGET_BYTES - data.get("bytes_read", 0))
+    except (json.JSONDecodeError, OSError):
+        return READ_BUDGET_BYTES
+
+
+def _charge_read_budget(file_size: int) -> None:
+    """Deduct file_size bytes from the cumulative read budget."""
+    try:
+        data: dict[str, object] = {"created": time.time(), "bytes_read": 0, "read_count": 0}
+        if READ_BUDGET_FILE.exists():
+            data = json.loads(READ_BUDGET_FILE.read_text(encoding="utf-8"))
+        data["bytes_read"] = int(data.get("bytes_read", 0)) + file_size
+        data["read_count"] = int(data.get("read_count", 0)) + 1
+        READ_BUDGET_FILE.write_text(json.dumps(data), encoding="utf-8")
+    except (json.JSONDecodeError, OSError):
+        pass
+
+
+def _should_pass_through(tool_name: str, tool_input: dict[str, object]) -> bool:
+    """Allow small file reads during delegation if within budget.
+
+    Read: pass if file exists, is < FILE_SIZE_THRESHOLD, AND the cumulative
+    session read budget has not been exhausted.  Charges the budget on pass.
     All other blocked tools: always blocked (return False).
     """
     if tool_name != "Read":
@@ -176,7 +222,15 @@ def _should_pass_through(tool_name: str, tool_input: dict[str, object]) -> bool:
     if not file_path:
         return False
     size = _file_size(file_path)
-    return size is not None and size <= FILE_SIZE_THRESHOLD
+    if size is None or size > FILE_SIZE_THRESHOLD:
+        return False
+    remaining = _read_budget_remaining()
+    if size > remaining:
+        _blog(f"READ BUDGET exhausted: need {size}B, only {remaining}B of {READ_BUDGET_BYTES}B remaining")
+        return False
+    # Charge the budget and allow
+    _charge_read_budget(size)
+    return True
 
 
 def _auto_arbor_cmd(
@@ -229,10 +283,24 @@ def _block_tool_smart(tool_name: str, tool_input: dict[str, object], command: st
         fp = str(tool_input.get("file_path", ""))
         size = _file_size(fp)
         size_str = f" ({size // 1024}KB)" if size else ""
-        reason = (
-            f"[Orchestrator] Read blocked — file too large for orchestrator context{size_str}.\n"
-            f"Run: `{auto_cmd}`"
-        )
+        remaining = _read_budget_remaining()
+        if remaining <= 0:
+            reason = (
+                f"[Orchestrator] Read blocked — cumulative read budget exhausted "
+                f"({READ_BUDGET_BYTES // 1024}KB session limit reached).\n"
+                f"Run: `{auto_cmd}`"
+            )
+        elif size is not None and size > FILE_SIZE_THRESHOLD:
+            reason = (
+                f"[Orchestrator] Read blocked — file too large for orchestrator context{size_str}.\n"
+                f"Run: `{auto_cmd}`"
+            )
+        else:
+            reason = (
+                f"[Orchestrator] Read blocked — file{size_str} exceeds remaining budget "
+                f"({remaining // 1024}KB left of {READ_BUDGET_BYTES // 1024}KB).\n"
+                f"Run: `{auto_cmd}`"
+            )
     elif is_swarm and tool_name in ("Write", "Edit", "Agent"):
         reason = (
             f"[Orchestrator] {tool_name} blocked — swarm delegation active.\n"
@@ -258,6 +326,45 @@ def _blog(msg: str) -> None:
             f.write(f"[{datetime.now(timezone.utc).strftime('%H:%M:%S')}] {msg}\n")
     except Exception:
         pass
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Delegation mode extraction and hierarchical enforcement
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+import re as _re
+
+
+def _extract_delegation_mode(command: str, state: dict[str, object]) -> str:
+    """Extract the AI-classified delegation mode from command or state.
+
+    Checks --mode flag in the command first, falls back to task_type
+    from the state file.  Returns lowercase mode string.
+    """
+    # Parse --mode <value> from the arbor-swarm command
+    m = _re.search(r"--mode\s+(\S+)", command)
+    if m:
+        return m.group(1).lower()
+    # Fallback: state file may have routing metadata
+    task_type = str(state.get("task_type", "")).lower()
+    if task_type:
+        return task_type
+    return "unknown"
+
+
+def _is_hierarchical_delegation(lock_data: dict[str, object] | None) -> bool:
+    """Check if the current delegation is hierarchical mode."""
+    if not lock_data:
+        return False
+    return lock_data.get("delegation_mode", "") == "hierarchical"
+
+
+# Hierarchical mode: zero read budget — ALL reads blocked, no exceptions.
+# The orchestrator should ONLY run the hierarchical swarm command and let
+# sub-coordinators handle file access.  Any direct reads at orchestrator
+# level waste context on a massive codebase that was specifically routed
+# to hierarchical decomposition.
+HIERARCHICAL_READ_BUDGET = 0
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -293,16 +400,22 @@ def _check_session_lock() -> dict | None:
         return None
 
 
-def _create_session_lock(command: str) -> None:
-    """Create session lock file to persist delegation state for the session."""
+def _create_session_lock(command: str, delegation_mode: str = "") -> None:
+    """Create session lock file to persist delegation state for the session.
+
+    delegation_mode is the AI-classified routing mode (swarm, hierarchical,
+    parallel, etc.) read from delegate_mode.json.  Stored in the lock so
+    downstream enforcement can apply mode-specific rules.
+    """
     try:
         lock_data = {
             "created": time.time(),
             "command": command,
+            "delegation_mode": delegation_mode,
             "note": "Session-scoped delegation lock. Auto-expires after 4 hours.",
         }
         SESSION_LOCK.write_text(json.dumps(lock_data), encoding="utf-8")
-        _blog(f"Session lock CREATED: {command}")
+        _blog(f"Session lock CREATED mode={delegation_mode}: {command}")
     except OSError as e:
         _blog(f"Failed to create session lock: {e}")
 
@@ -477,8 +590,13 @@ def main() -> None:
                 _block_bash(cmd, command, has_chain=has_chain)
                 return
 
-            # Smart gating: allow small file reads during delegation
+            # Smart gating: allow small file reads during delegation,
+            # UNLESS hierarchical mode (zero read budget — all reads blocked).
             tool_input = event.get("tool_input", {})
+            if _is_hierarchical_delegation(lock_data):
+                _blog(f"BLOCK tool={tool_name} (session-locked, hierarchical — zero read budget)")
+                _block_tool_smart(tool_name, tool_input, command)
+                return
             if _should_pass_through(tool_name, tool_input):
                 _blog(f"ALLOW tool={tool_name} (size-gated, session-locked)")
                 return
@@ -507,7 +625,8 @@ def main() -> None:
         # NEW DELEGATION DETECTED — create session lock
         # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         command = state.get("command", "swarm <task>")
-        _create_session_lock(command)
+        delegation_mode = _extract_delegation_mode(command, state)
+        _create_session_lock(command, delegation_mode)
 
         # Now enforce — same logic as session-locked path above
         if tool_name == "Bash":
@@ -523,8 +642,13 @@ def main() -> None:
             return
 
         if tool_name in BLOCKED_DURING_DELEGATE:
-            # Smart gating: allow small file reads during delegation
             tool_input = event.get("tool_input", {})
+            # Hierarchical mode: zero read budget — block all reads
+            if delegation_mode == "hierarchical":
+                _blog(f"BLOCK tool={tool_name} (newly delegated, hierarchical — zero read budget)")
+                _block_tool_smart(tool_name, tool_input, command)
+                return
+            # Smart gating: allow small file reads if within budget
             if _should_pass_through(tool_name, tool_input):
                 _blog(f"ALLOW tool={tool_name} (size-gated, newly delegated)")
                 return
