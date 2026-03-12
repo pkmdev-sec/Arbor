@@ -1,85 +1,140 @@
 <svg viewBox="0 0 1200 300" xmlns="http://www.w3.org/2000/svg">
-  <!-- Background gradient -->
   <defs>
-    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" style="stop-color:#0d0d14;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#0f1320;stop-opacity:1" />
+    <!-- Banner background -->
+    <linearGradient id="bannerBg" x1="0" y1="0" x2="0" y2="300" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0d0d14"/>
+      <stop offset="100%" stop-color="#0a0c12"/>
     </linearGradient>
+
+    <!-- Logo squircle background -->
+    <linearGradient id="logoBg" x1="150" y1="40" x2="150" y2="260" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1c2133"/>
+      <stop offset="100%" stop-color="#0c0f18"/>
+    </linearGradient>
+
+    <!-- Trunk gradient -->
+    <linearGradient id="trunk" x1="150" y1="210" x2="150" y2="150" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#78350F"/>
+      <stop offset="50%" stop-color="#B45309"/>
+      <stop offset="100%" stop-color="#F59E0B"/>
+    </linearGradient>
+
+    <!-- Branch gradient -->
+    <linearGradient id="branch" x1="150" y1="150" x2="150" y2="85" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#D97706"/>
+      <stop offset="60%" stop-color="#0891B2"/>
+      <stop offset="100%" stop-color="#06B6D4"/>
+    </linearGradient>
+
+    <!-- Node gradients -->
+    <radialGradient id="leafNode" cx="38%" cy="32%">
+      <stop offset="0%" stop-color="#67E8F9"/>
+      <stop offset="50%" stop-color="#22D3EE"/>
+      <stop offset="100%" stop-color="#0891B2"/>
+    </radialGradient>
+    <radialGradient id="centerNode" cx="38%" cy="32%">
+      <stop offset="0%" stop-color="#A5F3FC"/>
+      <stop offset="40%" stop-color="#22D3EE"/>
+      <stop offset="100%" stop-color="#0E7490"/>
+    </radialGradient>
+
+    <!-- Logo drop shadow -->
+    <filter id="logoShadow" x="-15%" y="-10%" width="130%" height="135%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="6" result="blur"/>
+      <feOffset in="blur" dx="0" dy="4" result="offset"/>
+      <feFlood flood-color="#000" flood-opacity="0.3" result="color"/>
+      <feComposite in="color" in2="offset" operator="in" result="shadow"/>
+      <feMerge>
+        <feMergeNode in="shadow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Node glow -->
+    <filter id="glow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
   </defs>
 
-  <!-- Background rect -->
-  <rect width="1200" height="300" rx="16" fill="url(#bgGradient)" stroke="#1a1a28" stroke-width="1"/>
+  <!-- Banner background -->
+  <rect width="1200" height="300" rx="16" fill="url(#bannerBg)" stroke="#1a1a28" stroke-width="1"/>
 
-  <!-- Subtle background dots -->
-  <circle cx="850" cy="75" r="1.5" fill="#1a1a2e"/>
-  <circle cx="1020" cy="130" r="1.5" fill="#1a1a2e"/>
-  <circle cx="720" cy="190" r="1.5" fill="#1a1a2e"/>
-  <circle cx="950" cy="235" r="1.5" fill="#1a1a2e"/>
-  <circle cx="780" cy="95" r="1.5" fill="#1a1a2e"/>
+  <!-- ═══ LEFT: Logo in squircle ═══ -->
 
-  <!-- LEFT SECTION: Logo -->
-  <!-- Outer decorative ring -->
-  <circle cx="150" cy="150" r="120" fill="none" stroke="#1e1e30" stroke-width="1" stroke-dasharray="6 8" opacity="0.12"/>
+  <!-- Squircle background with shadow -->
+  <rect x="40" y="40" width="220" height="220" rx="50" ry="50"
+        fill="url(#logoBg)" filter="url(#logoShadow)"/>
 
-  <!-- Dark circle frame -->
-  <circle cx="150" cy="150" r="105" fill="#0a0e16" stroke="#1e1e2e" stroke-width="1"/>
+  <!-- Glass highlight -->
+  <rect x="40" y="40" width="220" height="220" rx="50" ry="50"
+        fill="white" opacity="0.03"/>
 
-  <!-- Engineering-schematic tree logo -->
-  <g transform="translate(150, 150)">
-    <!-- Tapered amber trunk -->
-    <path d="M -6,55 L -4,20 L -3,0 L -2,-30 L -1,-50 L 1,-50 L 2,-30 L 3,0 L 4,20 L 6,55 Z" fill="#F59E0B"/>
+  <!-- Edge border -->
+  <rect x="40.5" y="40.5" width="219" height="219" rx="49.5" ry="49.5"
+        fill="none" stroke="white" stroke-opacity="0.05" stroke-width="0.5"/>
 
-    <!-- Trunk highlight -->
-    <path d="M -2,55 L -1,20 L -0.5,0 L 0,-50 L 0.5,0 L 1,20 L 2,55 Z" fill="#FCD34D" opacity="0.3"/>
+  <!-- Root base -->
+  <rect x="138" y="215" width="24" height="6" rx="3" fill="#78350F"/>
 
-    <!-- Left branches (cyan) - straight lines -->
-    <line x1="-2" y1="15" x2="-35" y2="0" stroke="#06B6D4" stroke-width="2"/>
-    <line x1="-2" y1="-5" x2="-42" y2="-18" stroke="#06B6D4" stroke-width="2"/>
-    <line x1="-1.5" y1="-25" x2="-38" y2="-40" stroke="#06B6D4" stroke-width="2"/>
+  <!-- Trunk -->
+  <line x1="150" y1="213" x2="150" y2="150"
+        stroke="url(#trunk)" stroke-width="5" stroke-linecap="round"/>
 
-    <!-- Right branches (cyan) - straight lines -->
-    <line x1="2" y1="15" x2="35" y2="0" stroke="#06B6D4" stroke-width="2"/>
-    <line x1="2" y1="-5" x2="42" y2="-18" stroke="#06B6D4" stroke-width="2"/>
-    <line x1="1.5" y1="-25" x2="38" y2="-40" stroke="#06B6D4" stroke-width="2"/>
+  <!-- Fork node -->
+  <circle cx="150" cy="150" r="4" fill="#B45309"/>
+  <circle cx="150" cy="150" r="2.2" fill="#F59E0B"/>
 
-    <!-- Branch endpoint nodes -->
-    <circle cx="-35" cy="0" r="3" fill="#06B6D4" opacity="0.9"/>
-    <circle cx="-42" cy="-18" r="3" fill="#06B6D4" opacity="0.9"/>
-    <circle cx="-38" cy="-40" r="3" fill="#06B6D4" opacity="0.9"/>
-    <circle cx="35" cy="0" r="3" fill="#06B6D4" opacity="0.9"/>
-    <circle cx="42" cy="-18" r="3" fill="#06B6D4" opacity="0.9"/>
-    <circle cx="38" cy="-40" r="3" fill="#06B6D4" opacity="0.9"/>
+  <!-- Left branch -->
+  <path d="M 150 150 Q 132 120 100 92"
+        fill="none" stroke="url(#branch)" stroke-width="3" stroke-linecap="round"/>
 
-    <!-- Canopy mesh lines (emerald) -->
-    <line x1="-38" y1="-40" x2="-25" y2="-55" stroke="#10B981" stroke-width="1.5" opacity="0.4"/>
-    <line x1="-25" y1="-55" x2="0" y2="-65" stroke="#10B981" stroke-width="1.5" opacity="0.4"/>
-    <line x1="0" y1="-65" x2="25" y2="-55" stroke="#10B981" stroke-width="1.5" opacity="0.4"/>
-    <line x1="25" y1="-55" x2="38" y2="-40" stroke="#10B981" stroke-width="1.5" opacity="0.4"/>
-    <line x1="-25" y1="-55" x2="25" y2="-55" stroke="#10B981" stroke-width="1.5" opacity="0.4"/>
+  <!-- Center branch -->
+  <line x1="150" y1="148" x2="150" y2="88"
+        stroke="url(#branch)" stroke-width="3" stroke-linecap="round"/>
 
-    <!-- Fork node glow at top of trunk -->
-    <circle cx="0" cy="-50" r="4" fill="#FCD34D" opacity="0.8"/>
-    <circle cx="0" cy="-50" r="7" fill="#F59E0B" opacity="0.3"/>
+  <!-- Right branch -->
+  <path d="M 150 150 Q 168 120 200 92"
+        fill="none" stroke="url(#branch)" stroke-width="3" stroke-linecap="round"/>
 
-    <!-- Root lines below -->
-    <line x1="-1" y1="55" x2="-15" y2="70" stroke="#D97706" stroke-width="2" opacity="0.6"/>
-    <line x1="1" y1="55" x2="15" y2="70" stroke="#D97706" stroke-width="2" opacity="0.6"/>
-  </g>
+  <!-- Canopy arcs -->
+  <path d="M 100 92 Q 125 78 150 83"
+        fill="none" stroke="#10B981" stroke-width="1" stroke-opacity="0.3"/>
+  <path d="M 150 83 Q 175 78 200 92"
+        fill="none" stroke="#10B981" stroke-width="1" stroke-opacity="0.3"/>
 
-  <!-- RIGHT SECTION: Text -->
+  <!-- Leaf nodes -->
+  <circle cx="100" cy="92" r="8" fill="url(#leafNode)" filter="url(#glow)"/>
+  <circle cx="150" cy="83" r="9" fill="url(#centerNode)" filter="url(#glow)"/>
+  <circle cx="200" cy="92" r="8" fill="url(#leafNode)" filter="url(#glow)"/>
+
+  <!-- Specular highlights -->
+  <circle cx="97" cy="89" r="2.5" fill="white" opacity="0.18"/>
+  <circle cx="147" cy="79" r="3" fill="white" opacity="0.22"/>
+  <circle cx="197" cy="89" r="2.5" fill="white" opacity="0.18"/>
+
+  <!-- ═══ RIGHT: Typography ═══ -->
+
   <!-- Title -->
-  <text x="320" y="140" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="88" font-weight="800" fill="#F59E0B" letter-spacing="10">ARBOR</text>
+  <text x="320" y="140" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif"
+        font-size="88" font-weight="800" fill="#F59E0B" letter-spacing="10">ARBOR</text>
 
   <!-- Subtitle -->
-  <text x="320" y="175" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="16" font-weight="400" fill="#6b7280" letter-spacing="6">MULTI-AGENT ORCHESTRATOR</text>
+  <text x="320" y="175" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif"
+        font-size="16" font-weight="400" fill="#6b7280" letter-spacing="6">MULTI-AGENT ORCHESTRATOR</text>
 
   <!-- Tagline -->
-  <text x="320" y="205" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="13" fill="#4a5568" letter-spacing="1">worktree isolation · fork-join concurrency · verified merge</text>
+  <text x="320" y="205" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif"
+        font-size="13" fill="#4a5568" letter-spacing="1">worktree isolation &#183; fork-join concurrency &#183; verified merge</text>
 
   <!-- Version badge -->
   <rect x="320" y="225" width="50" height="22" rx="4" fill="none" stroke="#F59E0B" stroke-width="1" opacity="0.4"/>
-  <text x="345" y="239" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="11" fill="#F59E0B" opacity="0.6" text-anchor="middle">v1.0</text>
+  <text x="345" y="239" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif"
+        font-size="11" fill="#F59E0B" opacity="0.6" text-anchor="middle">v1.0</text>
 
-  <!-- Decorative horizontal line -->
+  <!-- Decorative line -->
   <line x1="310" y1="265" x2="1100" y2="265" stroke="#1a1a2e" opacity="0.25"/>
 </svg>

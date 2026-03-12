@@ -1,64 +1,81 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
     <!-- Background gradient -->
-    <radialGradient id="bgGrad" cx="50%" cy="50%">
-      <stop offset="0%" style="stop-color:#141420;stop-opacity:1"/>
-      <stop offset="100%" style="stop-color:#0a0e18;stop-opacity:1"/>
-    </radialGradient>
-
-    <!-- Trunk gradient -->
-    <linearGradient id="trunkGrad" x1="0%" y1="100%" x2="0%" y2="0%">
-      <stop offset="0%" style="stop-color:#92400E;stop-opacity:1"/>
-      <stop offset="100%" style="stop-color:#F59E0B;stop-opacity:1"/>
+    <linearGradient id="bg" x1="32" y1="6" x2="32" y2="58" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1c2133"/>
+      <stop offset="100%" stop-color="#0c0f18"/>
     </linearGradient>
 
-    <!-- Glow filter for nodes -->
-    <filter id="glow">
-      <feGaussianBlur stdDeviation="1.2" result="coloredBlur"/>
+    <!-- Trunk gradient -->
+    <linearGradient id="trunk" x1="32" y1="49" x2="32" y2="33" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#92400E"/>
+      <stop offset="100%" stop-color="#F59E0B"/>
+    </linearGradient>
+
+    <!-- Branch gradient -->
+    <linearGradient id="branch" x1="32" y1="33" x2="32" y2="16" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#D97706"/>
+      <stop offset="100%" stop-color="#06B6D4"/>
+    </linearGradient>
+
+    <!-- Drop shadow -->
+    <filter id="shadow" x="-15%" y="-10%" width="130%" height="135%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1.5" result="blur"/>
+      <feOffset in="blur" dx="0" dy="1" result="offset"/>
+      <feFlood flood-color="#000" flood-opacity="0.3" result="color"/>
+      <feComposite in="color" in2="offset" operator="in" result="shadow"/>
       <feMerge>
-        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="shadow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Node glow -->
+    <filter id="glow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="1" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
         <feMergeNode in="SourceGraphic"/>
       </feMerge>
     </filter>
   </defs>
 
-  <!-- Background circle -->
-  <circle cx="32" cy="32" r="31" fill="url(#bgGrad)" stroke="#1a1a2e" stroke-width="0.5"/>
+  <!-- Squircle background with shadow -->
+  <rect x="6" y="6" width="52" height="52" rx="12" ry="12"
+        fill="url(#bg)" filter="url(#shadow)"/>
 
-  <!-- Roots -->
-  <line x1="32" y1="50" x2="28" y2="56" stroke="#1e293b" stroke-width="1" opacity="0.3"/>
-  <line x1="32" y1="50" x2="36" y2="56" stroke="#1e293b" stroke-width="1" opacity="0.3"/>
+  <!-- Glass highlight -->
+  <rect x="6" y="6" width="52" height="52" rx="12" ry="12"
+        fill="white" opacity="0.04"/>
 
-  <!-- Trunk (tapered) -->
-  <path d="M 30.5 50 L 31.25 16 L 32.75 16 L 33.5 50 Z" fill="url(#trunkGrad)"/>
+  <!-- Edge border -->
+  <rect x="6.5" y="6.5" width="51" height="51" rx="11.5" ry="11.5"
+        fill="none" stroke="white" stroke-opacity="0.06" stroke-width="0.5"/>
 
-  <!-- Level 3 branches (y≈34, ±35°, length ~12px) -->
-  <line x1="32" y1="34" x2="22.1" y2="27.1" stroke="#06B6D4" stroke-width="1.5" stroke-linecap="round"/>
-  <line x1="32" y1="34" x2="41.9" y2="27.1" stroke="#06B6D4" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Root base -->
+  <rect x="28" y="48" width="8" height="2" rx="1" fill="#78350F"/>
 
-  <!-- Level 2 branches (y≈26, ±40°, length ~16px) -->
-  <line x1="32" y1="26" x2="19.7" y2="15.7" stroke="#06B6D4" stroke-width="1.5" stroke-linecap="round"/>
-  <line x1="32" y1="26" x2="44.3" y2="15.7" stroke="#06B6D4" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Trunk -->
+  <line x1="32" y1="47.5" x2="32" y2="33"
+        stroke="url(#trunk)" stroke-width="2.5" stroke-linecap="round"/>
 
-  <!-- Level 1 branches (y≈18, ±22°, length ~14px) -->
-  <line x1="32" y1="18" x2="26.7" y2="12.7" stroke="#06B6D4" stroke-width="1.5" stroke-linecap="round"/>
-  <line x1="32" y1="18" x2="37.3" y2="12.7" stroke="#06B6D4" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Fork node -->
+  <circle cx="32" cy="33" r="1.5" fill="#F59E0B"/>
 
-  <!-- Canopy mesh lines connecting endpoints -->
-  <line x1="22.1" y1="27.1" x2="26.7" y2="12.7" stroke="#10B981" stroke-width="0.7" opacity="0.4"/>
-  <line x1="41.9" y1="27.1" x2="37.3" y2="12.7" stroke="#10B981" stroke-width="0.7" opacity="0.4"/>
-  <line x1="26.7" y1="12.7" x2="37.3" y2="12.7" stroke="#10B981" stroke-width="0.7" opacity="0.4"/>
-  <line x1="19.7" y1="15.7" x2="26.7" y2="12.7" stroke="#10B981" stroke-width="0.7" opacity="0.4"/>
-  <line x1="44.3" y1="15.7" x2="37.3" y2="12.7" stroke="#10B981" stroke-width="0.7" opacity="0.4"/>
+  <!-- Left branch -->
+  <line x1="32" y1="33" x2="20" y2="19"
+        stroke="url(#branch)" stroke-width="1.5" stroke-linecap="round"/>
 
-  <!-- Branch endpoint nodes with glow -->
-  <circle cx="22.1" cy="27.1" r="1.5" fill="#06B6D4" filter="url(#glow)"/>
-  <circle cx="41.9" cy="27.1" r="1.5" fill="#06B6D4" filter="url(#glow)"/>
-  <circle cx="19.7" cy="15.7" r="1.5" fill="#06B6D4" filter="url(#glow)"/>
-  <circle cx="44.3" cy="15.7" r="1.5" fill="#06B6D4" filter="url(#glow)"/>
-  <circle cx="26.7" cy="12.7" r="1.5" fill="#06B6D4" filter="url(#glow)"/>
-  <circle cx="37.3" cy="12.7" r="1.5" fill="#06B6D4" filter="url(#glow)"/>
+  <!-- Center branch -->
+  <line x1="32" y1="32" x2="32" y2="17"
+        stroke="url(#branch)" stroke-width="1.5" stroke-linecap="round"/>
 
-  <!-- Fork node at main branch point -->
-  <circle cx="32" cy="26" r="2" fill="#06B6D4" filter="url(#glow)"/>
+  <!-- Right branch -->
+  <line x1="32" y1="33" x2="44" y2="19"
+        stroke="url(#branch)" stroke-width="1.5" stroke-linecap="round"/>
+
+  <!-- Leaf nodes -->
+  <circle cx="20" cy="19" r="3" fill="#06B6D4" filter="url(#glow)"/>
+  <circle cx="32" cy="16" r="3.5" fill="#22D3EE" filter="url(#glow)"/>
+  <circle cx="44" cy="19" r="3" fill="#06B6D4" filter="url(#glow)"/>
 </svg>
