@@ -47,8 +47,12 @@ import { parseTelemetry, reportPeakBufferSize } from "./lib/telemetry.mjs";
 import { claimBdTask, closeBdTask, cleanupTeamDir } from "./lib/lifecycle.mjs";
 import { aiJsonDecision, isAiClientAvailable } from "./lib/ai-client.mjs";
 import { initIpcLogger, logIpc } from "./lib/ipc-logger.mjs";
+import { killAllAgents } from "./lib/agent-spawn.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+process.on("SIGTERM", () => { killAllAgents(); process.exit(130); });
+process.on("SIGINT", () => { killAllAgents(); process.exit(130); });
 
 // Module-level state for emergency result writing on crash
 let _resultFilePath = null;

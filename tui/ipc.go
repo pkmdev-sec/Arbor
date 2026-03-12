@@ -235,20 +235,19 @@ func (c *IPCConn) writeMessage(v interface{}) error {
 	}
 
 	c.mu.Lock()
-	conn := c.conn
-	c.mu.Unlock()
+	defer c.mu.Unlock()
 
-	if conn == nil {
+	if c.conn == nil {
 		return fmt.Errorf("not connected")
 	}
 
 	lenBuf := make([]byte, 4)
 	binary.BigEndian.PutUint32(lenBuf, uint32(len(data)))
 
-	if _, err := conn.Write(lenBuf); err != nil {
+	if _, err := c.conn.Write(lenBuf); err != nil {
 		return err
 	}
-	if _, err := conn.Write(data); err != nil {
+	if _, err := c.conn.Write(data); err != nil {
 		return err
 	}
 	return nil

@@ -65,6 +65,31 @@ describe("filterContextForRole", () => {
     filterContextForRole(fullCtx, "verifier");
     assert.deepStrictEqual(fullCtx, original);
   });
+
+  it("sub-coordinator: keeps decisions, constraints, scope, but strips file_summaries and recent_files", () => {
+    const f = filterContextForRole(fullCtx, "sub-coordinator");
+    assert.deepStrictEqual(f.task.constraints, fullCtx.task.constraints);
+    assert.deepStrictEqual(f.task.scope, fullCtx.task.scope);
+    assert.deepStrictEqual(f.prior_knowledge.decisions, fullCtx.prior_knowledge.decisions);
+    assert.equal(f.prior_knowledge.file_summaries, undefined);
+    assert.equal(f.project, undefined);
+  });
+
+  it("governor: keeps constraints and scope only", () => {
+    const f = filterContextForRole(fullCtx, "governor");
+    assert.deepStrictEqual(f.task.constraints, fullCtx.task.constraints);
+    assert.deepStrictEqual(f.task.scope, fullCtx.task.scope);
+    assert.equal(f.prior_knowledge, undefined);
+    assert.equal(f.project, undefined);
+  });
+
+  it("aggregator: keeps constraints and scope only", () => {
+    const f = filterContextForRole(fullCtx, "aggregator");
+    assert.deepStrictEqual(f.task.constraints, fullCtx.task.constraints);
+    assert.deepStrictEqual(f.task.scope, fullCtx.task.scope);
+    assert.equal(f.prior_knowledge, undefined);
+    assert.equal(f.project, undefined);
+  });
 });
 
 // ── filterSystemPromptForRole ────────────────────────────────────
@@ -141,6 +166,57 @@ describe("filterSystemPromptForRole", () => {
     const f = filterSystemPromptForRole(prompt, "worker");
     assert.ok(!f.includes("\n\n\n"), "should not have 3+ consecutive newlines");
   });
+
+  it("sub-coordinator: keeps Scout Report, Wave Discoveries, decisions, worker outputs, strips file context", () => {
+    const prompt = [
+      "[Scout Report]\nProject structure",
+      "[Wave 1 Discoveries]\nagent-01: found auth",
+      "KNOWN DECISIONS:\n- use JWT",
+      "FILE CONTEXT:\n- src/auth.ts: auth",
+      "WORKER OUTPUTS:\nagent-01: completed auth",
+    ].join("\n\n");
+
+    const f = filterSystemPromptForRole(prompt, "sub-coordinator");
+    assert.ok(f.includes("[Scout Report]"), "should keep Scout Report");
+    assert.ok(f.includes("[Wave 1 Discoveries]"), "should keep Wave Discoveries");
+    assert.ok(f.includes("KNOWN DECISIONS"), "should keep KNOWN DECISIONS");
+    assert.ok(f.includes("WORKER OUTPUTS"), "should keep WORKER OUTPUTS");
+    assert.ok(!f.includes("FILE CONTEXT"), "should strip FILE CONTEXT");
+  });
+
+  it("governor: keeps constraints and scope only", () => {
+    const prompt = [
+      "CONSTRAINTS:\n- use TS",
+      "SCOPE: src/auth/",
+      "FILE CONTEXT:\n- src/auth.ts: auth",
+      "GIT DIFF:\n+added line",
+    ].join("\n\n");
+
+    const f = filterSystemPromptForRole(prompt, "governor");
+    assert.ok(f.includes("CONSTRAINTS"), "should keep CONSTRAINTS");
+    assert.ok(f.includes("SCOPE"), "should keep SCOPE");
+    assert.ok(!f.includes("FILE CONTEXT"), "should strip FILE CONTEXT");
+    assert.ok(!f.includes("GIT DIFF"), "should strip GIT DIFF");
+  });
+
+  it("aggregator: keeps constraints, scope, gitDiff, testResults, workerOutputs", () => {
+    const prompt = [
+      "CONSTRAINTS:\n- use TS",
+      "SCOPE: src/auth/",
+      "FILE CONTEXT:\n- src/auth.ts: auth",
+      "GIT DIFF:\n+added line",
+      "TEST EXECUTION RESULTS:\nAll passed",
+      "WORKER OUTPUTS:\nagent-01: completed",
+    ].join("\n\n");
+
+    const f = filterSystemPromptForRole(prompt, "aggregator");
+    assert.ok(f.includes("CONSTRAINTS"), "should keep CONSTRAINTS");
+    assert.ok(f.includes("SCOPE"), "should keep SCOPE");
+    assert.ok(f.includes("GIT DIFF"), "should keep GIT DIFF");
+    assert.ok(f.includes("TEST EXECUTION"), "should keep TEST EXECUTION");
+    assert.ok(f.includes("WORKER OUTPUTS"), "should keep WORKER OUTPUTS");
+    assert.ok(!f.includes("FILE CONTEXT"), "should strip FILE CONTEXT");
+  });
 });
 
 // ── filteringStats ───────────────────────────────────────────────
@@ -199,5 +275,46 @@ describe("getStrippedSections", () => {
 
   it("unknown role: returns empty array", () => {
     assert.deepStrictEqual(getStrippedSections("unknown"), []);
+  });
+
+  it("sub-coordinator: strips fileSummaries, recentFiles, gitDiff, testResults, previousAttempt", () => {
+    const stripped = getStrippedSections("sub-coordinator");
+    assert.ok(stripped.includes("fileSummaries"));
+    assert.ok(stripped.includes("recentFiles"));
+    assert.ok(stripped.includes("gitDiff"));
+    assert.ok(stripped.includes("testResults"));
+    assert.ok(stripped.includes("previousAttempt"));
+    assert.ok(!stripped.includes("scoutReport"));
+    assert.ok(!stripped.includes("workerOutputs"));
+  });
+
+  it("governor: strips most sections except constraints and scope", () => {
+    const stripped = getStrippedSections("governor");
+    assert.ok(stripped.includes("scoutReport"));
+    assert.ok(stripped.includes("waveDiscoveries"));
+    assert.ok(stripped.includes("previousAttempt"));
+    assert.ok(stripped.includes("decisions"));
+    assert.ok(stripped.includes("fileSummaries"));
+    assert.ok(stripped.includes("recentFiles"));
+    assert.ok(stripped.includes("gitDiff"));
+    assert.ok(stripped.includes("testResults"));
+    assert.ok(stripped.includes("workerOutputs"));
+    assert.ok(!stripped.includes("constraints"));
+    assert.ok(!stripped.includes("scope"));
+  });
+
+  it("aggregator: strips most sections except constraints, scope, gitDiff, testResults, workerOutputs", () => {
+    const stripped = getStrippedSections("aggregator");
+    assert.ok(stripped.includes("scoutReport"));
+    assert.ok(stripped.includes("waveDiscoveries"));
+    assert.ok(stripped.includes("previousAttempt"));
+    assert.ok(stripped.includes("decisions"));
+    assert.ok(stripped.includes("fileSummaries"));
+    assert.ok(stripped.includes("recentFiles"));
+    assert.ok(!stripped.includes("constraints"));
+    assert.ok(!stripped.includes("scope"));
+    assert.ok(!stripped.includes("gitDiff"));
+    assert.ok(!stripped.includes("testResults"));
+    assert.ok(!stripped.includes("workerOutputs"));
   });
 });
