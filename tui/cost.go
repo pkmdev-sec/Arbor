@@ -303,6 +303,13 @@ func RenderProgressBar(label string, current, max float64, width int, theme Them
 	}
 
 	filled := int(math.Round(ratio * float64(barWidth)))
+	// Bug C11b fix: Clamp filled to prevent negative strings.Repeat
+	if filled > barWidth {
+		filled = barWidth
+	}
+	if filled < 0 {
+		filled = 0
+	}
 	empty := barWidth - filled
 
 	bar := lipgloss.NewStyle().Foreground(clr).Render(strings.Repeat("█", filled)) +

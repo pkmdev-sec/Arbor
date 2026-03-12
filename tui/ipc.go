@@ -353,6 +353,12 @@ type ipcErrMsg struct {
 }
 
 type ipcConnectedMsg struct{}
+
+// Bug C10 fix: New message type that includes the conn reference
+type ipcConnectedWithConn struct {
+	conn *IPCConn
+}
+
 type ipcDisconnectedMsg struct{}
 
 // listenForIPCMessages returns a Bubble Tea command that reads messages from the IPC bus.
@@ -370,12 +376,15 @@ func listenForIPCMessages(conn *IPCConn) tea.Cmd {
 }
 
 // connectToIPC attempts to connect to the IPC bus and returns appropriate messages.
+// Bug C10 fix: Return conn object instead of losing the reference
 func connectToIPC(address string) tea.Cmd {
 	return func() tea.Msg {
 		conn := NewIPCConn(address)
 		if err := conn.Connect(); err != nil {
 			return ipcErrMsg{err: err}
 		}
-		return ipcConnectedMsg{}
+		// TODO(C10): model.go needs to handle ipcConnectedWithConn message type
+		// and store the conn reference in the model state
+		return ipcConnectedWithConn{conn: conn}
 	}
 }

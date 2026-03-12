@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -125,25 +126,24 @@ func (p *DataPoller) Poll() PollResult {
 	arborAgents := pollArborDirs()
 	result.Agents = append(result.Agents, arborAgents...)
 
-	// Deduplicate agents by ID
+	// FIX H19: Combine deduplication and filtering into a single pass
 	seen := map[string]bool{}
-	deduped := make([]Agent, 0, len(result.Agents))
+	filtered := make([]Agent, 0, len(result.Agents))
 	for _, a := range result.Agents {
-		if !seen[a.ID] {
-			seen[a.ID] = true
-			deduped = append(deduped, a)
+		// Skip duplicates
+		if seen[a.ID] {
+			continue
 		}
-	}
-	// Filter out claude-pid-* entries (process detection noise with no useful data)
-	filtered := make([]Agent, 0, len(deduped))
-	for _, a := range deduped {
+		seen[a.ID] = true
+
+		// Skip filtered IDs
 		if strings.HasPrefix(a.ID, "claude-pid-") || strings.HasPrefix(a.ID, "proc-") {
 			continue
 		}
-		// Also skip .progress.json and verify-result.json pseudo-agents from /tmp
 		if strings.HasSuffix(a.ID, ".progress") || a.ID == "verify-result" {
 			continue
 		}
+
 		filtered = append(filtered, a)
 	}
 	result.Agents = filtered
@@ -241,26 +241,40 @@ func pollResultFiles() ([]Agent, int) {
 	var agents []Agent
 	parseErrors := 0 // Bug K fix: Track parse failures
 	for _, path := range matches {
-		// Skip non-agent files
+		// FIX H4: Early checks before reading full file
 		basename := filepath.Base(path)
+
+		// Skip non-agent files by name pattern
 		if strings.Contains(basename, "swarm") || strings.Contains(basename, "config") {
 			continue
 		}
 
-		// Skip files larger than 1MB to avoid memory issues
+		// Skip non-.json files
+		if !strings.HasSuffix(basename, ".json") {
+			continue
+		}
+
+		// Check file size before reading
 		info, err := os.Stat(path)
 		if err != nil || info.Size() > 1024*1024 {
 			continue
 		}
 
-		data, err := os.ReadFile(path)
+		// Peek at first byte to check if it's a JSON array (skip IPC event files)
+		file, err := os.Open(path)
 		if err != nil {
 			continue
 		}
+		firstByte := make([]byte, 1)
+		n, _ := file.Read(firstByte)
+		file.Close()
+		if n > 0 && firstByte[0] == '[' {
+			continue
+		}
 
-		// Skip JSON arrays (IPC event files, not result files)
-		trimmed := bytes.TrimSpace(data)
-		if len(trimmed) > 0 && trimmed[0] == byte('[') {
+		// Now read the full file
+		data, err := os.ReadFile(path)
+		if err != nil {
 			continue
 		}
 
@@ -443,9 +457,32 @@ func pollSwarmDirs() ([]Agent, int) {
 		return nil, 0
 	}
 
-	// Only scan the 10 most recent run directories to limit I/O
+	// FIX C7: Sort by ModTime DESCENDING to keep the 10 most recent directories
 	if len(entries) > 10 {
-		entries = entries[len(entries)-10:]
+		// Get FileInfo for all entries to access ModTime
+		type entryWithTime struct {
+			entry   os.DirEntry
+			modTime time.Time
+		}
+		entriesWithTime := make([]entryWithTime, 0, len(entries))
+		for _, e := range entries {
+			info, err := e.Info()
+			if err != nil {
+				continue
+			}
+			entriesWithTime = append(entriesWithTime, entryWithTime{entry: e, modTime: info.ModTime()})
+		}
+		// Sort by ModTime descending
+		sort.Slice(entriesWithTime, func(i, j int) bool {
+			return entriesWithTime[i].modTime.After(entriesWithTime[j].modTime)
+		})
+		// Keep only the 10 most recent
+		entriesWithTime = entriesWithTime[:10]
+		// Extract back to entries slice
+		entries = make([]os.DirEntry, len(entriesWithTime))
+		for i, ewt := range entriesWithTime {
+			entries[i] = ewt.entry
+		}
 	}
 
 	var agents []Agent
@@ -693,15 +730,20 @@ func roleDisallowedTools(role string) string {
 }
 
 // parseIPCJsonl parses an ipc.jsonl file and returns IPC events.
+// FIX H20: Use streaming with bufio.Scanner instead of reading entire file into memory
+// FIX H5: Limit events per file to reduce sorting overhead (part 1)
 func parseIPCJsonl(path string) []IPCEvent {
-	data, err := os.ReadFile(path)
+	file, err := os.Open(path)
 	if err != nil {
 		return nil
 	}
+	defer file.Close()
 
+	const maxEventsPerFile = 100 // Limit events per file to reduce sorting load
 	var events []IPCEvent
-	for _, line := range strings.Split(string(data), "\n") {
-		line = strings.TrimSpace(line)
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
 		if line == "" {
 			continue
 		}
@@ -721,14 +763,47 @@ func parseIPCJsonl(path string) []IPCEvent {
 		}
 	}
 
+	// Keep only the most recent events from this file (jsonl is append-only, so last entries are newest)
+	if len(events) > maxEventsPerFile {
+		events = events[len(events)-maxEventsPerFile:]
+	}
+
 	return events
 }
 
 // pollIPCLogsFromDir scans a base directory for subdirectories and collects IPC events from ipc.jsonl files.
+// FIX H5: Only scan recent directories to reduce sorting overhead (part 2)
 func pollIPCLogsFromDir(base string) []IPCEvent {
 	entries, err := os.ReadDir(base)
 	if err != nil {
 		return nil
+	}
+
+	// Only scan the 10 most recent run directories to limit I/O and sorting overhead
+	if len(entries) > 10 {
+		type entryWithTime struct {
+			entry   os.DirEntry
+			modTime time.Time
+		}
+		entriesWithTime := make([]entryWithTime, 0, len(entries))
+		for _, e := range entries {
+			info, err := e.Info()
+			if err != nil {
+				continue
+			}
+			entriesWithTime = append(entriesWithTime, entryWithTime{entry: e, modTime: info.ModTime()})
+		}
+		// Sort by ModTime descending
+		sort.Slice(entriesWithTime, func(i, j int) bool {
+			return entriesWithTime[i].modTime.After(entriesWithTime[j].modTime)
+		})
+		// Keep only the 10 most recent
+		entriesWithTime = entriesWithTime[:10]
+		// Extract back to entries slice
+		entries = make([]os.DirEntry, len(entriesWithTime))
+		for i, ewt := range entriesWithTime {
+			entries[i] = ewt.entry
+		}
 	}
 
 	var allEvents []IPCEvent

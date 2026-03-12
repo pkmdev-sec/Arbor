@@ -133,6 +133,9 @@ func (p *CmdPalette) SelectedAction() string {
 // RenderCmdPalette renders the command palette as a centered overlay.
 func RenderCmdPalette(p CmdPalette, width, height int, theme Theme) string {
 	boxW := min(width-10, 60)
+	if boxW < 10 {
+		boxW = 10
+	}
 	boxH := min(height-6, p.MaxShow+5)
 
 	var b strings.Builder
@@ -264,6 +267,9 @@ func renderCommandLine(cmd Command, selected bool, width int, theme Theme) strin
 
 // padRight pads a string with spaces to reach target width.
 func padRight(s string, width int) string {
+	if width <= 0 {
+		return ""
+	}
 	if len(s) >= width {
 		return s[:width]
 	}

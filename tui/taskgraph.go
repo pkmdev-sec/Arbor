@@ -13,7 +13,7 @@ import (
 // TaskNode represents a node in the task dependency graph.
 type TaskNode struct {
 	Title     string
-	Status    string   // pending, running, done, failed
+	Status    string   // pending, running, done, failed, blocked
 	DependsOn []string // titles of dependencies
 	Model     string
 	Agent     string // assigned agent ID
@@ -179,14 +179,18 @@ func buildWaves(graph *TaskGraph) {
 			canAssign := true
 			maxDepWave := -1
 			for _, depTitle := range task.DependsOn {
-				if depIdx, ok := titleIdx[depTitle]; ok {
-					if !assigned[depIdx] {
-						canAssign = false
-						break
-					}
-					if graph.Tasks[depIdx].WaveIdx > maxDepWave {
-						maxDepWave = graph.Tasks[depIdx].WaveIdx
-					}
+				depIdx, ok := titleIdx[depTitle]
+				// H8: Validate dependency targets exist
+				if !ok {
+					fmt.Fprintf(os.Stderr, "Warning: task '%s' depends on missing task '%s'\n", task.Title, depTitle)
+					continue
+				}
+				if !assigned[depIdx] {
+					canAssign = false
+					break
+				}
+				if graph.Tasks[depIdx].WaveIdx > maxDepWave {
+					maxDepWave = graph.Tasks[depIdx].WaveIdx
 				}
 			}
 
@@ -199,13 +203,29 @@ func buildWaves(graph *TaskGraph) {
 		}
 
 		if len(wave) == 0 {
-			// Deadlock or cycle - assign remaining to next wave
+			// C2: Proper DFS-based cycle detection
+			// Remaining tasks exist but can't be assigned - check for cycles
+			unassigned := []int{}
 			for i := range graph.Tasks {
 				if !assigned[i] {
-					graph.Tasks[i].WaveIdx = len(waves)
-					wave = append(wave, i)
-					assigned[i] = true
+					unassigned = append(unassigned, i)
 				}
+			}
+
+			// Detect cycles using DFS
+			inCycle := detectCycles(graph, unassigned, titleIdx)
+
+			// Mark tasks in cycles as blocked
+			for _, i := range unassigned {
+				if inCycle[i] {
+					graph.Tasks[i].Status = "blocked"
+					graph.Tasks[i].WaveIdx = len(waves)
+				} else {
+					// Not in a cycle, assign to next wave (dependency might have been missing)
+					graph.Tasks[i].WaveIdx = len(waves)
+				}
+				wave = append(wave, i)
+				assigned[i] = true
 			}
 		}
 
@@ -213,6 +233,52 @@ func buildWaves(graph *TaskGraph) {
 	}
 
 	graph.Waves = waves
+}
+
+// detectCycles performs DFS-based cycle detection on unassigned tasks.
+// Returns a map indicating which tasks are part of a cycle.
+func detectCycles(graph *TaskGraph, unassigned []int, titleIdx map[string]int) map[int]bool {
+	inCycle := map[int]bool{}
+	visited := map[int]bool{}
+	inStack := map[int]bool{}
+
+	var dfs func(int) bool
+	dfs = func(i int) bool {
+		if inStack[i] {
+			// Found a cycle
+			return true
+		}
+		if visited[i] {
+			return false
+		}
+
+		visited[i] = true
+		inStack[i] = true
+
+		// Check dependencies
+		task := graph.Tasks[i]
+		for _, depTitle := range task.DependsOn {
+			if depIdx, ok := titleIdx[depTitle]; ok {
+				if dfs(depIdx) {
+					inCycle[i] = true
+					inStack[i] = false
+					return true
+				}
+			}
+		}
+
+		inStack[i] = false
+		return false
+	}
+
+	// Run DFS from each unassigned task
+	for _, i := range unassigned {
+		if !visited[i] {
+			dfs(i)
+		}
+	}
+
+	return inCycle
 }
 
 // mapStatus normalizes status strings to canonical values.

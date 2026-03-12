@@ -58,6 +58,13 @@ func Gauge(label string, value, max float64, width int, theme Theme) string {
 	}
 
 	filled := int(math.Round(ratio * float64(barWidth)))
+	// Bug C11a fix: Clamp filled to prevent negative strings.Repeat
+	if filled > barWidth {
+		filled = barWidth
+	}
+	if filled < 0 {
+		filled = 0
+	}
 	empty := barWidth - filled
 
 	bar := lipgloss.NewStyle().Foreground(clr).Render(strings.Repeat("█", filled)) +
@@ -238,6 +245,13 @@ func RenderResourcePanelExtended(rs ResourceSnapshot, agents []Agent, worktrees 
 			pct := float64(tc.count) / float64(totalTools) * 100
 			barWidth := 20
 			filled := int(pct / 100 * float64(barWidth))
+			// Bug C11a fix: Clamp filled to prevent negative strings.Repeat
+			if filled > barWidth {
+				filled = barWidth
+			}
+			if filled < 0 {
+				filled = 0
+			}
 			empty := barWidth - filled
 
 			bar := lipgloss.NewStyle().Foreground(theme.Accent).Render(strings.Repeat("█", filled)) +

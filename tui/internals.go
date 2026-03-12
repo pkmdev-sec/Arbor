@@ -113,7 +113,7 @@ func truncSummary(s string, max int) string {
 // wrapText wraps long lines at word boundaries to fit within width characters.
 func wrapText(text string, width int) string {
 	if width <= 0 {
-		return text
+		return ""
 	}
 	var result []string
 	for _, line := range strings.Split(text, "\n") {
@@ -151,6 +151,9 @@ func RenderInternalsPanel(agents []Agent, ipcEvents []IPCEvent, selected, detail
 		listW = 40
 	}
 	detailW := width - listW - 3
+	if detailW < 10 {
+		detailW = 10
+	}
 
 	// Clamp selection
 	sel := selected
@@ -373,7 +376,7 @@ func renderLogDetail(entries []LogEntry, sel, width int, theme Theme) string {
 	b.WriteString("\n")
 
 	// Separator
-	b.WriteString(muted.Render(strings.Repeat("─", min(width-4, 60))))
+	b.WriteString(muted.Render(strings.Repeat("─", max(0, min(width-4, 60)))))
 	b.WriteString("\n\n")
 
 	// Summary
@@ -423,6 +426,9 @@ func renderLogDetail(entries []LogEntry, sel, width int, theme Theme) string {
 			bar := ""
 			if maxVal > 0 {
 				filled := count * barWidth / maxVal
+				if filled > barWidth {
+					filled = barWidth
+				}
 				bar = strings.Repeat("█", filled) + strings.Repeat("░", barWidth-filled)
 			}
 			b.WriteString(fmt.Sprintf("  %-8s %s %d\n",

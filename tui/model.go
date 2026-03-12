@@ -81,7 +81,8 @@ type Model struct {
 	poller    *DataPoller
 	ipcEvents []IPCEvent
 
-	seenEventKeys map[string]bool // Universal IPC: dedup key tracking
+	seenEventKeys      map[string]bool // Universal IPC: dedup key tracking
+	seenEventKeysOrder []string        // Insertion order for LRU eviction
 
 	confirmDialog ConfirmDialog
 	launcher      LauncherModel
@@ -164,11 +165,21 @@ func (m *Model) bridgeIPCEvents(events []IPCEvent) {
 
 		// Mark as seen
 		m.seenEventKeys[dedupKey] = true
+		m.seenEventKeysOrder = append(m.seenEventKeysOrder, dedupKey)
 	}
 
-	// Cap seenEventKeys at 2000 entries (reset map if exceeded)
-	if len(m.seenEventKeys) > 2000 {
-		m.seenEventKeys = make(map[string]bool)
+	// LRU eviction: when map exceeds 1000 entries, delete oldest half
+	if len(m.seenEventKeys) > 1000 {
+		deleteCount := 500
+		if deleteCount > len(m.seenEventKeysOrder) {
+			deleteCount = len(m.seenEventKeysOrder)
+		}
+		// Delete oldest entries from map
+		for i := 0; i < deleteCount; i++ {
+			delete(m.seenEventKeys, m.seenEventKeysOrder[i])
+		}
+		// Remove deleted entries from order slice
+		m.seenEventKeysOrder = m.seenEventKeysOrder[deleteCount:]
 	}
 }
 
@@ -228,36 +239,48 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch {
 			case key.Matches(msg, m.keys.Tab1):
 				m.activeTab = tabOverview
+				m.inputMode = ModeNormal
+				m.chatSender.Deactivate()
 				m.launcher.taskInput.Blur()
 				m.launcher.agentInput.Blur()
 				m.launcher.timeoutInput.Blur()
 				return m, nil
 			case key.Matches(msg, m.keys.Tab2):
 				m.activeTab = tabAgents
+				m.inputMode = ModeNormal
+				m.chatSender.Deactivate()
 				m.launcher.taskInput.Blur()
 				m.launcher.agentInput.Blur()
 				m.launcher.timeoutInput.Blur()
 				return m, nil
 			case key.Matches(msg, m.keys.Tab3):
 				m.activeTab = tabChat
+				m.inputMode = ModeNormal
+				m.chatSender.Deactivate()
 				m.launcher.taskInput.Blur()
 				m.launcher.agentInput.Blur()
 				m.launcher.timeoutInput.Blur()
 				return m, nil
 			case key.Matches(msg, m.keys.Tab4):
 				m.activeTab = tabHierarchy
+				m.inputMode = ModeNormal
+				m.chatSender.Deactivate()
 				m.launcher.taskInput.Blur()
 				m.launcher.agentInput.Blur()
 				m.launcher.timeoutInput.Blur()
 				return m, nil
 			case key.Matches(msg, m.keys.Tab5):
 				m.activeTab = tabResources
+				m.inputMode = ModeNormal
+				m.chatSender.Deactivate()
 				m.launcher.taskInput.Blur()
 				m.launcher.agentInput.Blur()
 				m.launcher.timeoutInput.Blur()
 				return m, nil
 			case key.Matches(msg, m.keys.Tab6):
 				m.activeTab = tabLogs
+				m.inputMode = ModeNormal
+				m.chatSender.Deactivate()
 				m.launcher.taskInput.Blur()
 				m.launcher.agentInput.Blur()
 				m.launcher.timeoutInput.Blur()
@@ -267,24 +290,32 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			case key.Matches(msg, m.keys.Tab8):
 				m.activeTab = tabInternals
+				m.inputMode = ModeNormal
+				m.chatSender.Deactivate()
 				m.launcher.taskInput.Blur()
 				m.launcher.agentInput.Blur()
 				m.launcher.timeoutInput.Blur()
 				return m, nil
 			case key.Matches(msg, m.keys.Tab9):
 				m.activeTab = tabNetwork
+				m.inputMode = ModeNormal
+				m.chatSender.Deactivate()
 				m.launcher.taskInput.Blur()
 				m.launcher.agentInput.Blur()
 				m.launcher.timeoutInput.Blur()
 				return m, nil
 			case key.Matches(msg, m.keys.NextTab):
 				m.activeTab = (m.activeTab + 1) % tabCount
+				m.inputMode = ModeNormal
+				m.chatSender.Deactivate()
 				m.launcher.taskInput.Blur()
 				m.launcher.agentInput.Blur()
 				m.launcher.timeoutInput.Blur()
 				return m, nil
 			case key.Matches(msg, m.keys.PrevTab):
 				m.activeTab = (m.activeTab - 1 + tabCount) % tabCount
+				m.inputMode = ModeNormal
+				m.chatSender.Deactivate()
 				m.launcher.taskInput.Blur()
 				m.launcher.agentInput.Blur()
 				m.launcher.timeoutInput.Blur()
@@ -318,8 +349,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.ipcConnected = true
 		m.ipcRetries = 0
 		m.lastError = ""
-		if m.ipc != nil {
-			return m, listenForIPCMessages(m.ipc)
+		ipc := m.ipc
+		if ipc != nil {
+			return m, listenForIPCMessages(ipc)
 		}
 		return m, nil
 
@@ -330,8 +362,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.chatViewport.SetContent(content)
 			m.chatViewport.GotoBottom()
 		}
-		if m.ipc != nil {
-			return m, listenForIPCMessages(m.ipc)
+		ipc := m.ipc
+		if ipc != nil {
+			return m, listenForIPCMessages(ipc)
 		}
 		return m, nil
 
@@ -402,36 +435,56 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch {
 			case key.Matches(keyMsg, m.keys.Tab1):
 				m.activeTab = tabOverview
+				m.inputMode = ModeNormal
+				m.chatSender.Deactivate()
 				return m, nil
 			case key.Matches(keyMsg, m.keys.Tab2):
 				m.activeTab = tabAgents
+				m.inputMode = ModeNormal
+				m.chatSender.Deactivate()
 				return m, nil
 			case key.Matches(keyMsg, m.keys.Tab3):
 				m.activeTab = tabChat
 				return m, nil
 			case key.Matches(keyMsg, m.keys.Tab4):
 				m.activeTab = tabHierarchy
+				m.inputMode = ModeNormal
+				m.chatSender.Deactivate()
 				return m, nil
 			case key.Matches(keyMsg, m.keys.Tab5):
 				m.activeTab = tabResources
+				m.inputMode = ModeNormal
+				m.chatSender.Deactivate()
 				return m, nil
 			case key.Matches(keyMsg, m.keys.Tab6):
 				m.activeTab = tabLogs
+				m.inputMode = ModeNormal
+				m.chatSender.Deactivate()
 				return m, nil
 			case key.Matches(keyMsg, m.keys.Tab7):
 				m.activeTab = tabLauncher
+				m.inputMode = ModeNormal
+				m.chatSender.Deactivate()
 				return m, nil
 			case key.Matches(keyMsg, m.keys.Tab8):
 				m.activeTab = tabInternals
+				m.inputMode = ModeNormal
+				m.chatSender.Deactivate()
 				return m, nil
 			case key.Matches(keyMsg, m.keys.Tab9):
 				m.activeTab = tabNetwork
+				m.inputMode = ModeNormal
+				m.chatSender.Deactivate()
 				return m, nil
 			case key.Matches(keyMsg, m.keys.NextTab):
 				m.activeTab = (m.activeTab + 1) % tabCount
+				m.inputMode = ModeNormal
+				m.chatSender.Deactivate()
 				return m, nil
 			case key.Matches(keyMsg, m.keys.PrevTab):
 				m.activeTab = (m.activeTab - 1 + tabCount) % tabCount
+				m.inputMode = ModeNormal
+				m.chatSender.Deactivate()
 				return m, nil
 			}
 		}
@@ -456,8 +509,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m Model) handleNormalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.Quit):
-		if m.ipc != nil {
-			m.ipc.Close()
+		ipc := m.ipc
+		if ipc != nil {
+			ipc.Close()
 		}
 		return m, tea.Quit
 	case key.Matches(msg, m.keys.Help):
@@ -471,39 +525,63 @@ func (m Model) handleNormalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Tab switching
 	case key.Matches(msg, m.keys.NextTab):
 		m.activeTab = (m.activeTab + 1) % tabCount
+		m.inputMode = ModeNormal
+		m.chatSender.Deactivate()
 		return m, nil
 	case key.Matches(msg, m.keys.PrevTab):
 		m.activeTab = (m.activeTab - 1 + tabCount) % tabCount
+		m.inputMode = ModeNormal
+		m.chatSender.Deactivate()
 		return m, nil
 	case key.Matches(msg, m.keys.Tab1):
 		m.activeTab = tabOverview
+		m.inputMode = ModeNormal
+		m.chatSender.Deactivate()
 		return m, nil
 	case key.Matches(msg, m.keys.Tab2):
 		m.activeTab = tabAgents
+		m.inputMode = ModeNormal
+		m.chatSender.Deactivate()
 		return m, nil
 	case key.Matches(msg, m.keys.Tab3):
 		m.activeTab = tabChat
+		m.inputMode = ModeNormal
+		m.chatSender.Deactivate()
 		return m, nil
 	case key.Matches(msg, m.keys.Tab4):
 		m.activeTab = tabHierarchy
+		m.inputMode = ModeNormal
+		m.chatSender.Deactivate()
 		return m, nil
 	case key.Matches(msg, m.keys.Tab5):
 		m.activeTab = tabResources
+		m.inputMode = ModeNormal
+		m.chatSender.Deactivate()
 		return m, nil
 	case key.Matches(msg, m.keys.Tab6):
 		m.activeTab = tabLogs
+		m.inputMode = ModeNormal
+		m.chatSender.Deactivate()
 		return m, nil
 	case key.Matches(msg, m.keys.Tab7):
 		m.activeTab = tabLauncher
+		m.inputMode = ModeNormal
+		m.chatSender.Deactivate()
 		return m, nil
 	case key.Matches(msg, m.keys.Tab8):
 		m.activeTab = tabInternals
+		m.inputMode = ModeNormal
+		m.chatSender.Deactivate()
 		return m, nil
 	case key.Matches(msg, m.keys.Tab9):
 		m.activeTab = tabNetwork
+		m.inputMode = ModeNormal
+		m.chatSender.Deactivate()
 		return m, nil
 	case key.Matches(msg, m.keys.LaunchSwarm):
 		m.activeTab = tabLauncher
+		m.inputMode = ModeNormal
+		m.chatSender.Deactivate()
 		return m, nil
 
 	// Input mode entry
@@ -590,15 +668,17 @@ func (m Model) handleAgentKeys(msg tea.KeyMsg) Model {
 		}
 	case key.Matches(msg, m.keys.PauseAgent):
 		// Bug D fix: Check IsConnected() atomically to prevent nil dereference
-		if m.selectedAgent >= 0 && m.selectedAgent < len(m.agents) && m.ipc != nil && m.ipc.IsConnected() {
+		ipc := m.ipc
+		if m.selectedAgent >= 0 && m.selectedAgent < len(m.agents) && ipc != nil && ipc.IsConnected() {
 			agentID := m.agents[m.selectedAgent].ID
 			m.confirmDialog = NewConfirmDialog(
 				"Pause Agent",
 				fmt.Sprintf("Pause agent %s?", agentID),
 				func() {
 					// Defensive: re-check connection before IPC call
-					if m.ipc != nil && m.ipc.IsConnected() {
-						if err := m.ipc.PauseAgent(agentID); err != nil {
+					ipcInner := m.ipc
+					if ipcInner != nil && ipcInner.IsConnected() {
+						if err := ipcInner.PauseAgent(agentID); err != nil {
 							m.lastError = fmt.Sprintf("pause failed: %v", err)
 						}
 					} else {
@@ -610,23 +690,26 @@ func (m Model) handleAgentKeys(msg tea.KeyMsg) Model {
 		}
 	case key.Matches(msg, m.keys.ResumeAgent):
 		// Bug D fix: Check IsConnected() atomically to prevent nil dereference
-		if m.selectedAgent >= 0 && m.selectedAgent < len(m.agents) && m.ipc != nil && m.ipc.IsConnected() {
+		ipc := m.ipc
+		if m.selectedAgent >= 0 && m.selectedAgent < len(m.agents) && ipc != nil && ipc.IsConnected() {
 			agentID := m.agents[m.selectedAgent].ID
-			if err := m.ipc.ResumeAgent(agentID); err != nil {
+			if err := ipc.ResumeAgent(agentID); err != nil {
 				m.lastError = fmt.Sprintf("resume failed: %v", err)
 			}
 		}
 	case key.Matches(msg, m.keys.DisconnectAgent):
 		// Bug D fix: Check IsConnected() atomically to prevent nil dereference
-		if m.selectedAgent >= 0 && m.selectedAgent < len(m.agents) && m.ipc != nil && m.ipc.IsConnected() {
+		ipc := m.ipc
+		if m.selectedAgent >= 0 && m.selectedAgent < len(m.agents) && ipc != nil && ipc.IsConnected() {
 			agentID := m.agents[m.selectedAgent].ID
 			m.confirmDialog = NewConfirmDialog(
 				"Disconnect Agent",
 				fmt.Sprintf("Disconnect agent %s?", agentID),
 				func() {
 					// Defensive: re-check connection before IPC call
-					if m.ipc != nil && m.ipc.IsConnected() {
-						if err := m.ipc.DisconnectAgent(agentID); err != nil {
+					ipcInner := m.ipc
+					if ipcInner != nil && ipcInner.IsConnected() {
+						if err := ipcInner.DisconnectAgent(agentID); err != nil {
 							m.lastError = fmt.Sprintf("disconnect failed: %v", err)
 						}
 					} else {
@@ -647,42 +730,52 @@ func (m Model) handleChatKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		switch {
 		case key.Matches(msg, m.keys.Tab1):
 			m.chatSender.Deactivate()
+			m.inputMode = ModeNormal
 			m.activeTab = tabOverview
 			return m, nil
 		case key.Matches(msg, m.keys.Tab2):
 			m.chatSender.Deactivate()
+			m.inputMode = ModeNormal
 			m.activeTab = tabAgents
 			return m, nil
 		case key.Matches(msg, m.keys.Tab3):
 			m.chatSender.Deactivate()
+			m.inputMode = ModeNormal
 			m.activeTab = tabChat
 			return m, nil
 		case key.Matches(msg, m.keys.Tab4):
 			m.chatSender.Deactivate()
+			m.inputMode = ModeNormal
 			m.activeTab = tabHierarchy
 			return m, nil
 		case key.Matches(msg, m.keys.Tab5):
 			m.chatSender.Deactivate()
+			m.inputMode = ModeNormal
 			m.activeTab = tabResources
 			return m, nil
 		case key.Matches(msg, m.keys.Tab6):
 			m.chatSender.Deactivate()
+			m.inputMode = ModeNormal
 			m.activeTab = tabLogs
 			return m, nil
 		case key.Matches(msg, m.keys.Tab7):
 			m.chatSender.Deactivate()
+			m.inputMode = ModeNormal
 			m.activeTab = tabLauncher
 			return m, nil
 		case key.Matches(msg, m.keys.Tab8):
 			m.chatSender.Deactivate()
+			m.inputMode = ModeNormal
 			m.activeTab = tabInternals
 			return m, nil
 		case key.Matches(msg, m.keys.Tab9):
 			m.chatSender.Deactivate()
+			m.inputMode = ModeNormal
 			m.activeTab = tabNetwork
 			return m, nil
 		case key.Matches(msg, m.keys.PrevTab):
 			m.chatSender.Deactivate()
+			m.inputMode = ModeNormal
 			m.activeTab = (m.activeTab - 1 + tabCount) % tabCount
 			return m, nil
 		}
@@ -697,9 +790,10 @@ func (m Model) handleChatKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "enter":
 			value := strings.TrimSpace(m.chatSender.Input.Value())
-			if value != "" && m.ipc != nil && m.ipc.IsConnected() {
+			ipc := m.ipc
+			if value != "" && ipc != nil && ipc.IsConnected() {
 				composed := m.chatSender.ComposeMessage()
-				if err := m.ipc.writeMessage(composed); err != nil {
+				if err := ipc.writeMessage(composed); err != nil {
 					m.lastError = fmt.Sprintf("send failed: %v", err)
 				}
 			}
@@ -932,7 +1026,8 @@ func (m Model) viewStatusBar() string {
 	parts = append(parts, pollStr)
 
 	// IPC status
-	if m.ipc != nil {
+	ipc := m.ipc
+	if ipc != nil {
 		if m.ipcConnected {
 			parts = append(parts, lipgloss.NewStyle().Foreground(m.theme.Success).Render("● IPC"))
 		} else if m.ipcRetries > 0 && m.ipcRetries <= maxIPCRetries {
@@ -1134,7 +1229,8 @@ func (m Model) renderCurrentRunBox(width int) string {
 
 	b.WriteString(fmt.Sprintf("Run: %s\n", runID))
 	b.WriteString(muted.Render(fmt.Sprintf("Mode: %s\n", runMode)))
-	if m.ipc != nil {
+	ipc := m.ipc
+	if ipc != nil {
 		if m.ipcConnected {
 			b.WriteString(lipgloss.NewStyle().Foreground(m.theme.Success).Render("● IPC Connected\n"))
 		} else {

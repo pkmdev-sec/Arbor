@@ -85,6 +85,7 @@ func ScanSwarmRuns() []SwarmRun {
 	}
 
 	var runs []SwarmRun
+	var totalBytesRead int64 // H7: Track aggregate memory usage
 
 	// Scan last 15 runs (most recent)
 	dirEntries := []os.DirEntry{}
@@ -126,10 +127,17 @@ func ScanSwarmRuns() []SwarmRun {
 				continue
 			}
 
+			// H7: Check aggregate memory limit (256MB)
+			if totalBytesRead+info.Size() > 256*1024*1024 {
+				fmt.Fprintf(os.Stderr, "Warning: aggregate memory limit (256MB) exceeded, skipping remaining files\n")
+				return runs
+			}
+
 			data, err := os.ReadFile(path)
 			if err != nil {
 				continue
 			}
+			totalBytesRead += int64(len(data)) // H7: Track bytes read
 
 			var result struct {
 				Status     string `json:"status"`
@@ -169,10 +177,13 @@ func ScanSwarmRuns() []SwarmRun {
 				})
 				// Extract subtasks from decompose output
 				if result.Output != "" {
-					if jsonMatch := extractJSONArray(result.Output); jsonMatch != "" {
-						var subtasks []SubtaskInfo
-						if json.Unmarshal([]byte(jsonMatch), &subtasks) == nil {
-							run.Subtasks = subtasks
+					// H6: Enforce 10MB size limit on output
+					if len(result.Output) <= 10*1024*1024 {
+						if jsonMatch := extractJSONArray(result.Output, 0); jsonMatch != "" {
+							var subtasks []SubtaskInfo
+							if json.Unmarshal([]byte(jsonMatch), &subtasks) == nil {
+								run.Subtasks = subtasks
+							}
 						}
 					}
 				}
@@ -207,7 +218,11 @@ func ScanSwarmRuns() []SwarmRun {
 	return runs
 }
 
-func extractJSONArray(output string) string {
+func extractJSONArray(output string, recursionDepth int) string {
+	// H6: Max recursion depth of 100
+	if recursionDepth > 100 {
+		return ""
+	}
 	start := strings.Index(output, "[")
 	if start < 0 {
 		return ""
@@ -249,14 +264,22 @@ func BuildHierarchy() *TreeNode {
 	for _, run := range runs {
 		// Run node
 		taskSnippet := run.Task
-		if len(taskSnippet) > 50 {
-			taskSnippet = taskSnippet[:47] + "..."
+		// M1: Use rune conversion to avoid splitting UTF-8 chars
+		if len([]rune(taskSnippet)) > 50 {
+			runes := []rune(taskSnippet)
+			taskSnippet = string(runes[:47]) + "..."
+		}
+
+		// C1: Check RunID length before slicing
+		runIDShort := run.RunID
+		if len(run.RunID) > 8 {
+			runIDShort = run.RunID[:8]
 		}
 
 		runNode := &TreeNode{
 			ID:       run.RunID,
 			Level:    0,
-			Name:     run.RunID[:8],
+			Name:     runIDShort,
 			Status:   runStatus(run),
 			Expanded: true, // Expand first run, collapse others
 			Role:     "run",
@@ -526,8 +549,10 @@ func RenderHierarchy(root *TreeNode, selectedIdx int, width int, theme Theme) st
 			if maxLen < 20 {
 				maxLen = 20
 			}
-			if len(snippet) > maxLen {
-				snippet = snippet[:maxLen-3] + "..."
+			// M1: Use rune conversion to avoid splitting UTF-8 chars
+			if len([]rune(snippet)) > maxLen {
+				runes := []rune(snippet)
+				snippet = string(runes[:maxLen-3]) + "..."
 			}
 			taskStr = lipgloss.NewStyle().Foreground(theme.Muted).Render("  " + snippet)
 		}
@@ -544,8 +569,12 @@ func RenderHierarchy(root *TreeNode, selectedIdx int, width int, theme Theme) st
 			taskStr,
 		)
 
+		// M1: Use rune conversion to avoid splitting UTF-8 chars
 		if width > 0 && lipgloss.Width(line) > width {
-			line = line[:width]
+			runes := []rune(line)
+			if len(runes) > width {
+				line = string(runes[:width])
+			}
 		}
 
 		b.WriteString(line + "\n")

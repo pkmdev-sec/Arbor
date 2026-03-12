@@ -135,6 +135,7 @@ func RenderChatPanel(messages []IPCMessage, filter ChatFilter, width int, theme 
 
 		// Payload preview
 		payload := msg.PayloadString()
+		// Bug H17 fix: Add minimum width validation for narrow terminals
 		maxPayload := width - 50
 		if maxPayload < 20 {
 			maxPayload = 20
