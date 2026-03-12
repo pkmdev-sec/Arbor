@@ -27,7 +27,9 @@ Session lock:
 
 from __future__ import annotations
 
+import hashlib
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -36,11 +38,43 @@ STATE_FILE = (
     Path.home() / ".claude" / "hooks" / ".acontext_state" / "delegate_mode.json"
 )
 LOG = Path.home() / ".claude" / "hooks" / ".acontext_state" / "blocker.log"
-SESSION_LOCK = Path("/tmp/.claude-orchestrator-lock")
-READ_BUDGET_FILE = Path("/tmp/.claude-orchestrator-reads")
 
-# Lock file TTL: 4 hours in seconds
-SESSION_LOCK_TTL = 4 * 60 * 60
+# Session-scoped lock/budget files to prevent cross-session collisions.
+# The suffix is derived from session_id (from hook event) or PPID as fallback.
+_session_suffix: str | None = None
+
+
+def _get_session_suffix() -> str:
+    """Return a short hash suffix for session-scoped temp files."""
+    global _session_suffix
+    if _session_suffix is not None:
+        return _session_suffix
+    # Fallback to PPID until session_id is available
+    _session_suffix = str(os.getppid())
+    return _session_suffix
+
+
+def _init_session_suffix(session_id: str) -> None:
+    """Set session suffix from the hook event's session_id (called once from main)."""
+    global _session_suffix
+    if session_id:
+        _session_suffix = hashlib.sha256(session_id.encode()).hexdigest()[:12]
+
+
+def _session_lock_path() -> Path:
+    return Path(f"/tmp/.claude-orchestrator-lock-{_get_session_suffix()}")
+
+
+def _read_budget_path() -> Path:
+    return Path(f"/tmp/.claude-orchestrator-reads-{_get_session_suffix()}")
+
+
+# Legacy global paths (checked on first run for migration)
+_LEGACY_LOCK = Path("/tmp/.claude-orchestrator-lock")
+_LEGACY_BUDGET = Path("/tmp/.claude-orchestrator-reads")
+
+# Lock file TTL: 30 minutes (reduced from 4 hours to prevent long deadlocks on crash)
+SESSION_LOCK_TTL = 30 * 60
 
 # Cumulative read budget: total bytes the orchestrator may read during delegation.
 # Individual files pass the per-file gate (FILE_SIZE_THRESHOLD) but are also
@@ -126,8 +160,8 @@ SAFE_PIPE_TARGETS = frozenset(
 PROTECTED_PATHS = (
     "delegate_mode.json",
     ".claude-orchestrator-lock",
+    ".claude-orchestrator-reads",
     str(STATE_FILE),
-    str(SESSION_LOCK),
 )
 
 # Files smaller than this pass through Read during DELEGATE (context-friendly)
@@ -183,13 +217,14 @@ def _read_budget_remaining() -> int:
     Returns READ_BUDGET_BYTES if no tracking file exists (fresh session).
     """
     try:
-        if not READ_BUDGET_FILE.exists():
+        budget_file = _read_budget_path()
+        if not budget_file.exists():
             return READ_BUDGET_BYTES
-        data = json.loads(READ_BUDGET_FILE.read_text(encoding="utf-8"))
+        data = json.loads(budget_file.read_text(encoding="utf-8"))
         created = data.get("created", 0)
         # Reset if older than lock TTL (stale session)
         if time.time() - created > SESSION_LOCK_TTL:
-            READ_BUDGET_FILE.unlink(missing_ok=True)
+            budget_file.unlink(missing_ok=True)
             return READ_BUDGET_BYTES
         return max(0, READ_BUDGET_BYTES - data.get("bytes_read", 0))
     except (json.JSONDecodeError, OSError):
@@ -197,14 +232,34 @@ def _read_budget_remaining() -> int:
 
 
 def _charge_read_budget(file_size: int) -> None:
-    """Deduct file_size bytes from the cumulative read budget."""
+    """Deduct file_size bytes from the cumulative read budget.
+
+    Uses atomic write (temp file + rename) to prevent race conditions when
+    multiple concurrent hooks charge the budget simultaneously.
+    """
     try:
+        import tempfile
+
+        budget_file = _read_budget_path()
         data: dict[str, object] = {"created": time.time(), "bytes_read": 0, "read_count": 0}
-        if READ_BUDGET_FILE.exists():
-            data = json.loads(READ_BUDGET_FILE.read_text(encoding="utf-8"))
+        if budget_file.exists():
+            data = json.loads(budget_file.read_text(encoding="utf-8"))
         data["bytes_read"] = int(data.get("bytes_read", 0)) + file_size
         data["read_count"] = int(data.get("read_count", 0)) + 1
-        READ_BUDGET_FILE.write_text(json.dumps(data), encoding="utf-8")
+
+        # Atomic write: write to temp file, then rename
+        budget_file.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=budget_file.parent,
+            delete=False,
+        ) as tmp:
+            tmp.write(json.dumps(data))
+            tmp_path = tmp.name
+
+        # Rename is atomic on POSIX systems
+        Path(tmp_path).replace(budget_file)
     except (json.JSONDecodeError, OSError):
         pass
 
@@ -372,29 +427,48 @@ HIERARCHICAL_READ_BUDGET = 0
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 
+def _is_pid_alive(pid: int) -> bool:
+    """Check if a process with the given PID is still running."""
+    try:
+        # Sending signal 0 doesn't kill the process, just checks if it exists
+        os.kill(pid, 0)
+        return True
+    except (OSError, ProcessLookupError):
+        return False
+
+
 def _check_session_lock() -> dict | None:
     """Check if session lock file exists and is not expired.
 
     Returns lock data dict if locked, None if not locked or expired.
+    Also checks PID liveness to detect stale locks from crashed processes.
     """
-    if not SESSION_LOCK.exists():
+    lock_file = _session_lock_path()
+    if not lock_file.exists():
         return None
 
     try:
-        data = json.loads(SESSION_LOCK.read_text(encoding="utf-8"))
+        data = json.loads(lock_file.read_text(encoding="utf-8"))
         created = data.get("created", 0)
 
         # Auto-expire after TTL (stale session cleanup)
         if time.time() - created > SESSION_LOCK_TTL:
-            _blog("Session lock expired (4h TTL), removing")
-            SESSION_LOCK.unlink(missing_ok=True)
+            _blog("Session lock expired (30min TTL), removing")
+            lock_file.unlink(missing_ok=True)
+            return None
+
+        # PID liveness check: if lock contains a PID and that PID is dead, consider lock stale
+        lock_pid = data.get("pid")
+        if lock_pid and not _is_pid_alive(lock_pid):
+            _blog(f"Session lock PID {lock_pid} not alive, removing stale lock")
+            lock_file.unlink(missing_ok=True)
             return None
 
         return data
     except (json.JSONDecodeError, OSError):
         # Corrupted lock file — remove and proceed unlocked
         try:
-            SESSION_LOCK.unlink(missing_ok=True)
+            lock_file.unlink(missing_ok=True)
         except OSError:
             pass
         return None
@@ -412,9 +486,10 @@ def _create_session_lock(command: str, delegation_mode: str = "") -> None:
             "created": time.time(),
             "command": command,
             "delegation_mode": delegation_mode,
-            "note": "Session-scoped delegation lock. Auto-expires after 4 hours.",
+            "pid": os.getpid(),
+            "note": "Session-scoped delegation lock. Auto-expires after 30 minutes.",
         }
-        SESSION_LOCK.write_text(json.dumps(lock_data), encoding="utf-8")
+        _session_lock_path().write_text(json.dumps(lock_data), encoding="utf-8")
         _blog(f"Session lock CREATED mode={delegation_mode}: {command}")
     except OSError as e:
         _blog(f"Failed to create session lock: {e}")
@@ -426,10 +501,24 @@ def _create_session_lock(command: str, delegation_mode: str = "") -> None:
 
 
 def _has_dangerous_operators(cmd: str) -> bool:
-    """Detect shell chaining/substitution operators (&&, ||, ;, backtick, $())."""
+    """Detect shell chaining/substitution operators (&&, ||, ;, backtick, $()).
+
+    Also checks for:
+    - Encoded semicolons like $'\x3b' or $'\073'
+    - Subshell syntax: $(...) command substitution
+    - Backticks for command substitution
+    - Process substitution: <(...) and >(...)
+    """
     for op in DANGEROUS_OPERATORS:
         if op in cmd:
             return True
+
+    # Detect encoded semicolons and other escape sequences that could bypass detection
+    if "$'" in cmd or r"\x" in cmd or r"\0" in cmd:
+        return True
+
+    # Already checked via DANGEROUS_OPERATORS, but being explicit
+    # $() for command substitution, <() and >() for process substitution
     return False
 
 
@@ -565,6 +654,10 @@ def main() -> None:
 
         event = json.loads(event_json)
         tool_name = event.get("tool_name", "")
+
+        # Initialize session-scoped file paths from session_id (once per process)
+        _init_session_suffix(event.get("session_id", ""))
+
         _blog(f"CALLED tool={tool_name}")
 
         # Always-allowed tools — never blocked under any circumstance

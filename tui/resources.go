@@ -52,8 +52,9 @@ func Gauge(label string, value, max float64, width int, theme Theme) string {
 	}
 
 	barWidth := width - len(label) - 12 // label + space + pct
-	if barWidth < 5 {
-		barWidth = 5
+	// Bug I fix: Clamp to minimum 1 to prevent negative width on narrow terminals
+	if barWidth < 1 {
+		barWidth = 1
 	}
 
 	filled := int(math.Round(ratio * float64(barWidth)))

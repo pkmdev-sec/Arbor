@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/lipgloss"
@@ -12,6 +13,7 @@ const maxMessages = 500
 
 // MessageRing is a ring buffer for IPC messages.
 type MessageRing struct {
+	mu   sync.Mutex   // Bug G fix: Mutex for thread-safe access
 	msgs []IPCMessage
 	head int
 	size int
@@ -26,6 +28,9 @@ func NewMessageRing(cap int) *MessageRing {
 
 // Push adds a message to the ring buffer.
 func (r *MessageRing) Push(msg IPCMessage) {
+	// Bug G fix: Lock during mutation
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.msgs[r.head] = msg
 	r.head = (r.head + 1) % len(r.msgs)
 	if r.size < len(r.msgs) {
@@ -35,6 +40,9 @@ func (r *MessageRing) Push(msg IPCMessage) {
 
 // All returns all messages in chronological order.
 func (r *MessageRing) All() []IPCMessage {
+	// Bug G fix: Lock during read
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	if r.size == 0 {
 		return nil
 	}
@@ -49,6 +57,9 @@ func (r *MessageRing) All() []IPCMessage {
 
 // Len returns the number of messages in the buffer.
 func (r *MessageRing) Len() int {
+	// Bug G fix: Lock during read
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	return r.size
 }
 

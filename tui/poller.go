@@ -32,10 +32,11 @@ func NewDataPoller(interval time.Duration) *DataPoller {
 
 // PollResult holds data from all polled sources.
 type PollResult struct {
-	Agents    []Agent
-	Worktrees []WorktreeInfo
-	Resources ResourceSnapshot
-	IPCEvents []IPCEvent
+	Agents      []Agent
+	Worktrees   []WorktreeInfo
+	Resources   ResourceSnapshot
+	IPCEvents   []IPCEvent
+	ParseErrors int // Bug K fix: Track JSON parse failures
 }
 
 // IPCEvent represents a single IPC log event from ipc.jsonl.
@@ -70,7 +71,8 @@ type pollTickMsg struct {
 // The actual polling runs in a background goroutine to never block the TUI.
 func (p *DataPoller) PollTick() tea.Cmd {
 	return tea.Tick(p.interval, func(t time.Time) tea.Msg {
-		// Start background poll if not already running (atomic to avoid race)
+		// Bug J fix: Use atomic bool to ensure only one poll runs at a time
+		// This prevents overlapping polls from causing concurrent model mutation
 		if p.polling.CompareAndSwap(false, true) {
 			go func() {
 				result := p.Poll()
@@ -101,8 +103,10 @@ func (p *DataPoller) Poll() PollResult {
 	result.Worktrees = pollWorktrees()
 
 	// 2. Result files in /tmp
-	tmpAgents := pollResultFiles()
+	// Bug K fix: Track parse errors
+	tmpAgents, tmpErrors := pollResultFiles()
 	result.Agents = append(result.Agents, tmpAgents...)
+	result.ParseErrors += tmpErrors
 
 	// 3. Running Claude processes — disabled (produces noisy claude-pid-* entries
 	// that lack useful data. Swarm result files are the authoritative source.)
@@ -110,8 +114,9 @@ func (p *DataPoller) Poll() PollResult {
 	// result.Agents = append(result.Agents, procAgents...)
 
 	// 4. Swarm run directories
-	swarmAgents := pollSwarmDirs()
+	swarmAgents, swarmErrors := pollSwarmDirs()
 	result.Agents = append(result.Agents, swarmAgents...)
+	result.ParseErrors += swarmErrors
 
 	// Deduplicate agents by ID
 	seen := map[string]bool{}
@@ -220,13 +225,14 @@ func pollWorktrees() []WorktreeInfo {
 	return trees
 }
 
-func pollResultFiles() []Agent {
+func pollResultFiles() ([]Agent, int) {
 	matches, err := filepath.Glob("/tmp/*.json")
 	if err != nil {
-		return nil
+		return nil, 0
 	}
 
 	var agents []Agent
+	parseErrors := 0 // Bug K fix: Track parse failures
 	for _, path := range matches {
 		// Skip non-agent files
 		basename := filepath.Base(path)
@@ -285,6 +291,7 @@ func pollResultFiles() []Agent {
 		}
 
 		if err := json.Unmarshal(data, &result); err != nil {
+			parseErrors++ // Bug K fix: Count parse failures
 			continue
 		}
 
@@ -377,7 +384,7 @@ func pollResultFiles() []Agent {
 		})
 	}
 
-	return agents
+	return agents, parseErrors
 }
 
 func pollProcesses() []Agent {
@@ -415,11 +422,11 @@ func pollProcesses() []Agent {
 	return agents
 }
 
-func pollSwarmDirs() []Agent {
+func pollSwarmDirs() ([]Agent, int) {
 	base := "/tmp/swarm"
 	entries, err := os.ReadDir(base)
 	if err != nil {
-		return nil
+		return nil, 0
 	}
 
 	// Only scan the 10 most recent run directories to limit I/O
@@ -428,6 +435,7 @@ func pollSwarmDirs() []Agent {
 	}
 
 	var agents []Agent
+	parseErrors := 0 // Bug K fix: Track parse failures
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
@@ -491,6 +499,7 @@ func pollSwarmDirs() []Agent {
 				} `json:"telemetry"`
 			}
 			if err := json.Unmarshal(data, &result); err != nil {
+				parseErrors++ // Bug K fix: Count parse failures
 				continue
 			}
 
@@ -597,6 +606,7 @@ func pollSwarmDirs() []Agent {
 				Task        string `json:"task"`
 			}
 			if err := json.Unmarshal(data, &progress); err != nil {
+				parseErrors++ // Bug K fix: Count parse failures
 				continue
 			}
 
@@ -632,7 +642,7 @@ func pollSwarmDirs() []Agent {
 		}
 	}
 
-	return agents
+	return agents, parseErrors
 }
 
 func truncateStr(s string, max int) string {

@@ -682,14 +682,61 @@ async function main() {
       activePids.delete(proc.pid);
     });
 
+    // Bug D: Propagate SIGTERM/SIGINT to child process for graceful shutdown
+    const handleSignal = (signal) => {
+      if (!proc.killed && proc.exitCode === null) {
+        try {
+          proc.kill(signal);
+          // Wait briefly for graceful exit before force-killing
+          setTimeout(() => {
+            if (!proc.killed && proc.exitCode === null) {
+              try {
+                proc.kill("SIGKILL");
+              } catch {}
+            }
+          }, 3000);
+        } catch {}
+      }
+    };
+
+    const sigintHandler = () => handleSignal("SIGINT");
+    const sigtermHandler = () => handleSignal("SIGTERM");
+    process.once("SIGINT", sigintHandler);
+    process.once("SIGTERM", sigtermHandler);
+
+    // Clean up signal handlers when process exits
+    proc.on("exit", () => {
+      process.off("SIGINT", sigintHandler);
+      process.off("SIGTERM", sigtermHandler);
+    });
+
     // TASK 1: Capture stdout with ring buffer + overflow to temp file
     stdoutChunks = [];
     stdoutBytes = 0;
+    let stdoutTruncationWarned = false; // Bug A: Track if truncation warning was logged
 
     proc.stdout.on("data", (chunk) => {
       stdoutChunks.push(chunk);
       stdoutBytes += chunk.length;
       peakStdoutBytes = Math.max(peakStdoutBytes, stdoutBytes);
+
+      // Bug A: Limit buffer to 5MB to prevent OOM on large agent output
+      // Truncate from beginning (keep tail with most recent/relevant output)
+      const STDOUT_MAX_BUFFER = 5 * 1024 * 1024; // 5MB
+      while (stdoutBytes > STDOUT_MAX_BUFFER && stdoutChunks.length > 0) {
+        if (!stdoutTruncationWarned) {
+          console.error(`[agent-entry] Warning: stdout buffer exceeded ${(STDOUT_MAX_BUFFER / 1024 / 1024).toFixed(0)}MB, truncating oldest chunks`);
+          stdoutTruncationWarned = true;
+        }
+        const dropped = stdoutChunks.shift();
+        stdoutBytes -= dropped.length;
+
+        if (!stdoutOverflowStream) {
+          stdoutOverflowPath = join(tempDir, "stdout-overflow.log");
+          stdoutOverflowStream = createWriteStream(stdoutOverflowPath, { flags: "a" });
+        }
+        stdoutOverflowStream.write(dropped);
+      }
 
       // Write overflow to temp file when exceeding MAX_BUFFER_SIZE
       while (stdoutBytes > MAX_BUFFER_SIZE && stdoutChunks.length > 0) {
@@ -753,6 +800,12 @@ async function main() {
       ? `${colors.dim}[${process.env.SWARM_AGENT_ID}]${colors.reset} `
       : "";
 
+    // Bug B: Reset all state before retry to prevent stale data from previous attempt
+    stdoutChunks = []; // Clear output buffer
+    stdoutBytes = 0;
+    stderrChunks = [];
+    stderrBytes = 0;
+
     // Reset progress tracking for this attempt (accumulates within a single attempt)
     progress.tool_calls_count = 0;
     progress.last_tool = null;
@@ -805,6 +858,12 @@ async function main() {
     // Stderr + IPC logs throttled to every 30s (every 6th tick) to avoid noise
     let progressTick = 0;
     const progressInterval = setInterval(() => {
+      // Bug C: Check if child process is still alive before sending progress updates
+      if (proc.killed || proc.exitCode !== null) {
+        clearInterval(progressInterval);
+        return;
+      }
+
       progressTick++;
       const elapsedSec = ((Date.now() - startTime) / 1000).toFixed(0);
       const stdoutKB = (stdoutBytes / 1024).toFixed(0);
@@ -839,6 +898,11 @@ async function main() {
         }
       }
     }, 5000);
+
+    // Bug C: Stop progress tracking immediately on process exit
+    proc.on("exit", () => {
+      clearInterval(progressInterval);
+    });
 
     proc.stderr.on("data", (chunk) => {
       lastStderrTime = Date.now(); // Reset inactivity watchdog

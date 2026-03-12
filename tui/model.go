@@ -74,10 +74,11 @@ type Model struct {
 	confirmDialog ConfirmDialog
 	launcher      LauncherModel
 
-	lastError  string
-	startTime  time.Time
-	lastPoll   time.Time
-	isPolling  bool
+	lastError   string
+	parseErrors int       // Bug K fix: Track JSON parse failures
+	startTime   time.Time
+	lastPoll    time.Time
+	isPolling   bool
 }
 
 // NewModel creates the initial model from CLI flags.
@@ -141,10 +142,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.confirmDialog.Visible {
 			switch msg.String() {
 			case "y", "Y":
+				// Bug F fix: Track if callback produced error
+				prevError := m.lastError
 				if m.confirmDialog.OnYes != nil {
 					m.confirmDialog.OnYes()
 				}
-				m.confirmDialog.Hide()
+				// Only hide dialog if no new error occurred
+				if m.lastError == prevError {
+					m.confirmDialog.Hide()
+				}
 				return m, nil
 			case "n", "N", "esc":
 				if m.confirmDialog.OnNo != nil {
@@ -208,6 +214,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.worktrees = msg.result.Worktrees
 			m.resources = msg.result.Resources
 			m.ipcEvents = msg.result.IPCEvents
+			m.parseErrors = msg.result.ParseErrors // Bug K fix: Track parse errors
 			m.hierarchy = BuildHierarchy()
 			if m.selectedAgent >= len(m.agents) {
 				m.selectedAgent = max(0, len(m.agents)-1)
@@ -372,35 +379,48 @@ func (m Model) handleAgentKeys(msg tea.KeyMsg) Model {
 			m.agentSortBy = "name"
 		}
 	case key.Matches(msg, m.keys.PauseAgent):
-		if m.selectedAgent >= 0 && m.selectedAgent < len(m.agents) && m.ipc != nil {
+		// Bug D fix: Check IsConnected() atomically to prevent nil dereference
+		if m.selectedAgent >= 0 && m.selectedAgent < len(m.agents) && m.ipc != nil && m.ipc.IsConnected() {
 			agentID := m.agents[m.selectedAgent].ID
 			m.confirmDialog = NewConfirmDialog(
 				"Pause Agent",
 				fmt.Sprintf("Pause agent %s?", agentID),
 				func() {
-					if err := m.ipc.PauseAgent(agentID); err != nil {
-						m.lastError = fmt.Sprintf("pause failed: %v", err)
+					// Defensive: re-check connection before IPC call
+					if m.ipc != nil && m.ipc.IsConnected() {
+						if err := m.ipc.PauseAgent(agentID); err != nil {
+							m.lastError = fmt.Sprintf("pause failed: %v", err)
+						}
+					} else {
+						m.lastError = "IPC connection lost"
 					}
 				},
 				nil,
 			)
 		}
 	case key.Matches(msg, m.keys.ResumeAgent):
-		if m.selectedAgent >= 0 && m.selectedAgent < len(m.agents) && m.ipc != nil {
+		// Bug D fix: Check IsConnected() atomically to prevent nil dereference
+		if m.selectedAgent >= 0 && m.selectedAgent < len(m.agents) && m.ipc != nil && m.ipc.IsConnected() {
 			agentID := m.agents[m.selectedAgent].ID
 			if err := m.ipc.ResumeAgent(agentID); err != nil {
 				m.lastError = fmt.Sprintf("resume failed: %v", err)
 			}
 		}
 	case key.Matches(msg, m.keys.DisconnectAgent):
-		if m.selectedAgent >= 0 && m.selectedAgent < len(m.agents) && m.ipc != nil {
+		// Bug D fix: Check IsConnected() atomically to prevent nil dereference
+		if m.selectedAgent >= 0 && m.selectedAgent < len(m.agents) && m.ipc != nil && m.ipc.IsConnected() {
 			agentID := m.agents[m.selectedAgent].ID
 			m.confirmDialog = NewConfirmDialog(
 				"Disconnect Agent",
 				fmt.Sprintf("Disconnect agent %s?", agentID),
 				func() {
-					if err := m.ipc.DisconnectAgent(agentID); err != nil {
-						m.lastError = fmt.Sprintf("disconnect failed: %v", err)
+					// Defensive: re-check connection before IPC call
+					if m.ipc != nil && m.ipc.IsConnected() {
+						if err := m.ipc.DisconnectAgent(agentID); err != nil {
+							m.lastError = fmt.Sprintf("disconnect failed: %v", err)
+						}
+					} else {
+						m.lastError = "IPC connection lost"
 					}
 				},
 				nil,
@@ -668,6 +688,11 @@ func (m Model) viewStatusBar() string {
 	// Keyboard hints
 	parts = append(parts, muted.Render("Tab/Shift+Tab:switch"))
 	parts = append(parts, muted.Render("?:help"))
+
+	// Bug K fix: Display parse error count
+	if m.parseErrors > 0 {
+		parts = append(parts, lipgloss.NewStyle().Foreground(m.theme.Warning).Render(fmt.Sprintf("⚠ %d parse errors", m.parseErrors)))
+	}
 
 	// Error
 	if m.lastError != "" {
@@ -1115,22 +1140,23 @@ func (m Model) viewAgents(width, height int) string {
 
 	list := strings.Join(visibleLines, "\n")
 
-	// Selected agent detail — bounds-check against sortedAgents to prevent panic
+	// Bug E fix: Explicit empty check before indexing to prevent panic
 	var detail string
-	sel := m.selectedAgent
-	if sel < 0 {
-		sel = 0
-	}
-	if sel >= len(sortedAgents) {
-		sel = len(sortedAgents) - 1
-	}
-	if sel >= 0 && sel < len(sortedAgents) {
-		detail = RenderAgentDetail(sortedAgents[sel], detailW-2, m.theme)
-	} else {
-		// Show placeholder when no agent selected
+	if len(sortedAgents) == 0 {
+		// Show placeholder when no agents exist
 		detail = lipgloss.NewStyle().
 			Foreground(m.theme.Muted).
-			Render("\n  Select an agent from the list to view details")
+			Render("\n  No agents available")
+	} else {
+		// Selected agent detail — bounds-check against sortedAgents to prevent panic
+		sel := m.selectedAgent
+		if sel < 0 {
+			sel = 0
+		}
+		if sel >= len(sortedAgents) {
+			sel = len(sortedAgents) - 1
+		}
+		detail = RenderAgentDetail(sortedAgents[sel], detailW-2, m.theme)
 	}
 
 	// Don't constrain height — let content determine panel size.

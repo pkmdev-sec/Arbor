@@ -23,9 +23,25 @@ from pathlib import Path
 STATE_FILE = (
     Path.home() / ".claude" / "hooks" / ".acontext_state" / "delegate_mode.json"
 )
-SESSION_LOCK = Path("/tmp/.claude-orchestrator-lock")
-READ_BUDGET_FILE = Path("/tmp/.claude-orchestrator-reads")
 BLOCKER_LOG = Path.home() / ".claude" / "hooks" / ".acontext_state" / "blocker.log"
+
+
+def _get_session_suffix(session_id: str = "") -> str:
+    """Return a short hash suffix for session-scoped temp files."""
+    if session_id:
+        import hashlib
+
+        return hashlib.sha256(session_id.encode()).hexdigest()[:12]
+    # Fallback to PPID if no session_id
+    return str(os.getppid())
+
+
+def _session_lock_path(session_id: str = "") -> Path:
+    return Path(f"/tmp/.claude-orchestrator-lock-{_get_session_suffix(session_id)}")
+
+
+def _read_budget_path(session_id: str = "") -> Path:
+    return Path(f"/tmp/.claude-orchestrator-reads-{_get_session_suffix(session_id)}")
 
 
 def _log(msg: str) -> None:
@@ -80,6 +96,7 @@ def main() -> None:
 
         event = json.loads(event_json)
         tool_name = event.get("tool_name", "")
+        session_id = event.get("session_id", "")
 
         # ── Record Skill invocations for nonce-based verification ──
         if tool_name == "Skill":
@@ -156,8 +173,11 @@ def main() -> None:
 
         # Remove session lock and read budget so post-delegation tools
         # (Read, Grep, etc.) are allowed for reviewing arbor output.
-        # Without this, the lock persists for 4h and blocks everything.
-        for lock_file in (SESSION_LOCK, READ_BUDGET_FILE):
+        # Without this, the lock persists and blocks everything.
+        # Use session-aware paths
+        session_lock = _session_lock_path(session_id)
+        read_budget = _read_budget_path(session_id)
+        for lock_file in (session_lock, read_budget):
             try:
                 lock_file.unlink(missing_ok=True)
             except OSError:

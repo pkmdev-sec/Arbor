@@ -44,6 +44,26 @@ async function loadHierarchy() {
 
 const SWARM_BASE = "/tmp/swarm";
 
+/**
+ * Compute the agentCwd resolver for worktree-based agents.
+ * When the user invokes arbor from a subdirectory of a git repo, agents
+ * spawned in worktrees need their CWD set to the corresponding subdirectory
+ * within the worktree (not the worktree root).
+ *
+ * Returns a function: (wtPath?: string) => string
+ */
+function computeAgentCwd(mainCwd) {
+  let cwdPrefix = "";
+  try {
+    const gitRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], {
+      cwd: mainCwd, encoding: "utf-8", timeout: 5000,
+    }).trim();
+    cwdPrefix = relative(gitRoot, mainCwd);
+  } catch {}
+  return (wtPath) =>
+    wtPath ? (cwdPrefix ? join(wtPath, cwdPrefix) : wtPath) : mainCwd;
+}
+
 // ── Scout project structure (Phase 3 — parallel with decompose) ──
 async function scoutProject(task, workDir, contextFile, projectTree = "") {
   // S3: Use pre-computed projectTree if provided, otherwise scan
@@ -139,18 +159,7 @@ async function executeHierarchical(task, args, workDir, depth) {
     detectFileLevelConflicts, createConflictSummary } = hierarchy;
 
   const mainCwd = process.cwd();
-
-  // Compute git root prefix — worktree bug fix: agents need CWD set to
-  // the subdirectory within the worktree, not the worktree root.
-  let cwdPrefix = "";
-  try {
-    const gitRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], {
-      cwd: mainCwd, encoding: "utf-8", timeout: 5000,
-    }).trim();
-    cwdPrefix = relative(gitRoot, mainCwd);
-  } catch {}
-  const agentCwd = (wtPath) =>
-    wtPath ? (cwdPrefix ? join(wtPath, cwdPrefix) : wtPath) : mainCwd;
+  const agentCwd = computeAgentCwd(mainCwd);
 
   const hierarchyConfig = {
     maxDepth: args.hierarchyDepth,
@@ -201,48 +210,72 @@ async function executeHierarchical(task, args, workDir, depth) {
   // Start IPC message bus for hierarchical coordination (ScopedBus, heartbeats, progress)
   let bus = null;
   const busSocketPath = join(workDir, "ipc-bus.sock");
+
+  // BUG FIX 2: Wrap entire execution pipeline in try-finally to ensure cleanup on early failure
+  // Governor and bus must be cleaned up even if decomposition fails or execution throws
+  let workerResults;
+  let governorReport;
+  let executionMs = 0;
+
   try {
-    const { MessageBus } = await import("./lib/ipc/message-bus.mjs");
-    bus = new MessageBus({ socketPath: busSocketPath });
-    await bus.start();
-    log(`${colors.dim}IPC bus started: ${busSocketPath}${colors.reset}`);
+    try {
+      const { MessageBus } = await import("./lib/ipc/message-bus.mjs");
+      bus = new MessageBus({ socketPath: busSocketPath });
+      await bus.start();
+      log(`${colors.dim}IPC bus started: ${busSocketPath}${colors.reset}`);
 
-    // Connect governor to bus for real-time monitoring
-    await governor.connectBus(busSocketPath, "orchestrator");
-  } catch (err) {
-    log(`${colors.yellow}IPC bus unavailable: ${err.message} (continuing without real-time IPC)${colors.reset}`);
-  }
-
-  // ── Phase 4: Execute the hierarchy top-down ────────────────────────
-  log(`\n${colors.bold}${colors.cyan}[EXECUTE]${colors.reset} Starting hierarchical execution...`);
-  logIpc('orchestrator', 'all', 'lifecycle', 'Hierarchical execution starting');
-
-  // Track per-level progress during execution
-  const levelProgress = new Map(); // level → { total, completed, failed }
-  function trackNodeProgress(node) {
-    if (!node.children || node.children.length === 0) return;
-    const level = node.level;
-    if (!levelProgress.has(level)) {
-      levelProgress.set(level, { total: 0, completed: 0, failed: 0 });
+      // Connect governor to bus for real-time monitoring
+      await governor.connectBus(busSocketPath, "orchestrator");
+    } catch (err) {
+      log(`${colors.yellow}IPC bus unavailable: ${err.message} (continuing without real-time IPC)${colors.reset}`);
     }
-    levelProgress.get(level).total += node.children.length;
-    for (const child of node.children) {
-      trackNodeProgress(child);
+
+    // ── Phase 4: Execute the hierarchy top-down ────────────────────────
+    log(`\n${colors.bold}${colors.cyan}[EXECUTE]${colors.reset} Starting hierarchical execution...`);
+    logIpc('orchestrator', 'all', 'lifecycle', 'Hierarchical execution starting');
+
+    // Track per-level progress during execution
+    const levelProgress = new Map(); // level → { total, completed, failed }
+    function trackNodeProgress(node) {
+      if (!node.children || node.children.length === 0) return;
+      const level = node.level;
+      if (!levelProgress.has(level)) {
+        levelProgress.set(level, { total: 0, completed: 0, failed: 0 });
+      }
+      levelProgress.get(level).total += node.children.length;
+      for (const child of node.children) {
+        trackNodeProgress(child);
+      }
+    }
+    trackNodeProgress(decompositionTree.root);
+
+    const executionStart = Date.now();
+    workerResults = await executeHierarchyLevel(
+      decompositionTree.root, task, workDir, depth, args, governor, mainCwd, busSocketPath, agentCwd
+    );
+    executionMs = Date.now() - executionStart;
+  } finally {
+    // ── Phase 5: Cleanup IPC bus + Governor (always, even on throw or early return) ────
+    // BUG FIX 2: This finally block ensures cleanup happens even if:
+    // - decomposition failed (phase 1-2)
+    // - governor/bus creation failed (phase 3)
+    // - execution threw an error (phase 4)
+    if (bus) {
+      try {
+        await bus.stop();
+        log(`${colors.dim}IPC bus stopped${colors.reset}`);
+      } catch (err) {
+        log(`${colors.yellow}IPC bus cleanup failed: ${err.message}${colors.reset}`);
+      }
+    }
+    try {
+      governorReport = await governor.cleanup();
+    } catch (err) {
+      log(`${colors.yellow}Governor cleanup failed: ${err.message}${colors.reset}`);
+      governorReport = { totalSpawned: 0, totalCompleted: 0, totalFailed: 0, totalCost: 0 };
     }
   }
-  trackNodeProgress(decompositionTree.root);
 
-  const executionStart = Date.now();
-  const workerResults = await executeHierarchyLevel(
-    decompositionTree.root, task, workDir, depth, args, governor, mainCwd, busSocketPath
-  );
-  const executionMs = Date.now() - executionStart;
-
-  // ── Phase 5: Cleanup IPC bus + Governor final stats ──────────────────
-  if (bus) {
-    try { await bus.stop(); } catch {}
-  }
-  const governorReport = await governor.cleanup();
   log(`${colors.dim}Governor: spawned=${governorReport.totalSpawned} completed=${governorReport.totalCompleted} failed=${governorReport.totalFailed} cost=$${governorReport.totalCost.toFixed(3)}${colors.reset}`);
   logIpc('governor', 'orchestrator', 'result',
     `spawned=${governorReport.totalSpawned} completed=${governorReport.totalCompleted} failed=${governorReport.totalFailed}`,
@@ -369,7 +402,9 @@ async function executeHierarchical(task, args, workDir, depth) {
  * @param {string} mainCwd - Original working directory
  * @param {string|null} busSocketPath - IPC bus socket path (null if bus unavailable)
  */
-async function executeHierarchyLevel(node, parentTask, workDir, depth, args, governor, mainCwd, busSocketPath = null) {
+async function executeHierarchyLevel(node, parentTask, workDir, depth, args, governor, mainCwd, busSocketPath = null, agentCwd = null) {
+  // Fallback: compute agentCwd if caller didn't provide it (safety net)
+  if (!agentCwd) agentCwd = computeAgentCwd(mainCwd);
   const preset = DEPTH[depth];
   const results = [];
 
@@ -389,6 +424,18 @@ async function executeHierarchyLevel(node, parentTask, workDir, depth, args, gov
 
     governor.registerAgent({ id: agentId, level: node.level, scope: node.scope?.[0] || "root", worktreePath: isolation.worktreePath, parentId: null });
 
+    // BUG FIX 1: Ensure agentCwd uses worktree path when isolation succeeds, falls back to mainCwd otherwise
+    // The agentCwd function computes the correct subdirectory within the worktree based on git root
+    // If isolation failed (no worktree), use mainCwd directly; if isolation succeeded, use worktree path
+    const effectiveCwd = isolation.success && isolation.worktreePath
+      ? agentCwd(isolation.worktreePath)  // Worktree path with proper subdirectory
+      : mainCwd;                          // Fallback to main repo if isolation failed
+
+    // BUG FIX 1: Set ARBOR_SCOPE to match the actual cwd being used
+    const scopeEnv = node.scope && node.scope.length > 0
+      ? { ARBOR_SCOPE: node.scope.join(",") }
+      : {};
+
     const result = await spawnAgent({
       task: taskDesc + scopeHint,
       role: "worker",
@@ -401,7 +448,8 @@ async function executeHierarchyLevel(node, parentTask, workDir, depth, args, gov
       resultFile: rf,
       contextFile: args.contextFile,
       agentId,
-      cwd: agentCwd(isolation.worktreePath),
+      cwd: effectiveCwd,
+      env: scopeEnv,
       ipcSocket: busSocketPath,                                  // Part 2: IPC bus connection
     });
 
@@ -466,7 +514,7 @@ async function executeHierarchyLevel(node, parentTask, workDir, depth, args, gov
       log(`${colors.yellow}  ⚠ SubCoordinator failed: ${err.message} — falling back to direct execution${colors.reset}`);
       // Fall through to direct recursive execution below
       const childPromises = node.children.map(child =>
-        executeHierarchyLevel(child, node.task || parentTask, workDir, depth, args, governor, mainCwd, busSocketPath)
+        executeHierarchyLevel(child, node.task || parentTask, workDir, depth, args, governor, mainCwd, busSocketPath, agentCwd)
       );
       const childResultArrays = await Promise.all(childPromises);
       for (const childResults of childResultArrays) {
@@ -476,7 +524,7 @@ async function executeHierarchyLevel(node, parentTask, workDir, depth, args, gov
   } else {
     // Shallow hierarchy or no bus: direct recursive execution
     const childPromises = node.children.map(child =>
-      executeHierarchyLevel(child, node.task || parentTask, workDir, depth, args, governor, mainCwd, busSocketPath)
+      executeHierarchyLevel(child, node.task || parentTask, workDir, depth, args, governor, mainCwd, busSocketPath, agentCwd)
     );
     const childResultArrays = await Promise.all(childPromises);
     for (const childResults of childResultArrays) {
@@ -610,16 +658,7 @@ async function main() {
   let conflictReport = null;
   const mainCwd = process.cwd();
 
-  // Compute git root prefix for agent CWD (worktree bug fix)
-  let swarmCwdPrefix = "";
-  try {
-    const gitRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], {
-      cwd: mainCwd, encoding: "utf-8", timeout: 5000,
-    }).trim();
-    swarmCwdPrefix = relative(gitRoot, mainCwd);
-  } catch {}
-  const agentCwd = (wtPath) =>
-    wtPath ? (swarmCwdPrefix ? join(wtPath, swarmCwdPrefix) : wtPath) : mainCwd;
+  const agentCwd = computeAgentCwd(mainCwd);
 
   if (mode === "single") {
     const rf = join(workDir, "agent-01-result.json");
@@ -758,22 +797,38 @@ async function main() {
       // Attach hierarchical metadata for contract building below
       workerResults._isHierarchical = true;
     } else {
-      // Hierarchy fallback — run as flat swarm
-      log(`${colors.yellow}⚠ Hierarchy unavailable, executing as flat swarm${colors.reset}`);
+      // BUG FIX 3: Hierarchy fallback — run as flat swarm with context about the fallback
+      // This ensures the flat swarm knows it's a fallback and can make informed decisions
+      log(`${colors.yellow}⚠ Hierarchy unavailable, executing as flat swarm (fallback mode)${colors.reset}`);
+      log(`${colors.dim}  Reason: Hierarchical decomposition or execution failed${colors.reset}`);
+
       const projectTree = (() => {
         try {
           return execFileSync("git", ["ls-files"], { encoding: "utf-8", timeout: 5000, cwd: process.cwd() })
             .split("\n").filter(Boolean).slice(0, 300).join("\n");
         } catch { return ""; }
       })();
+
+      // BUG FIX 3: Pass fallback context to decompose so it knows this is a fallback
+      // This allows the decomposer to adjust its strategy (e.g., be more conservative)
       const [subtasks, scoutOutput] = await Promise.all([
-        decompose(args.task, Math.max(1, args.agents - 1), depth, args.contextFile, workDir, projectTree),
+        decompose(args.task, Math.max(1, args.agents - 1), depth, args.contextFile, workDir, projectTree, {
+          isFallback: true,
+          fallbackReason: "hierarchical_mode_failed",
+          fallbackContext: "Executing flat swarm as fallback from hierarchical mode failure",
+        }),
         scoutProject(args.task, workDir, args.contextFile, projectTree),
       ]);
       scoutSummary = scoutOutput;
+
+      // Execute parallel with fallback metadata
       const parallelResult2 = await executeParallel(subtasks, depth, args.contextFile, workDir, scoutSummary);
       workerResults = parallelResult2.results;
       conflictReport = parallelResult2.conflictReport;
+
+      // Attach metadata indicating this was a hierarchical fallback
+      workerResults._hierarchicalFallback = true;
+      workerResults._fallbackReason = "hierarchical_mode_unavailable";
     }
 
   } else if (mode === "fork-merge") {

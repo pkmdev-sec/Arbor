@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -72,6 +73,7 @@ type IPCConn struct {
 	mu      sync.Mutex
 	ctx     context.Context
 	cancel  context.CancelFunc
+	closed  atomic.Bool // Bug A fix: atomic flag to prevent TOCTOU races
 
 	msgChan chan IPCMessage
 	errChan chan error
@@ -147,6 +149,7 @@ func (c *IPCConn) readLoop() {
 	}()
 
 	for {
+		// Bug B fix: Check context before blocking read
 		select {
 		case <-c.ctx.Done():
 			return
@@ -158,6 +161,7 @@ func (c *IPCConn) readLoop() {
 			if c.ctx.Err() != nil {
 				return
 			}
+			// Bug C fix: Non-blocking send to prevent deadlock
 			select {
 			case c.errChan <- err:
 			default:
@@ -165,21 +169,32 @@ func (c *IPCConn) readLoop() {
 			return
 		}
 
+		// Bug C fix: Non-blocking send with explicit drop on full channel
 		select {
 		case c.msgChan <- msg:
 		default:
-			// Drop message if channel is full
+			// Drop message if channel is full to prevent blocking TUI
 		}
 	}
 }
 
 func (c *IPCConn) readMessage() (IPCMessage, error) {
+	// Bug A fix: Check closed flag before attempting read
+	if c.closed.Load() {
+		return IPCMessage{}, fmt.Errorf("connection closed")
+	}
+
 	c.mu.Lock()
 	conn := c.conn
 	c.mu.Unlock()
 
 	if conn == nil {
 		return IPCMessage{}, fmt.Errorf("not connected")
+	}
+
+	// Bug B fix: Set read deadline to allow context cancellation
+	if err := conn.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
+		return IPCMessage{}, fmt.Errorf("set read deadline: %w", err)
 	}
 
 	// Read 4-byte length prefix
@@ -209,6 +224,11 @@ func (c *IPCConn) readMessage() (IPCMessage, error) {
 }
 
 func (c *IPCConn) writeMessage(v interface{}) error {
+	// Bug A fix: Check closed flag before attempting write
+	if c.closed.Load() {
+		return fmt.Errorf("connection closed")
+	}
+
 	data, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -301,6 +321,8 @@ func (c *IPCConn) GetBusStats() error {
 
 // Close shuts down the IPC connection.
 func (c *IPCConn) Close() {
+	// Bug A fix: Set closed flag atomically before cleanup
+	c.closed.Store(true)
 	c.cancel()
 	c.mu.Lock()
 	if c.conn != nil {
@@ -312,6 +334,10 @@ func (c *IPCConn) Close() {
 
 // IsConnected returns whether the IPC bus is connected.
 func (c *IPCConn) IsConnected() bool {
+	// Bug A/D fix: Check both conn existence and closed flag
+	if c.closed.Load() {
+		return false
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.conn != nil

@@ -145,7 +145,7 @@ _HIERARCHICAL_SIGNALS = re.compile(
     r"refactor.*(everything|all\s+\w+)|"
     r"migrate\s|"
     r"(\d+)\s+(files?|modules?|components?|services?))",
-    re.I,
+    re.I | re.MULTILINE,
 )
 
 
@@ -217,6 +217,7 @@ def classify_task(prompt: str) -> dict[str, Any]:
     """Classify task using AI with regex fallback.
 
     Returns a full routing decision dict, not just a type string.
+    Marks the result with 'classification_method' to track which method was used.
     """
     # Try AI first
     result = _classify_with_ai(prompt)
@@ -224,11 +225,14 @@ def classify_task(prompt: str) -> dict[str, Any]:
         _log(
             f"AI classified: {result.get('task_type')} mode={result.get('mode')} agents={result.get('agents')}"
         )
+        result["classification_method"] = "ai"
         return result
 
     # Fallback to regex
+    _log("WARN: AI classification failed or timed out, falling back to regex heuristics")
     result = _classify_with_regex(prompt)
     _log(f"Regex fallback: {result.get('task_type')} mode={result.get('mode')}")
+    result["classification_method"] = "regex"
     return result
 
 
@@ -548,10 +552,19 @@ def generate_directive(
     _set_delegate_mode("DELEGATE", cmd)
 
     # Enforcement header
+    classification_method = classification.get("classification_method", "unknown")
     lines.append(f"[AUTO-ROUTE] type={task_type} mode=DELEGATE pressure={pressure}")
-    lines.append(
-        f"AI routing: {mode} mode, {agents} agents, depth={depth}, verify={verify}"
-    )
+    if classification_method == "regex":
+        lines.append(
+            f"Routing (regex fallback): {mode} mode, {agents} agents, depth={depth}, verify={verify}"
+        )
+        lines.append(
+            f"NOTE: AI classification unavailable, using regex heuristics (may be less accurate)"
+        )
+    else:
+        lines.append(
+            f"AI routing: {mode} mode, {agents} agents, depth={depth}, verify={verify}"
+        )
     lines.append(f"Reasoning: {classification.get('reasoning', 'n/a')}")
     lines.append("")
     lines.append(
@@ -588,30 +601,37 @@ def main() -> None:
         if not session_id or not prompt:
             return
 
-        # Classify FIRST, then set state based on result.
-        # Previous approach wrote DELEGATE before classification, which blocked
-        # all tools even when the task was DIRECT — causing a catch-22 where
-        # investigation/debugging tasks couldn't read files.
-        classification = classify_task(prompt)
+        # Use a lock file to prevent race conditions during classification + state write
+        STATE_DIR.mkdir(parents=True, exist_ok=True)
+        lock_file_path = STATE_DIR / ".orchestrator.lock"
+        lock_file = None
 
-        # Only write DELEGATE state if the classifier says to delegate.
-        # DIRECT tasks get DIRECT state immediately — no blocking.
-        if classification.get("execution") == "DELEGATE":
-            try:
-                STATE_DIR.mkdir(parents=True, exist_ok=True)
-                DELEGATE_STATE.write_text(
-                    json.dumps(
-                        {
-                            "mode": "DELEGATE",
-                            "command": "arbor-swarm (classifying...)",
-                            "task_type": classification.get("task_type", "PENDING"),
-                            "timestamp": dt.datetime.now(dt.timezone.utc).isoformat(),
-                        }
-                    ),
-                    encoding="utf-8",
-                )
-            except Exception:
-                pass
+        try:
+            import fcntl
+
+            # Acquire lock before classification to prevent concurrent modifications
+            lock_file = open(lock_file_path, "a")
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+
+            # Classify FIRST, then set state based on result.
+            # Previous approach wrote DELEGATE before classification, which blocked
+            # all tools even when the task was DIRECT — causing a catch-22 where
+            # investigation/debugging tasks couldn't read files.
+            classification = classify_task(prompt)
+
+            # Classification done — don't write DELEGATE state yet.
+            # Wait until directive generation succeeds to avoid deadlock
+            # if generate_directive() fails/times out.
+        finally:
+            # Release lock
+            if lock_file:
+                try:
+                    import fcntl
+
+                    fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+                    lock_file.close()
+                except Exception:
+                    pass
 
         # Context pressure
         tokens, tool_count = _get_session_tokens(session_id)
@@ -628,6 +648,26 @@ def main() -> None:
             prompt=prompt,
             cwd=cwd,
         )
+
+        # Write DELEGATE state AFTER directive generation succeeds.
+        # This prevents deadlock: if generate_directive() fails, no
+        # DELEGATE state is written and tools remain unblocked.
+        if classification.get("execution") == "DELEGATE" and directive:
+            try:
+                DELEGATE_STATE.write_text(
+                    json.dumps(
+                        {
+                            "mode": "DELEGATE",
+                            "command": directive.split("\n")[0][:200] if directive else "arbor-swarm",
+                            "task_type": classification.get("task_type", "PENDING"),
+                            "delegation_mode": classification.get("mode", ""),
+                            "timestamp": dt.datetime.now(dt.timezone.utc).isoformat(),
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+            except Exception:
+                pass
 
         # Persist routing
         _save_routing(

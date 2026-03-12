@@ -70,10 +70,11 @@ def _extract_bash_paths(command: str) -> list[str]:
     """Extract potential file paths from Bash command that might be written to.
 
     Looks for patterns like:
-    - > /path/to/file
-    - >> /path/to/file
-    - tee /path/to/file
-    - echo ... > path/to/file
+    - > /path/to/file or >> /path/to/file
+    - tee /path/to/file or tee -a /path/to/file
+    - cp src dest or mv src dest
+    - install -m 644 src dest
+    - cat << EOF > file (heredoc)
 
     Returns list of paths. Best-effort — allows if uncertain.
     """
@@ -83,14 +84,33 @@ def _extract_bash_paths(command: str) -> list[str]:
     redirect_patterns = [
         r'>>\s*([^\s;&|]+)',
         r'>\s*([^\s;&|]+)',
-        r'\btee\s+([^\s;&|]+)',
+        r'\btee\s+(?:-a\s+)?([^\s;&|]+)',  # tee with optional -a flag
+        r'\bcp\s+\S+\s+([^\s;&|]+)',  # cp src dest
+        r'\bmv\s+\S+\s+([^\s;&|]+)',  # mv src dest
+        r'\binstall\s+(?:-m\s+\d+\s+)?\S+\s+([^\s;&|]+)',  # install with optional mode
+        r'<<\s*\S+\s*>\s*([^\s;&|]+)',  # heredoc redirect
     ]
 
     for pattern in redirect_patterns:
         matches = re.findall(pattern, command)
         paths.extend(matches)
 
-    return paths
+    # Expand environment variables in paths (simple $VAR and ${VAR} syntax)
+    expanded_paths = []
+    for path in paths:
+        # Handle $VAR and ${VAR} syntax
+        if "$" in path:
+            # Try to expand common env vars
+            expanded = re.sub(
+                r'\$\{?(\w+)\}?',
+                lambda m: os.environ.get(m.group(1), m.group(0)),
+                path,
+            )
+            expanded_paths.append(expanded)
+        else:
+            expanded_paths.append(path)
+
+    return expanded_paths
 
 
 def _deny(reason: str) -> dict[str, Any]:
@@ -120,7 +140,7 @@ def main() -> None:
         # Read scope from env var
         scope_str = os.getenv("ARBOR_SCOPE", "")
         if not scope_str:
-            # No scope defined = allow everything
+            # No scope defined = allow everything (this is a known-safe case)
             print("{}")
             return
 
@@ -173,11 +193,23 @@ def main() -> None:
         print("{}")
 
     except json.JSONDecodeError:
-        # Invalid JSON input — allow (don't break on malformed input)
-        print("{}")
-    except Exception:
-        # Unexpected error — allow (fail open, not closed)
-        print("{}")
+        # Invalid JSON input — fail closed (malformed input could be an attack)
+        print(
+            json.dumps(
+                _deny(
+                    "Scope enforcement failed: malformed hook input. Operation blocked for safety."
+                )
+            )
+        )
+    except Exception as e:
+        # Unexpected error — fail CLOSED to prevent bypass via exception triggering
+        print(
+            json.dumps(
+                _deny(
+                    f"Scope enforcement failed: {type(e).__name__}. Operation blocked for safety."
+                )
+            )
+        )
 
 
 if __name__ == "__main__":

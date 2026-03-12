@@ -196,6 +196,11 @@ func (l *LauncherModel) Launch() tea.Cmd {
 			return launchErrMsg{err: err}
 		}
 
+		// Bug H fix: Reap process to prevent zombies
+		go func() {
+			_ = cmd.Wait()
+		}()
+
 		// Swarm creates /tmp/swarm/<random-8-char-id>/ — find the newest dir
 		runDir := findNewestRunDir("/tmp/swarm")
 		return launchSuccessMsg{pid: cmd.Process.Pid, runDir: runDir}
