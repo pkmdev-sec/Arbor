@@ -1,123 +1,71 @@
 # Hooks
 
-Arbor uses Claude Code's hook system to intercept and route tasks from your main session. Four hooks ship with Arbor, installed into `~/.claude/hooks/` by the installer.
+Arbor uses Claude Code's hook system to intercept and route tasks. Four hooks ship with Arbor, installed into `~/.claude/hooks/`.
 
-## Hook overview
+## Overview
 
 | Hook | Trigger | Purpose |
 |------|---------|---------|
-| `auto_orchestrator.py` | `UserPromptSubmit` | Classifies prompts and decides routing |
-| `block_agent_tool.py` | `PreToolUse` (Agent, Read, Glob, Grep) | Prevents raw agent spawning |
+| `auto_orchestrator.py` | `UserPromptSubmit` | Classifies prompts → DIRECT / DELEGATE / ORCHESTRATE |
+| `block_agent_tool.py` | `PreToolUse` | Prevents raw agent spawning during delegation |
 | `fulfill_delegate.py` | `PostToolUse` (Bash) | Detects delegated command completion |
-| `block_task_tools.py` | `PreToolUse` (Task*, TodoWrite) | Redirects task tools to `bd` CLI |
+| `block_task_tools.py` | `PreToolUse` | Redirects task tools to `bd` CLI |
 
 ## State machine
 
-The hooks coordinate through a shared state file at `~/.claude/hooks/.acontext_state/delegate_mode.json`. The state machine has three modes:
+<img src="../assets/hooks-state.svg" width="600" alt="Hook State Machine">
 
-```
-DIRECT ──── prompt classified ────→ DELEGATE
-   ▲                                    │
-   │                                    │
-   └──── command completes ─────── FULFILLED
-```
+Hooks coordinate through `~/.claude/hooks/.acontext_state/delegate_mode.json`:
 
-**DIRECT** — Normal operation. The main Claude Code session handles prompts directly. This is the default state.
-
-**DELEGATE** — The auto_orchestrator has decided to route a task to Arbor. The main session constructs and runs an `arbor` or `swarm` command. While in this state, `block_agent_tool.py` prevents the session from spawning its own agents (it should be using the orchestrator instead).
-
-**FULFILLED** — The delegated command has finished. `fulfill_delegate.py` detects this by monitoring Bash tool outputs for the completion of `arbor` or `swarm` commands. The state resets to DIRECT.
+| State | Meaning |
+|-------|---------|
+| **DIRECT** | Normal operation. Main session handles prompts directly. |
+| **DELEGATE** | Task routed to Arbor. `block_agent_tool.py` enforces orchestrated routing. |
+| **FULFILLED** | Delegated command finished. Resets to DIRECT. |
 
 ## auto_orchestrator.py
 
-Runs on every `UserPromptSubmit` event — before the main session starts processing your prompt.
+Runs on every `UserPromptSubmit`. Classifies prompts using keyword matching and structure analysis:
 
-**Classification logic:**
+| Classification | Action |
+|---------------|--------|
+| DIRECT | Pass through — simple questions, explanations |
+| DELEGATE | Route to `arbor` — focused tasks needing isolation |
+| ORCHESTRATE | Route to `arbor-swarm` — complex tasks that decompose |
 
-The orchestrator examines the prompt text and decides one of three actions:
-
-- **DIRECT** — Simple questions, explanations, or tasks that don't involve code changes. The prompt passes through normally.
-- **DELEGATE** — The task should be routed to a single `arbor` agent. Used for focused tasks that benefit from isolation but don't need parallel execution.
-- **ORCHESTRATE** — The task should be routed to `swarm` for multi-agent execution. Used for complex tasks that can be decomposed.
-
-The classifier uses keyword matching and prompt structure analysis. It's intentionally conservative — ambiguous tasks default to DIRECT rather than triggering unnecessary orchestration.
-
-**Configuration:**
-
-The orchestrator reads its classification thresholds from the prompt context. You can influence routing by being explicit:
-
-```
-# These will likely trigger ORCHESTRATE
-"implement X, Y, and Z across the codebase"
-"refactor all error handling in every module"
-
-# These will likely stay DIRECT
-"explain how the auth module works"
-"what does this function do?"
-```
+Conservative: ambiguous tasks default to DIRECT.
 
 ## block_agent_tool.py
 
-Runs on `PreToolUse` events for Agent, Read, Glob, and Grep tools.
-
-When the state is DELEGATE, this hook prevents the main session from spawning its own agents. Instead, it returns a message directing the session to use the `arbor` or `swarm` command. This ensures all agent work goes through the orchestrator's isolation and validation pipeline.
-
-The hook also enforces an allowlist of bash commands. The `arbor` and `swarm` commands are always allowed. Other commands are checked against a configurable list.
+During DELEGATE state, prevents the main session from spawning its own agents. Returns a message directing to `arbor` or `arbor-swarm`. Also enforces a bash command allowlist.
 
 ## fulfill_delegate.py
 
-Runs on `PostToolUse` events for the Bash tool.
-
-After a delegated `arbor` or `swarm` command finishes, this hook detects the completion by inspecting the Bash tool's output. When it sees a command matching `arbor` or `swarm` has completed, it transitions the state from DELEGATE back to DIRECT (via FULFILLED).
-
-The detection uses fail-closed logic: if the hook encounters an error reading state or parsing output, it assumes the command has NOT completed and leaves the state unchanged. This prevents premature state transitions.
+After a delegated command finishes, inspects Bash output for `arbor`/`arbor-swarm` completion. Transitions DELEGATE → FULFILLED → DIRECT. Fail-closed: errors leave state unchanged.
 
 ## block_task_tools.py
 
-Runs on `PreToolUse` events for TaskCreate, TaskUpdate, TaskGet, TaskList, and TodoWrite tools.
+Redirects Claude Code's built-in task tools (TaskCreate, TaskUpdate, TodoWrite, etc.) to the `bd` CLI. Keeps task state in a single system.
 
-This hook redirects Claude Code's built-in task management tools to the `bd` (beads) CLI. When the main session tries to use a task tool, the hook returns a message explaining that task tracking should go through `bd` instead.
+## Installation
 
-This keeps task state in a single system rather than split between Claude Code's internal task store and the external `bd` tracker.
-
-## Installation and registration
-
-The installer (`install.sh`) handles hook setup:
-
-1. Copies hook scripts to `~/.claude/hooks/`
-2. Makes them executable
-3. Registers them in `~/.claude/settings.json` under the `hooks` key
-4. Creates the state directory at `~/.claude/hooks/.acontext_state/`
-
-To verify hooks are registered:
+The installer handles setup:
+1. Copies hooks to `~/.claude/hooks/`
+2. Registers in `~/.claude/settings.json`
+3. Creates state directory at `~/.claude/hooks/.acontext_state/`
 
 ```bash
-cat ~/.claude/settings.json | python3 -c "
-import json, sys
-hooks = json.load(sys.stdin).get('hooks', {})
-for event, matchers in hooks.items():
-    for m in matchers:
-        print(f'{event}: {m.get(\"matcher\", \"*\")}')
-"
+# Verify hooks are registered
+cat ~/.claude/settings.json | python3 -m json.tool | grep -A2 "auto_orchestrator"
 ```
 
-## Disabling hooks
-
-To temporarily disable orchestration without uninstalling:
+## Disabling
 
 ```bash
-# Set state to DIRECT
+# Temporary — force DIRECT mode
 echo '{"mode":"DIRECT"}' > ~/.claude/hooks/.acontext_state/delegate_mode.json
-```
 
-To permanently remove:
-
-```bash
-# Remove hook files
-rm ~/.claude/hooks/auto_orchestrator.py
-rm ~/.claude/hooks/block_agent_tool.py
-rm ~/.claude/hooks/fulfill_delegate.py
-rm ~/.claude/hooks/block_task_tools.py
-
-# Remove registrations from settings.json (manual edit)
+# Permanent — remove hook files
+rm ~/.claude/hooks/auto_orchestrator.py ~/.claude/hooks/block_agent_tool.py
+rm ~/.claude/hooks/fulfill_delegate.py ~/.claude/hooks/block_task_tools.py
 ```

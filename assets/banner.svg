@@ -2,92 +2,84 @@
   <!-- Background gradient -->
   <defs>
     <linearGradient id="bgGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" style="stop-color:#0D1117;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#111827;stop-opacity:1" />
+      <stop offset="0%" style="stop-color:#0d0d14;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0f1320;stop-opacity:1" />
     </linearGradient>
   </defs>
 
   <!-- Background rect -->
-  <rect width="1200" height="300" rx="16" fill="url(#bgGradient)" stroke="#1e293b" stroke-width="2"/>
+  <rect width="1200" height="300" rx="16" fill="url(#bgGradient)" stroke="#1a1a28" stroke-width="1"/>
 
-  <!-- Decorative background dots -->
-  <circle cx="900" cy="80" r="2" fill="#06B6D4" opacity="0.1"/>
-  <circle cx="1050" cy="120" r="2" fill="#06B6D4" opacity="0.1"/>
-  <circle cx="780" cy="180" r="2" fill="#06B6D4" opacity="0.1"/>
-  <circle cx="950" cy="240" r="2" fill="#06B6D4" opacity="0.1"/>
+  <!-- Subtle background dots -->
+  <circle cx="850" cy="75" r="1.5" fill="#1a1a2e"/>
+  <circle cx="1020" cy="130" r="1.5" fill="#1a1a2e"/>
+  <circle cx="720" cy="190" r="1.5" fill="#1a1a2e"/>
+  <circle cx="950" cy="235" r="1.5" fill="#1a1a2e"/>
+  <circle cx="780" cy="95" r="1.5" fill="#1a1a2e"/>
 
   <!-- LEFT SECTION: Logo -->
   <!-- Outer decorative ring -->
-  <circle cx="150" cy="150" r="125" fill="none" stroke="#334155" stroke-width="1" stroke-dasharray="4 6" opacity="0.2"/>
+  <circle cx="150" cy="150" r="120" fill="none" stroke="#1e1e30" stroke-width="1" stroke-dasharray="6 8" opacity="0.12"/>
 
   <!-- Dark circle frame -->
-  <circle cx="150" cy="150" r="110" fill="#0a0f1a" stroke="#1e293b" stroke-width="1.5"/>
+  <circle cx="150" cy="150" r="105" fill="#0a0e16" stroke="#1e1e2e" stroke-width="1"/>
 
-  <!-- Geometric tree logo -->
+  <!-- Engineering-schematic tree logo -->
   <g transform="translate(150, 150)">
-    <!-- Trunk (amber) - 6 triangles -->
-    <polygon points="-8,60 8,60 0,40" fill="#D97706"/>
-    <polygon points="-8,40 8,40 0,20" fill="#F59E0B"/>
-    <polygon points="-10,20 10,20 0,0" fill="#D97706"/>
-    <polygon points="-8,0 8,0 0,-20" fill="#F59E0B"/>
-    <polygon points="-10,-20 10,-20 0,-35" fill="#D97706"/>
-    <polygon points="-8,-35 8,-35 0,-45" fill="#F59E0B"/>
+    <!-- Tapered amber trunk -->
+    <path d="M -6,55 L -4,20 L -3,0 L -2,-30 L -1,-50 L 1,-50 L 2,-30 L 3,0 L 4,20 L 6,55 Z" fill="#F59E0B"/>
 
-    <!-- Lower branches (cyan) - left side -->
-    <polygon points="-10,-30 -25,-10 -35,-15" fill="#0891B2"/>
-    <polygon points="-25,-10 -35,-5 -45,-12" fill="#06B6D4"/>
-    <polygon points="-35,-15 -45,-12 -52,-20" fill="#0891B2"/>
+    <!-- Trunk highlight -->
+    <path d="M -2,55 L -1,20 L -0.5,0 L 0,-50 L 0.5,0 L 1,20 L 2,55 Z" fill="#FCD34D" opacity="0.3"/>
 
-    <!-- Lower branches (cyan) - right side -->
-    <polygon points="10,-30 25,-10 35,-15" fill="#0891B2"/>
-    <polygon points="25,-10 35,-5 45,-12" fill="#06B6D4"/>
-    <polygon points="35,-15 45,-12 52,-20" fill="#0891B2"/>
+    <!-- Left branches (cyan) - straight lines -->
+    <line x1="-2" y1="15" x2="-35" y2="0" stroke="#06B6D4" stroke-width="2"/>
+    <line x1="-2" y1="-5" x2="-42" y2="-18" stroke="#06B6D4" stroke-width="2"/>
+    <line x1="-1.5" y1="-25" x2="-38" y2="-40" stroke="#06B6D4" stroke-width="2"/>
 
-    <!-- Upper branches (cyan) - left side -->
-    <polygon points="-8,-45 -20,-35 -28,-42" fill="#06B6D4"/>
-    <polygon points="-20,-35 -30,-30 -38,-38" fill="#0891B2"/>
-    <polygon points="-30,-30 -38,-28 -45,-35" fill="#06B6D4"/>
+    <!-- Right branches (cyan) - straight lines -->
+    <line x1="2" y1="15" x2="35" y2="0" stroke="#06B6D4" stroke-width="2"/>
+    <line x1="2" y1="-5" x2="42" y2="-18" stroke="#06B6D4" stroke-width="2"/>
+    <line x1="1.5" y1="-25" x2="38" y2="-40" stroke="#06B6D4" stroke-width="2"/>
 
-    <!-- Upper branches (cyan) - right side -->
-    <polygon points="8,-45 20,-35 28,-42" fill="#06B6D4"/>
-    <polygon points="20,-35 30,-30 38,-38" fill="#0891B2"/>
-    <polygon points="30,-30 38,-28 45,-35" fill="#06B6D4"/>
+    <!-- Branch endpoint nodes -->
+    <circle cx="-35" cy="0" r="3" fill="#06B6D4" opacity="0.9"/>
+    <circle cx="-42" cy="-18" r="3" fill="#06B6D4" opacity="0.9"/>
+    <circle cx="-38" cy="-40" r="3" fill="#06B6D4" opacity="0.9"/>
+    <circle cx="35" cy="0" r="3" fill="#06B6D4" opacity="0.9"/>
+    <circle cx="42" cy="-18" r="3" fill="#06B6D4" opacity="0.9"/>
+    <circle cx="38" cy="-40" r="3" fill="#06B6D4" opacity="0.9"/>
 
-    <!-- Canopy (emerald) - top clusters -->
-    <polygon points="-25,-42 -15,-50 -20,-58" fill="#10B981"/>
-    <polygon points="-15,-50 -5,-55 -10,-63" fill="#059669"/>
-    <polygon points="-5,-55 5,-60 0,-70" fill="#10B981"/>
-    <polygon points="5,-60 15,-55 10,-63" fill="#059669"/>
-    <polygon points="15,-55 25,-50 20,-58" fill="#10B981"/>
-    <polygon points="25,-50 35,-45 30,-53" fill="#059669"/>
+    <!-- Canopy mesh lines (emerald) -->
+    <line x1="-38" y1="-40" x2="-25" y2="-55" stroke="#10B981" stroke-width="1.5" opacity="0.4"/>
+    <line x1="-25" y1="-55" x2="0" y2="-65" stroke="#10B981" stroke-width="1.5" opacity="0.4"/>
+    <line x1="0" y1="-65" x2="25" y2="-55" stroke="#10B981" stroke-width="1.5" opacity="0.4"/>
+    <line x1="25" y1="-55" x2="38" y2="-40" stroke="#10B981" stroke-width="1.5" opacity="0.4"/>
+    <line x1="-25" y1="-55" x2="25" y2="-55" stroke="#10B981" stroke-width="1.5" opacity="0.4"/>
 
-    <!-- Canopy lower layer -->
-    <polygon points="-35,-38 -25,-45 -30,-52" fill="#059669"/>
-    <polygon points="-18,-48 -8,-53 -13,-60" fill="#10B981"/>
-    <polygon points="-3,-58 7,-62 2,-68" fill="#059669"/>
-    <polygon points="8,-53 18,-48 13,-60" fill="#10B981"/>
-    <polygon points="25,-45 35,-38 30,-52" fill="#059669"/>
-    <polygon points="38,-40 48,-38 42,-48" fill="#10B981"/>
+    <!-- Fork node glow at top of trunk -->
+    <circle cx="0" cy="-50" r="4" fill="#FCD34D" opacity="0.8"/>
+    <circle cx="0" cy="-50" r="7" fill="#F59E0B" opacity="0.3"/>
 
-    <!-- Glowing cyan dot at fork point -->
-    <circle cx="0" cy="-30" r="3" fill="#06B6D4" opacity="0.9"/>
-    <circle cx="0" cy="-30" r="5" fill="#06B6D4" opacity="0.3"/>
+    <!-- Root lines below -->
+    <line x1="-1" y1="55" x2="-15" y2="70" stroke="#D97706" stroke-width="2" opacity="0.6"/>
+    <line x1="1" y1="55" x2="15" y2="70" stroke="#D97706" stroke-width="2" opacity="0.6"/>
   </g>
 
   <!-- RIGHT SECTION: Text -->
   <!-- Title -->
-  <text x="320" y="145" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="96" font-weight="800" fill="#F59E0B" letter-spacing="8">ARBOR</text>
+  <text x="320" y="140" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="88" font-weight="800" fill="#F59E0B" letter-spacing="10">ARBOR</text>
 
   <!-- Subtitle -->
-  <text x="325" y="185" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="18" font-weight="400" fill="#64748B" letter-spacing="6">MULTI-AGENT ORCHESTRATOR</text>
+  <text x="320" y="175" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="16" font-weight="400" fill="#6b7280" letter-spacing="6">MULTI-AGENT ORCHESTRATOR</text>
 
   <!-- Tagline -->
-  <text x="325" y="220" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="14" fill="#475569" letter-spacing="1">worktree isolation / fork-join concurrency / verified merge</text>
+  <text x="320" y="205" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="13" fill="#4a5568" letter-spacing="1">worktree isolation · fork-join concurrency · verified merge</text>
 
   <!-- Version badge -->
-  <rect x="325" y="237" width="50" height="22" rx="4" fill="none" stroke="#F59E0B" stroke-width="1" opacity="0.6"/>
-  <text x="350" y="252" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="11" fill="#F59E0B" opacity="0.7" text-anchor="middle">v1.0</text>
+  <rect x="320" y="225" width="50" height="22" rx="4" fill="none" stroke="#F59E0B" stroke-width="1" opacity="0.4"/>
+  <text x="345" y="239" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="11" fill="#F59E0B" opacity="0.6" text-anchor="middle">v1.0</text>
 
   <!-- Decorative horizontal line -->
-  <line x1="310" y1="260" x2="1100" y2="260" stroke="#1e293b" opacity="0.3"/>
+  <line x1="310" y1="265" x2="1100" y2="265" stroke="#1a1a2e" opacity="0.25"/>
 </svg>

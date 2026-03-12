@@ -1,0 +1,42 @@
+<svg viewBox="0 0 700 200" xmlns="http://www.w3.org/2000/svg">
+  <rect width="700" height="200" fill="#0d0d14" rx="12"/>
+
+  <defs>
+    <marker id="arr" viewBox="0 0 8 6" refX="7" refY="3" markerWidth="6" markerHeight="4" orient="auto">
+      <path d="M0,0 L8,3 L0,6z" fill="#4a4a6a"/>
+    </marker>
+    <marker id="arr-g" viewBox="0 0 8 6" refX="7" refY="3" markerWidth="6" markerHeight="4" orient="auto">
+      <path d="M0,0 L8,3 L0,6z" fill="#10B981"/>
+    </marker>
+  </defs>
+
+  <!-- State: DIRECT -->
+  <rect x="40" y="65" width="150" height="50" rx="8" fill="#252535"/>
+  <text x="115" y="95" font-family="system-ui, -apple-system, sans-serif" font-size="15" font-weight="bold" fill="#e2e8f0" text-anchor="middle">DIRECT</text>
+  <text x="115" y="135" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#6b7280" text-anchor="middle">normal operation</text>
+
+  <!-- Arrow: DIRECT → DELEGATE -->
+  <line x1="190" y1="90" x2="265" y2="90" stroke="#4a4a6a" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="228" y="82" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#6b7280" text-anchor="middle">prompt classified</text>
+
+  <!-- State: DELEGATE -->
+  <rect x="270" y="65" width="150" height="50" rx="8" fill="#252535"/>
+  <text x="345" y="95" font-family="system-ui, -apple-system, sans-serif" font-size="15" font-weight="bold" fill="#F59E0B" text-anchor="middle">DELEGATE</text>
+  <text x="345" y="135" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#6b7280" text-anchor="middle">routed to arbor/swarm</text>
+
+  <!-- Arrow: DELEGATE → FULFILLED -->
+  <line x1="420" y1="90" x2="495" y2="90" stroke="#4a4a6a" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="458" y="82" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#6b7280" text-anchor="middle">command runs</text>
+
+  <!-- State: FULFILLED -->
+  <rect x="500" y="65" width="150" height="50" rx="8" fill="#252535"/>
+  <text x="575" y="95" font-family="system-ui, -apple-system, sans-serif" font-size="15" font-weight="bold" fill="#10B981" text-anchor="middle">FULFILLED</text>
+  <text x="575" y="135" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#6b7280" text-anchor="middle">command completed</text>
+
+  <!-- Return arrow: FULFILLED → DIRECT (curved below) -->
+  <path d="M575,115 Q575,170 345,170 Q115,170 115,115" fill="none" stroke="#10B981" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arr-g)"/>
+  <text x="345" y="185" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#10B981" text-anchor="middle" opacity="0.7">resets to DIRECT</text>
+
+  <!-- Title -->
+  <text x="350" y="30" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#6b7280" text-anchor="middle" letter-spacing="2">HOOK STATE MACHINE</text>
+</svg>

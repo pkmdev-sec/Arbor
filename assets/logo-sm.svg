@@ -1,11 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
+    <!-- Background gradient -->
     <radialGradient id="bgGrad" cx="50%" cy="50%">
-      <stop offset="0%" style="stop-color:#1a1f35;stop-opacity:1"/>
-      <stop offset="100%" style="stop-color:#0F172A;stop-opacity:1"/>
+      <stop offset="0%" style="stop-color:#141420;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#0a0e18;stop-opacity:1"/>
     </radialGradient>
+
+    <!-- Trunk gradient -->
+    <linearGradient id="trunkGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" style="stop-color:#92400E;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#F59E0B;stop-opacity:1"/>
+    </linearGradient>
+
+    <!-- Glow filter for nodes -->
     <filter id="glow">
-      <feGaussianBlur stdDeviation="1.5" result="coloredBlur"/>
+      <feGaussianBlur stdDeviation="1.2" result="coloredBlur"/>
       <feMerge>
         <feMergeNode in="coloredBlur"/>
         <feMergeNode in="SourceGraphic"/>
@@ -13,75 +22,43 @@
     </filter>
   </defs>
 
-  <!-- Background -->
-  <circle cx="32" cy="32" r="31" fill="url(#bgGrad)" stroke="#1e293b" stroke-width="1"/>
+  <!-- Background circle -->
+  <circle cx="32" cy="32" r="31" fill="url(#bgGrad)" stroke="#1a1a2e" stroke-width="0.5"/>
 
-  <!-- Root hint -->
-  <line x1="32" y1="48" x2="32" y2="54" stroke="#1e293b" stroke-width="1.5" opacity="0.5"/>
+  <!-- Roots -->
+  <line x1="32" y1="50" x2="28" y2="56" stroke="#1e293b" stroke-width="1" opacity="0.3"/>
+  <line x1="32" y1="50" x2="36" y2="56" stroke="#1e293b" stroke-width="1" opacity="0.3"/>
 
-  <!-- Trunk (amber facets) -->
-  <polygon points="30,48 32,42 34,48" fill="#B45309"/>
-  <polygon points="28,42 32,42 30,48" fill="#D97706"/>
-  <polygon points="32,42 36,42 34,48" fill="#D97706"/>
-  <polygon points="30,36 32,42 28,42" fill="#F59E0B"/>
-  <polygon points="32,42 34,36 36,42" fill="#F59E0B"/>
-  <polygon points="32,24 30,36 34,36" fill="#D97706"/>
+  <!-- Trunk (tapered) -->
+  <path d="M 30.5 50 L 31.25 16 L 32.75 16 L 33.5 50 Z" fill="url(#trunkGrad)"/>
 
-  <!-- Branch 1: Left-low -->
-  <polygon points="30,36 22,38 28,34" fill="#0891B2"/>
-  <polygon points="22,38 20,40 28,34" fill="#0E7490"/>
+  <!-- Level 3 branches (y≈34, ±35°, length ~12px) -->
+  <line x1="32" y1="34" x2="22.1" y2="27.1" stroke="#06B6D4" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="32" y1="34" x2="41.9" y2="27.1" stroke="#06B6D4" stroke-width="1.5" stroke-linecap="round"/>
 
-  <!-- Branch 2: Left-mid -->
-  <polygon points="30,30 24,28 28,32" fill="#06B6D4"/>
-  <polygon points="24,28 22,26 28,32" fill="#0891B2"/>
+  <!-- Level 2 branches (y≈26, ±40°, length ~16px) -->
+  <line x1="32" y1="26" x2="19.7" y2="15.7" stroke="#06B6D4" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="32" y1="26" x2="44.3" y2="15.7" stroke="#06B6D4" stroke-width="1.5" stroke-linecap="round"/>
 
-  <!-- Branch 3: Left-high -->
-  <polygon points="31,26 26,22 30,28" fill="#06B6D4"/>
-  <polygon points="26,22 24,20 30,28" fill="#0891B2"/>
+  <!-- Level 1 branches (y≈18, ±22°, length ~14px) -->
+  <line x1="32" y1="18" x2="26.7" y2="12.7" stroke="#06B6D4" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="32" y1="18" x2="37.3" y2="12.7" stroke="#06B6D4" stroke-width="1.5" stroke-linecap="round"/>
 
-  <!-- Branch 4: Right-low -->
-  <polygon points="34,36 42,38 36,34" fill="#0891B2"/>
-  <polygon points="42,38 44,40 36,34" fill="#0E7490"/>
+  <!-- Canopy mesh lines connecting endpoints -->
+  <line x1="22.1" y1="27.1" x2="26.7" y2="12.7" stroke="#10B981" stroke-width="0.7" opacity="0.4"/>
+  <line x1="41.9" y1="27.1" x2="37.3" y2="12.7" stroke="#10B981" stroke-width="0.7" opacity="0.4"/>
+  <line x1="26.7" y1="12.7" x2="37.3" y2="12.7" stroke="#10B981" stroke-width="0.7" opacity="0.4"/>
+  <line x1="19.7" y1="15.7" x2="26.7" y2="12.7" stroke="#10B981" stroke-width="0.7" opacity="0.4"/>
+  <line x1="44.3" y1="15.7" x2="37.3" y2="12.7" stroke="#10B981" stroke-width="0.7" opacity="0.4"/>
 
-  <!-- Branch 5: Right-mid -->
-  <polygon points="34,30 40,28 36,32" fill="#06B6D4"/>
-  <polygon points="40,28 42,26 36,32" fill="#0891B2"/>
+  <!-- Branch endpoint nodes with glow -->
+  <circle cx="22.1" cy="27.1" r="1.5" fill="#06B6D4" filter="url(#glow)"/>
+  <circle cx="41.9" cy="27.1" r="1.5" fill="#06B6D4" filter="url(#glow)"/>
+  <circle cx="19.7" cy="15.7" r="1.5" fill="#06B6D4" filter="url(#glow)"/>
+  <circle cx="44.3" cy="15.7" r="1.5" fill="#06B6D4" filter="url(#glow)"/>
+  <circle cx="26.7" cy="12.7" r="1.5" fill="#06B6D4" filter="url(#glow)"/>
+  <circle cx="37.3" cy="12.7" r="1.5" fill="#06B6D4" filter="url(#glow)"/>
 
-  <!-- Branch 6: Right-high -->
-  <polygon points="33,26 38,22 34,28" fill="#06B6D4"/>
-  <polygon points="38,22 40,20 34,28" fill="#0891B2"/>
-
-  <!-- Canopy clusters (emerald) -->
-  <!-- Left-low cluster -->
-  <polygon points="20,40 18,42 22,42" fill="#10B981"/>
-  <polygon points="18,42 20,44 22,42" fill="#059669"/>
-
-  <!-- Left-mid cluster -->
-  <polygon points="22,26 20,24 24,24" fill="#10B981"/>
-  <polygon points="20,24 22,22 24,24" fill="#059669"/>
-  <polygon points="22,22 20,20 24,22" fill="#10B981"/>
-
-  <!-- Left-high cluster -->
-  <polygon points="24,20 22,18 26,18" fill="#10B981"/>
-  <polygon points="22,18 24,16 26,18" fill="#059669"/>
-
-  <!-- Right-low cluster -->
-  <polygon points="44,40 42,42 46,42" fill="#10B981"/>
-  <polygon points="42,42 44,44 46,42" fill="#059669"/>
-
-  <!-- Right-mid cluster -->
-  <polygon points="42,26 40,24 44,24" fill="#10B981"/>
-  <polygon points="40,24 42,22 44,24" fill="#059669"/>
-  <polygon points="42,22 40,20 44,22" fill="#10B981"/>
-
-  <!-- Right-high cluster -->
-  <polygon points="40,20 38,18 42,18" fill="#10B981"/>
-  <polygon points="38,18 40,16 42,18" fill="#059669"/>
-
-  <!-- Center top cluster -->
-  <polygon points="32,22 30,20 34,20" fill="#10B981"/>
-  <polygon points="30,20 32,18 34,20" fill="#059669"/>
-
-  <!-- Glowing dot at fork -->
-  <circle cx="32" cy="24" r="2" fill="#06B6D4" opacity="0.9" filter="url(#glow)"/>
+  <!-- Fork node at main branch point -->
+  <circle cx="32" cy="26" r="2" fill="#06B6D4" filter="url(#glow)"/>
 </svg>

@@ -1,10 +1,28 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
+    <!-- Background gradient -->
     <radialGradient id="bgGradient" cx="50%" cy="50%">
-      <stop offset="0%" style="stop-color:#1a1f35;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#0F172A;stop-opacity:1" />
+      <stop offset="0%" style="stop-color:#141420;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0a0e18;stop-opacity:1" />
     </radialGradient>
-    <filter id="glow">
+
+    <!-- Trunk gradient -->
+    <linearGradient id="trunkGradient" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" style="stop-color:#78350F;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#B45309;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#F59E0B;stop-opacity:1" />
+    </linearGradient>
+
+    <!-- Glow filters -->
+    <filter id="nodeGlow">
+      <feGaussianBlur stdDeviation="5" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <filter id="strongGlow">
       <feGaussianBlur stdDeviation="8" result="coloredBlur"/>
       <feMerge>
         <feMergeNode in="coloredBlur"/>
@@ -13,168 +31,122 @@
     </filter>
   </defs>
 
-  <!-- Background circle -->
+  <!-- Dark background circle -->
   <circle cx="256" cy="256" r="248" fill="url(#bgGradient)"/>
 
-  <!-- Outer ring -->
-  <circle cx="256" cy="256" r="210" fill="none" stroke="#334155" stroke-width="2" stroke-dasharray="8 6" opacity="0.15"/>
+  <!-- Precision rings -->
+  <circle cx="256" cy="256" r="230" fill="none" stroke="#1e1e30" stroke-width="1" stroke-dasharray="5 5" opacity="0.15"/>
+  <circle cx="256" cy="256" r="210" fill="none" stroke="#1a1a2e" stroke-width="1" opacity="0.1"/>
+  <circle cx="256" cy="256" r="170" fill="none" stroke="#1e293b" stroke-width="0.8" stroke-dasharray="3 4" opacity="0.08"/>
 
-  <!-- Roots (subtle) -->
-  <line x1="246" y1="390" x2="220" y2="430" stroke="#1e293b" stroke-width="3" opacity="0.4"/>
-  <line x1="256" y1="390" x2="256" y2="435" stroke="#1e293b" stroke-width="3" opacity="0.4"/>
-  <line x1="266" y1="390" x2="292" y2="430" stroke="#1e293b" stroke-width="3" opacity="0.4"/>
+  <!-- Subtle background dots (circular pattern) -->
+  <circle cx="256" cy="140" r="1.5" fill="#1a1a2e" opacity="0.3"/>
+  <circle cx="331" cy="181" r="1.5" fill="#1a1a2e" opacity="0.3"/>
+  <circle cx="372" cy="256" r="1.5" fill="#1a1a2e" opacity="0.3"/>
+  <circle cx="331" cy="331" r="1.5" fill="#1a1a2e" opacity="0.3"/>
+  <circle cx="256" cy="372" r="1.5" fill="#1a1a2e" opacity="0.3"/>
+  <circle cx="181" cy="331" r="1.5" fill="#1a1a2e" opacity="0.3"/>
+  <circle cx="140" cy="256" r="1.5" fill="#1a1a2e" opacity="0.3"/>
+  <circle cx="181" cy="181" r="1.5" fill="#1a1a2e" opacity="0.3"/>
+  <circle cx="293" cy="210" r="1.5" fill="#1a1a2e" opacity="0.25"/>
+  <circle cx="219" cy="302" r="1.5" fill="#1a1a2e" opacity="0.25"/>
 
-  <!-- TRUNK (Amber tones - 18 facets) -->
-  <polygon points="240,390 256,385 246,350" fill="#B45309"/>
-  <polygon points="256,385 272,390 266,350" fill="#D97706"/>
-  <polygon points="246,350 256,385 256,340" fill="#F59E0B"/>
-  <polygon points="256,340 256,385 266,350" fill="#E8A315"/>
-  <polygon points="240,350 246,350 242,310" fill="#92400E"/>
-  <polygon points="246,350 256,340 248,310" fill="#B45309"/>
-  <polygon points="256,340 266,350 264,310" fill="#D97706"/>
-  <polygon points="266,350 272,350 270,310" fill="#F59E0B"/>
-  <polygon points="242,310 248,310 244,270" fill="#D97706"/>
-  <polygon points="248,310 256,305 250,270" fill="#F59E0B"/>
-  <polygon points="256,305 264,310 260,270" fill="#F59E0B"/>
-  <polygon points="264,310 270,310 268,270" fill="#E8A315"/>
-  <polygon points="244,270 250,270 246,230" fill="#B45309"/>
-  <polygon points="250,270 260,270 254,230" fill="#D97706"/>
-  <polygon points="260,270 268,270 264,230" fill="#F59E0B"/>
-  <polygon points="246,230 254,230 248,200" fill="#D97706"/>
-  <polygon points="254,230 264,230 260,200" fill="#F59E0B"/>
-  <polygon points="248,200 260,200 256,190" fill="#E8A315"/>
+  <!-- ROOTS -->
+  <line x1="248" y1="395" x2="220" y2="435" stroke="#1e293b" stroke-width="1.5" opacity="0.35"/>
+  <line x1="256" y1="395" x2="256" y2="440" stroke="#1e293b" stroke-width="1.5" opacity="0.35"/>
+  <line x1="264" y1="395" x2="292" y2="435" stroke="#1e293b" stroke-width="1.5" opacity="0.35"/>
 
-  <!-- LEFT BRANCHES (Cyan tones - 30 facets) -->
-  <!-- Branch 1 - Far Left Upper -->
-  <polygon points="248,200 240,190 235,180" fill="#0891B2"/>
-  <polygon points="240,190 235,180 225,175" fill="#06B6D4"/>
-  <polygon points="235,180 225,175 215,170" fill="#0E7490"/>
-  <polygon points="225,175 215,170 205,168" fill="#155E75"/>
-  <polygon points="215,170 205,168 195,170" fill="#0891B2"/>
-  <polygon points="205,168 195,170 185,172" fill="#0E7490"/>
+  <!-- TRUNK (tapered shape with gradient) -->
+  <path d="M 249 395 L 263 395 L 259 315 L 253 315 Z" fill="url(#trunkGradient)"/>
+  <path d="M 253 315 L 259 315 L 257 275 L 255 275 Z" fill="url(#trunkGradient)"/>
+  <path d="M 255 275 L 257 275 L 256.5 235 L 255.5 235 Z" fill="url(#trunkGradient)"/>
+  <path d="M 255.5 235 L 256.5 235 L 256.3 195 L 255.7 195 Z" fill="url(#trunkGradient)"/>
+  <path d="M 255.7 195 L 256.3 195 L 256 180 L 256 180 Z" fill="url(#trunkGradient)"/>
 
-  <!-- Branch 2 - Mid Left Upper -->
-  <polygon points="246,210 235,205 225,200" fill="#06B6D4"/>
-  <polygon points="235,205 225,200 210,195" fill="#0891B2"/>
-  <polygon points="225,200 210,195 195,192" fill="#0E7490"/>
-  <polygon points="210,195 195,192 180,193" fill="#155E75"/>
-  <polygon points="195,192 180,193 170,196" fill="#0891B2"/>
+  <!-- Circuit trace lines inside trunk -->
+  <line x1="251" y1="390" x2="252" y2="185" stroke="#F59E0B" stroke-width="0.5" opacity="0.15"/>
+  <line x1="256" y1="390" x2="256" y2="180" stroke="#F59E0B" stroke-width="0.5" opacity="0.15"/>
+  <line x1="261" y1="390" x2="260" y2="185" stroke="#F59E0B" stroke-width="0.5" opacity="0.15"/>
 
-  <!-- Branch 3 - Mid Left Lower -->
-  <polygon points="244,225 230,223 215,222" fill="#0891B2"/>
-  <polygon points="230,223 215,222 200,224" fill="#06B6D4"/>
-  <polygon points="215,222 200,224 185,228" fill="#0E7490"/>
-  <polygon points="200,224 185,228 175,233" fill="#155E75"/>
-  <polygon points="185,228 175,233 165,238" fill="#0891B2"/>
+  <!-- Data pulse dots on trunk -->
+  <circle cx="256" cy="240" r="2" fill="#F59E0B" opacity="0.3"/>
+  <circle cx="256" cy="300" r="2" fill="#F59E0B" opacity="0.5"/>
+  <circle cx="256" cy="360" r="2" fill="#F59E0B" opacity="0.7"/>
 
-  <!-- RIGHT BRANCHES (Cyan tones - 30 facets) -->
-  <!-- Branch 4 - Far Right Upper -->
-  <polygon points="260,200 268,190 277,180" fill="#0891B2"/>
-  <polygon points="268,190 277,180 287,175" fill="#06B6D4"/>
-  <polygon points="277,180 287,175 297,170" fill="#0E7490"/>
-  <polygon points="287,175 297,170 307,168" fill="#155E75"/>
-  <polygon points="297,170 307,168 317,170" fill="#0891B2"/>
-  <polygon points="307,168 317,170 327,172" fill="#0E7490"/>
+  <!-- BRANCHES - LEFT SIDE -->
+  <!-- Level 1 (y≈195): ±22° angle, length ~85px -->
+  <line x1="256" y1="195" x2="178" y2="163" stroke="#06B6D4" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="178" y1="163" x2="175" y2="162" stroke="#22D3EE" stroke-width="2.5" stroke-linecap="round"/>
 
-  <!-- Branch 5 - Mid Right Upper -->
-  <polygon points="264,210 277,205 287,200" fill="#06B6D4"/>
-  <polygon points="277,205 287,200 302,195" fill="#0891B2"/>
-  <polygon points="287,200 302,195 317,192" fill="#0E7490"/>
-  <polygon points="302,195 317,192 332,193" fill="#155E75"/>
-  <polygon points="317,192 332,193 342,196" fill="#0891B2"/>
+  <!-- Level 2 (y≈235): ±38° angle, length ~95px -->
+  <line x1="256" y1="235" x2="168" y2="176" stroke="#06B6D4" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="168" y1="176" x2="164" y2="173" stroke="#22D3EE" stroke-width="2.5" stroke-linecap="round"/>
 
-  <!-- Branch 6 - Mid Right Lower -->
-  <polygon points="268,225 282,223 297,222" fill="#0891B2"/>
-  <polygon points="282,223 297,222 312,224" fill="#06B6D4"/>
-  <polygon points="297,222 312,224 327,228" fill="#0E7490"/>
-  <polygon points="312,224 327,228 337,233" fill="#155E75"/>
-  <polygon points="327,228 337,233 347,238" fill="#0891B2"/>
+  <!-- Level 3 (y≈275): ±48° angle, length ~80px -->
+  <line x1="256" y1="275" x2="183" y2="216" stroke="#06B6D4" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="183" y1="216" x2="180" y2="213" stroke="#22D3EE" stroke-width="2.5" stroke-linecap="round"/>
 
-  <!-- CANOPY CLUSTERS (Emerald tones - 60+ facets) -->
-  <!-- Cluster 1 - Far Left -->
-  <polygon points="185,172 175,167 180,157" fill="#10B981"/>
-  <polygon points="175,167 170,162 180,157" fill="#059669"/>
-  <polygon points="180,157 170,162 185,152" fill="#047857"/>
-  <polygon points="185,152 170,162 190,147" fill="#065F46"/>
-  <polygon points="190,147 180,157 195,150" fill="#10B981"/>
-  <polygon points="195,150 185,152 200,148" fill="#059669"/>
-  <polygon points="200,148 195,150 205,146" fill="#047857"/>
-  <polygon points="185,172 180,157 190,165" fill="#065F46"/>
-  <polygon points="190,165 195,170 185,172" fill="#10B981"/>
-  <polygon points="195,170 200,168 190,165" fill="#059669"/>
+  <!-- Level 4 (y≈315): ±35° angle, length ~65px -->
+  <line x1="256" y1="315" x2="198" y2="278" stroke="#06B6D4" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="198" y1="278" x2="195" y2="276" stroke="#22D3EE" stroke-width="2.5" stroke-linecap="round"/>
 
-  <!-- Cluster 2 - Mid Left Upper -->
-  <polygon points="170,196 160,191 165,181" fill="#059669"/>
-  <polygon points="160,191 155,186 165,181" fill="#10B981"/>
-  <polygon points="165,181 155,186 170,176" fill="#047857"/>
-  <polygon points="170,176 165,181 175,174" fill="#065F46"/>
-  <polygon points="175,174 170,196 180,188" fill="#10B981"/>
-  <polygon points="180,188 175,174 185,182" fill="#059669"/>
-  <polygon points="185,182 180,188 190,185" fill="#047857"/>
-  <polygon points="170,196 180,188 175,200" fill="#065F46"/>
+  <!-- BRANCHES - RIGHT SIDE -->
+  <!-- Level 1 (y≈195): ±22° angle, length ~85px -->
+  <line x1="256" y1="195" x2="334" y2="163" stroke="#06B6D4" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="334" y1="163" x2="337" y2="162" stroke="#22D3EE" stroke-width="2.5" stroke-linecap="round"/>
 
-  <!-- Cluster 3 - Mid Left Lower -->
-  <polygon points="165,238 155,233 160,223" fill="#10B981"/>
-  <polygon points="155,233 150,228 160,223" fill="#059669"/>
-  <polygon points="160,223 150,228 165,218" fill="#047857"/>
-  <polygon points="165,218 160,223 170,216" fill="#065F46"/>
-  <polygon points="170,216 165,238 175,230" fill="#10B981"/>
-  <polygon points="175,230 170,216 180,224" fill="#059669"/>
-  <polygon points="180,224 175,230 185,228" fill="#047857"/>
-  <polygon points="165,238 175,230 170,242" fill="#065F46"/>
+  <!-- Level 2 (y≈235): ±38° angle, length ~95px -->
+  <line x1="256" y1="235" x2="344" y2="176" stroke="#06B6D4" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="344" y1="176" x2="348" y2="173" stroke="#22D3EE" stroke-width="2.5" stroke-linecap="round"/>
 
-  <!-- Cluster 4 - Far Right -->
-  <polygon points="327,172 337,167 332,157" fill="#10B981"/>
-  <polygon points="337,167 342,162 332,157" fill="#059669"/>
-  <polygon points="332,157 342,162 327,152" fill="#047857"/>
-  <polygon points="327,152 342,162 322,147" fill="#065F46"/>
-  <polygon points="322,147 332,157 317,150" fill="#10B981"/>
-  <polygon points="317,150 327,152 312,148" fill="#059669"/>
-  <polygon points="312,148 317,150 307,146" fill="#047857"/>
-  <polygon points="327,172 332,157 322,165" fill="#065F46"/>
-  <polygon points="322,165 317,170 327,172" fill="#10B981"/>
-  <polygon points="317,170 312,168 322,165" fill="#059669"/>
+  <!-- Level 3 (y≈275): ±48° angle, length ~80px -->
+  <line x1="256" y1="275" x2="329" y2="216" stroke="#06B6D4" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="329" y1="216" x2="332" y2="213" stroke="#22D3EE" stroke-width="2.5" stroke-linecap="round"/>
 
-  <!-- Cluster 5 - Mid Right Upper -->
-  <polygon points="342,196 352,191 347,181" fill="#059669"/>
-  <polygon points="352,191 357,186 347,181" fill="#10B981"/>
-  <polygon points="347,181 357,186 342,176" fill="#047857"/>
-  <polygon points="342,176 347,181 337,174" fill="#065F46"/>
-  <polygon points="337,174 342,196 332,188" fill="#10B981"/>
-  <polygon points="332,188 337,174 327,182" fill="#059669"/>
-  <polygon points="327,182 332,188 322,185" fill="#047857"/>
-  <polygon points="342,196 332,188 337,200" fill="#065F46"/>
+  <!-- Level 4 (y≈315): ±35° angle, length ~65px -->
+  <line x1="256" y1="315" x2="314" y2="278" stroke="#06B6D4" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="314" y1="278" x2="317" y2="276" stroke="#22D3EE" stroke-width="2.5" stroke-linecap="round"/>
 
-  <!-- Cluster 6 - Mid Right Lower -->
-  <polygon points="347,238 357,233 352,223" fill="#10B981"/>
-  <polygon points="357,233 362,228 352,223" fill="#059669"/>
-  <polygon points="352,223 362,228 347,218" fill="#047857"/>
-  <polygon points="347,218 352,223 342,216" fill="#065F46"/>
-  <polygon points="342,216 347,238 337,230" fill="#10B981"/>
-  <polygon points="337,230 342,216 332,224" fill="#059669"/>
-  <polygon points="332,224 337,230 327,228" fill="#047857"/>
-  <polygon points="347,238 337,230 342,242" fill="#065F46"/>
+  <!-- CANOPY MESH (emerald network connecting endpoint nodes) -->
+  <!-- Horizontal connections -->
+  <line x1="175" y1="162" x2="164" y2="173" stroke="#10B981" stroke-width="1" opacity="0.45"/>
+  <line x1="164" y1="173" x2="180" y2="213" stroke="#10B981" stroke-width="1" opacity="0.45"/>
+  <line x1="180" y1="213" x2="195" y2="276" stroke="#10B981" stroke-width="1" opacity="0.45"/>
 
-  <!-- Additional density triangles -->
-  <polygon points="190,165 185,160 195,162" fill="#10B981"/>
-  <polygon points="195,162 190,165 200,160" fill="#047857"/>
-  <polygon points="175,182 170,177 180,179" fill="#059669"/>
-  <polygon points="322,165 327,160 317,162" fill="#10B981"/>
-  <polygon points="317,162 322,165 312,160" fill="#047857"/>
-  <polygon points="337,182 342,177 332,179" fill="#059669"/>
-  <polygon points="160,228 155,223 165,225" fill="#10B981"/>
-  <polygon points="352,228 357,223 347,225" fill="#10B981"/>
+  <line x1="337" y1="162" x2="348" y2="173" stroke="#10B981" stroke-width="1" opacity="0.45"/>
+  <line x1="348" y1="173" x2="332" y2="213" stroke="#10B981" stroke-width="1" opacity="0.45"/>
+  <line x1="332" y1="213" x2="317" y2="276" stroke="#10B981" stroke-width="1" opacity="0.45"/>
 
-  <!-- Merge phase lines (emerald dashed) -->
-  <path d="M 185,172 Q 215,186 248,200" fill="none" stroke="#10B981" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.3"/>
-  <path d="M 170,196 Q 210,203 246,210" fill="none" stroke="#10B981" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.3"/>
-  <path d="M 165,238 Q 205,232 244,225" fill="none" stroke="#10B981" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.3"/>
-  <path d="M 327,172 Q 297,186 260,200" fill="none" stroke="#10B981" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.3"/>
-  <path d="M 342,196 Q 302,203 264,210" fill="none" stroke="#10B981" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.3"/>
-  <path d="M 347,238 Q 307,232 268,225" fill="none" stroke="#10B981" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.3"/>
+  <!-- Dome arc connections -->
+  <line x1="175" y1="162" x2="337" y2="162" stroke="#10B981" stroke-width="1" opacity="0.45"/>
+  <line x1="164" y1="173" x2="348" y2="173" stroke="#10B981" stroke-width="1" opacity="0.45"/>
+  <line x1="180" y1="213" x2="332" y2="213" stroke="#10B981" stroke-width="1" opacity="0.45"/>
+  <line x1="195" y1="276" x2="317" y2="276" stroke="#10B981" stroke-width="1" opacity="0.45"/>
 
-  <!-- Energy nodes with glow -->
-  <circle cx="256" cy="200" r="4" fill="#06B6D4" opacity="0.8" filter="url(#glow)"/>
-  <circle cx="185" cy="172" r="3" fill="#06B6D4" opacity="0.6" filter="url(#glow)"/>
-  <circle cx="327" cy="172" r="3" fill="#06B6D4" opacity="0.6" filter="url(#glow)"/>
+  <!-- Cross connections for geodesic effect -->
+  <line x1="175" y1="162" x2="348" y2="173" stroke="#10B981" stroke-width="1" opacity="0.45"/>
+  <line x1="337" y1="162" x2="164" y2="173" stroke="#10B981" stroke-width="1" opacity="0.45"/>
+  <line x1="164" y1="173" x2="332" y2="213" stroke="#10B981" stroke-width="1" opacity="0.45"/>
+  <line x1="348" y1="173" x2="180" y2="213" stroke="#10B981" stroke-width="1" opacity="0.45"/>
+
+  <!-- NODES AT BRANCH-TRUNK JUNCTIONS (amber glow) -->
+  <circle cx="256" cy="195" r="2.5" fill="#D97706" filter="url(#nodeGlow)" opacity="0.9"/>
+  <circle cx="256" cy="235" r="2.5" fill="#D97706" filter="url(#nodeGlow)" opacity="0.9"/>
+  <circle cx="256" cy="275" r="2.5" fill="#D97706" filter="url(#nodeGlow)" opacity="0.9"/>
+  <circle cx="256" cy="315" r="2.5" fill="#D97706" filter="url(#nodeGlow)" opacity="0.9"/>
+
+  <!-- NODES AT BRANCH ENDPOINTS (cyan glow) - LEFT SIDE -->
+  <circle cx="175" cy="162" r="4" fill="#06B6D4" filter="url(#nodeGlow)"/>
+  <circle cx="164" cy="173" r="4" fill="#06B6D4" filter="url(#nodeGlow)"/>
+  <circle cx="180" cy="213" r="4" fill="#06B6D4" filter="url(#nodeGlow)"/>
+  <circle cx="195" cy="276" r="4" fill="#06B6D4" filter="url(#nodeGlow)"/>
+
+  <!-- NODES AT BRANCH ENDPOINTS (cyan glow) - RIGHT SIDE -->
+  <circle cx="337" cy="162" r="4" fill="#06B6D4" filter="url(#nodeGlow)"/>
+  <circle cx="348" cy="173" r="4" fill="#06B6D4" filter="url(#nodeGlow)"/>
+  <circle cx="332" cy="213" r="4" fill="#06B6D4" filter="url(#nodeGlow)"/>
+  <circle cx="317" cy="276" r="4" fill="#06B6D4" filter="url(#nodeGlow)"/>
+
+  <!-- Central fork node (top of trunk where it splits) -->
+  <circle cx="256" cy="180" r="6" fill="#06B6D4" filter="url(#strongGlow)"/>
 </svg>

@@ -2,231 +2,231 @@
   <defs>
     <!-- Arrow marker -->
     <marker id="arrow" viewBox="0 0 6 4" refX="6" refY="2" markerWidth="6" markerHeight="4" orient="auto">
-      <path d="M 0 0 L 6 2 L 0 4 z" fill="#475569"/>
+      <path d="M 0 0 L 6 2 L 0 4 z" fill="#4a4a6a"/>
     </marker>
   </defs>
 
   <!-- Background -->
-  <rect width="960" height="520" fill="#0D1117" rx="12"/>
+  <rect width="960" height="520" fill="#0d0d14" rx="12"/>
 
   <!-- ROW 1: single (y=20-105) -->
   <g id="row-single">
     <!-- Label -->
-    <text x="30" y="50" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="bold" fill="#E2E8F0">single</text>
-    <text x="30" y="68" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#64748B">one agent, one task</text>
+    <text x="30" y="50" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="bold" fill="#f0f0f5">single</text>
+    <text x="30" y="68" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#6b7280">one agent, one task</text>
 
     <!-- Flow -->
     <!-- Task box -->
-    <rect x="180" y="35" width="90" height="38" rx="6" fill="#161b22" stroke="#475569" stroke-width="1.5"/>
-    <text x="225" y="58" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#E2E8F0" text-anchor="middle">Task</text>
+    <rect x="180" y="35" width="90" height="38" rx="8" fill="#252535"/>
+    <text x="225" y="58" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#e2e8f0" text-anchor="middle">Task</text>
 
     <!-- Arrow -->
-    <line x1="270" y1="54" x2="310" y2="54" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <line x1="270" y1="54" x2="310" y2="54" stroke="#4a4a6a" stroke-width="1.5" marker-end="url(#arrow)"/>
 
     <!-- Agent box -->
-    <rect x="310" y="35" width="90" height="38" rx="6" fill="#161b22" stroke="#06B6D4" stroke-width="1.5"/>
+    <rect x="310" y="35" width="90" height="38" rx="8" fill="#252535"/>
     <text x="355" y="58" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#06B6D4" text-anchor="middle">Agent</text>
 
     <!-- Arrow -->
-    <line x1="400" y1="54" x2="440" y2="54" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <line x1="400" y1="54" x2="440" y2="54" stroke="#4a4a6a" stroke-width="1.5" marker-end="url(#arrow)"/>
 
     <!-- Result box -->
-    <rect x="440" y="35" width="90" height="38" rx="6" fill="#161b22" stroke="#10B981" stroke-width="1.5"/>
-    <text x="485" y="58" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#10B981" text-anchor="middle">Result</text>
+    <rect x="440" y="35" width="90" height="38" rx="8" fill="#252535"/>
+    <text x="485" y="58" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#e2e8f0" text-anchor="middle">Result</text>
   </g>
 
   <!-- Separator -->
-  <line x1="0" y1="108" x2="960" y2="108" stroke="#1e293b" stroke-width="1"/>
+  <line x1="0" y1="108" x2="960" y2="108" stroke="#1a1a2a" stroke-width="1"/>
 
   <!-- ROW 2: parallel (y=110-195) -->
   <g id="row-parallel">
     <!-- Label -->
-    <text x="30" y="140" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="bold" fill="#E2E8F0">parallel</text>
-    <text x="30" y="158" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#64748B">fan-out, merge</text>
+    <text x="30" y="140" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="bold" fill="#f0f0f5">parallel</text>
+    <text x="30" y="158" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#6b7280">fan-out, merge</text>
 
     <!-- Task box -->
-    <rect x="180" y="135" width="90" height="38" rx="6" fill="#161b22" stroke="#475569" stroke-width="1.5"/>
-    <text x="225" y="158" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#E2E8F0" text-anchor="middle">Task</text>
+    <rect x="180" y="135" width="90" height="38" rx="8" fill="#252535"/>
+    <text x="225" y="158" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#e2e8f0" text-anchor="middle">Task</text>
 
     <!-- Arrow -->
-    <line x1="270" y1="154" x2="310" y2="154" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <line x1="270" y1="154" x2="310" y2="154" stroke="#4a4a6a" stroke-width="1.5" marker-end="url(#arrow)"/>
 
     <!-- Decompose box -->
-    <rect x="310" y="135" width="90" height="38" rx="6" fill="#161b22" stroke="#8B5CF6" stroke-width="1.5"/>
+    <rect x="310" y="135" width="90" height="38" rx="8" fill="#252535"/>
     <text x="355" y="158" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#8B5CF6" text-anchor="middle">Decompose</text>
 
     <!-- Fan-out lines -->
-    <line x1="400" y1="154" x2="430" y2="133" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
-    <line x1="400" y1="154" x2="430" y2="154" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
-    <line x1="400" y1="154" x2="430" y2="175" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <line x1="400" y1="154" x2="430" y2="133" stroke="#4a4a6a" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <line x1="400" y1="154" x2="430" y2="154" stroke="#4a4a6a" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <line x1="400" y1="154" x2="430" y2="175" stroke="#4a4a6a" stroke-width="1.5" marker-end="url(#arrow)"/>
 
     <!-- 3 Agent boxes (stacked) -->
-    <rect x="430" y="120" width="60" height="26" rx="4" fill="#161b22" stroke="#06B6D4" stroke-width="1.5"/>
-    <text x="460" y="137" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#06B6D4" text-anchor="middle">Agent</text>
+    <rect x="430" y="120" width="60" height="24" rx="6" fill="#252535"/>
+    <text x="460" y="136" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#06B6D4" text-anchor="middle">Agent</text>
 
-    <rect x="430" y="151" width="60" height="26" rx="4" fill="#161b22" stroke="#06B6D4" stroke-width="1.5"/>
-    <text x="460" y="168" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#06B6D4" text-anchor="middle">Agent</text>
+    <rect x="430" y="149" width="60" height="24" rx="6" fill="#252535"/>
+    <text x="460" y="165" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#06B6D4" text-anchor="middle">Agent</text>
 
-    <rect x="430" y="182" width="60" height="26" rx="4" fill="#161b22" stroke="#06B6D4" stroke-width="1.5"/>
-    <text x="460" y="199" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#06B6D4" text-anchor="middle">Agent</text>
+    <rect x="430" y="178" width="60" height="24" rx="6" fill="#252535"/>
+    <text x="460" y="194" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#06B6D4" text-anchor="middle">Agent</text>
 
     <!-- Fan-in lines -->
-    <line x1="490" y1="133" x2="520" y2="154" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
-    <line x1="490" y1="164" x2="520" y2="154" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
-    <line x1="490" y1="195" x2="520" y2="154" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <line x1="490" y1="132" x2="520" y2="154" stroke="#4a4a6a" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <line x1="490" y1="161" x2="520" y2="154" stroke="#4a4a6a" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <line x1="490" y1="190" x2="520" y2="154" stroke="#4a4a6a" stroke-width="1.5" marker-end="url(#arrow)"/>
 
     <!-- Merge box -->
-    <rect x="520" y="135" width="90" height="38" rx="6" fill="#161b22" stroke="#475569" stroke-width="1.5"/>
-    <text x="565" y="158" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#E2E8F0" text-anchor="middle">Merge</text>
+    <rect x="520" y="135" width="90" height="38" rx="8" fill="#252535"/>
+    <text x="565" y="158" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#e2e8f0" text-anchor="middle">Merge</text>
 
     <!-- Arrow -->
-    <line x1="610" y1="154" x2="650" y2="154" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <line x1="610" y1="154" x2="650" y2="154" stroke="#4a4a6a" stroke-width="1.5" marker-end="url(#arrow)"/>
 
     <!-- Result box -->
-    <rect x="650" y="135" width="90" height="38" rx="6" fill="#161b22" stroke="#10B981" stroke-width="1.5"/>
-    <text x="695" y="158" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#10B981" text-anchor="middle">Result</text>
+    <rect x="650" y="135" width="90" height="38" rx="8" fill="#252535"/>
+    <text x="695" y="158" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#e2e8f0" text-anchor="middle">Result</text>
   </g>
 
   <!-- Separator -->
-  <line x1="0" y1="198" x2="960" y2="198" stroke="#1e293b" stroke-width="1"/>
+  <line x1="0" y1="198" x2="960" y2="198" stroke="#1a1a2a" stroke-width="1"/>
 
   <!-- ROW 3: pipeline (y=200-285) -->
   <g id="row-pipeline">
     <!-- Label -->
-    <text x="30" y="230" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="bold" fill="#E2E8F0">pipeline</text>
-    <text x="30" y="248" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#64748B">sequential stages</text>
+    <text x="30" y="230" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="bold" fill="#f0f0f5">pipeline</text>
+    <text x="30" y="248" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#6b7280">sequential stages</text>
 
     <!-- Task box -->
-    <rect x="180" y="225" width="90" height="38" rx="6" fill="#161b22" stroke="#475569" stroke-width="1.5"/>
-    <text x="225" y="248" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#E2E8F0" text-anchor="middle">Task</text>
+    <rect x="180" y="225" width="90" height="38" rx="8" fill="#252535"/>
+    <text x="225" y="248" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#e2e8f0" text-anchor="middle">Task</text>
 
     <!-- Arrow -->
-    <line x1="270" y1="244" x2="300" y2="244" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <line x1="270" y1="244" x2="300" y2="244" stroke="#4a4a6a" stroke-width="1.5" marker-end="url(#arrow)"/>
 
     <!-- Research box -->
-    <rect x="300" y="225" width="90" height="38" rx="6" fill="#161b22" stroke="#06B6D4" stroke-width="1.5"/>
+    <rect x="300" y="225" width="90" height="38" rx="8" fill="#252535"/>
     <text x="345" y="248" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#06B6D4" text-anchor="middle">Research</text>
 
     <!-- Arrow -->
-    <line x1="390" y1="244" x2="420" y2="244" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <line x1="390" y1="244" x2="420" y2="244" stroke="#4a4a6a" stroke-width="1.5" marker-end="url(#arrow)"/>
 
     <!-- Implement box -->
-    <rect x="420" y="225" width="90" height="38" rx="6" fill="#161b22" stroke="#06B6D4" stroke-width="1.5"/>
+    <rect x="420" y="225" width="90" height="38" rx="8" fill="#252535"/>
     <text x="465" y="248" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#06B6D4" text-anchor="middle">Implement</text>
 
     <!-- Arrow -->
-    <line x1="510" y1="244" x2="540" y2="244" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <line x1="510" y1="244" x2="540" y2="244" stroke="#4a4a6a" stroke-width="1.5" marker-end="url(#arrow)"/>
 
     <!-- Test box -->
-    <rect x="540" y="225" width="90" height="38" rx="6" fill="#161b22" stroke="#06B6D4" stroke-width="1.5"/>
+    <rect x="540" y="225" width="90" height="38" rx="8" fill="#252535"/>
     <text x="585" y="248" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#06B6D4" text-anchor="middle">Test</text>
 
     <!-- Arrow -->
-    <line x1="630" y1="244" x2="660" y2="244" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <line x1="630" y1="244" x2="660" y2="244" stroke="#4a4a6a" stroke-width="1.5" marker-end="url(#arrow)"/>
 
     <!-- Review box -->
-    <rect x="660" y="225" width="90" height="38" rx="6" fill="#161b22" stroke="#06B6D4" stroke-width="1.5"/>
+    <rect x="660" y="225" width="90" height="38" rx="8" fill="#252535"/>
     <text x="705" y="248" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#06B6D4" text-anchor="middle">Review</text>
 
     <!-- Arrow -->
-    <line x1="750" y1="244" x2="780" y2="244" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <line x1="750" y1="244" x2="780" y2="244" stroke="#4a4a6a" stroke-width="1.5" marker-end="url(#arrow)"/>
 
     <!-- Result box -->
-    <rect x="780" y="225" width="90" height="38" rx="6" fill="#161b22" stroke="#10B981" stroke-width="1.5"/>
-    <text x="825" y="248" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#10B981" text-anchor="middle">Result</text>
+    <rect x="780" y="225" width="90" height="38" rx="8" fill="#252535"/>
+    <text x="825" y="248" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#e2e8f0" text-anchor="middle">Result</text>
   </g>
 
   <!-- Separator -->
-  <line x1="0" y1="288" x2="960" y2="288" stroke="#1e293b" stroke-width="1"/>
+  <line x1="0" y1="288" x2="960" y2="288" stroke="#1a1a2a" stroke-width="1"/>
 
   <!-- ROW 4: swarm (y=290-390) - FEATURED ROW -->
   <g id="row-swarm">
-    <!-- Subtle background tint -->
-    <rect x="0" y="292" width="960" height="98" fill="#F59E0B" opacity="0.03"/>
+    <!-- Subtle background tint (3.5% opacity) -->
+    <rect x="0" y="290" width="960" height="100" fill="#F59E0B" opacity="0.035"/>
 
     <!-- Label -->
-    <text x="30" y="325" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="bold" fill="#F59E0B">swarm</text>
-    <text x="30" y="343" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#64748B">decompose + verify</text>
+    <text x="30" y="325" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="bold" fill="#f0f0f5">swarm</text>
+    <text x="30" y="343" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#6b7280">decompose + verify</text>
 
     <!-- Task box -->
-    <rect x="180" y="320" width="90" height="38" rx="6" fill="#161b22" stroke="#475569" stroke-width="1.5"/>
-    <text x="225" y="343" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#E2E8F0" text-anchor="middle">Task</text>
+    <rect x="180" y="320" width="90" height="38" rx="8" fill="#252535"/>
+    <text x="225" y="343" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#e2e8f0" text-anchor="middle">Task</text>
 
     <!-- Arrow -->
-    <line x1="270" y1="339" x2="310" y2="339" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <line x1="270" y1="339" x2="310" y2="339" stroke="#4a4a6a" stroke-width="1.5" marker-end="url(#arrow)"/>
 
     <!-- Decompose box -->
-    <rect x="310" y="320" width="90" height="38" rx="6" fill="#161b22" stroke="#8B5CF6" stroke-width="1.5"/>
+    <rect x="310" y="320" width="90" height="38" rx="8" fill="#252535"/>
     <text x="355" y="343" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#8B5CF6" text-anchor="middle">Decompose</text>
 
     <!-- Fan-out lines -->
-    <line x1="400" y1="339" x2="430" y2="318" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
-    <line x1="400" y1="339" x2="430" y2="339" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
-    <line x1="400" y1="339" x2="430" y2="360" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <line x1="400" y1="339" x2="430" y2="318" stroke="#4a4a6a" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <line x1="400" y1="339" x2="430" y2="339" stroke="#4a4a6a" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <line x1="400" y1="339" x2="430" y2="360" stroke="#4a4a6a" stroke-width="1.5" marker-end="url(#arrow)"/>
 
     <!-- 3 Agent boxes (stacked) -->
-    <rect x="430" y="305" width="60" height="26" rx="4" fill="#161b22" stroke="#06B6D4" stroke-width="1.5"/>
-    <text x="460" y="322" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#06B6D4" text-anchor="middle">Agent</text>
+    <rect x="430" y="305" width="60" height="24" rx="6" fill="#252535"/>
+    <text x="460" y="321" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#06B6D4" text-anchor="middle">Agent</text>
 
-    <rect x="430" y="336" width="60" height="26" rx="4" fill="#161b22" stroke="#06B6D4" stroke-width="1.5"/>
-    <text x="460" y="353" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#06B6D4" text-anchor="middle">Agent</text>
+    <rect x="430" y="334" width="60" height="24" rx="6" fill="#252535"/>
+    <text x="460" y="350" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#06B6D4" text-anchor="middle">Agent</text>
 
-    <rect x="430" y="367" width="60" height="26" rx="4" fill="#161b22" stroke="#06B6D4" stroke-width="1.5"/>
-    <text x="460" y="384" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#06B6D4" text-anchor="middle">Agent</text>
+    <rect x="430" y="363" width="60" height="24" rx="6" fill="#252535"/>
+    <text x="460" y="379" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#06B6D4" text-anchor="middle">Agent</text>
 
     <!-- Fan-in lines -->
-    <line x1="490" y1="318" x2="520" y2="339" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
-    <line x1="490" y1="349" x2="520" y2="339" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
-    <line x1="490" y1="380" x2="520" y2="339" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <line x1="490" y1="317" x2="520" y2="339" stroke="#4a4a6a" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <line x1="490" y1="346" x2="520" y2="339" stroke="#4a4a6a" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <line x1="490" y1="375" x2="520" y2="339" stroke="#4a4a6a" stroke-width="1.5" marker-end="url(#arrow)"/>
 
     <!-- Verify box -->
-    <rect x="520" y="320" width="90" height="38" rx="6" fill="#161b22" stroke="#F59E0B" stroke-width="1.5"/>
+    <rect x="520" y="320" width="90" height="38" rx="8" fill="#252535"/>
     <text x="565" y="343" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#F59E0B" text-anchor="middle">Verify</text>
 
     <!-- Arrow -->
-    <line x1="610" y1="339" x2="650" y2="339" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <line x1="610" y1="339" x2="650" y2="339" stroke="#4a4a6a" stroke-width="1.5" marker-end="url(#arrow)"/>
 
     <!-- Result box -->
-    <rect x="650" y="320" width="90" height="38" rx="6" fill="#161b22" stroke="#10B981" stroke-width="1.5"/>
-    <text x="695" y="343" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#10B981" text-anchor="middle">Result</text>
+    <rect x="650" y="320" width="90" height="38" rx="8" fill="#252535"/>
+    <text x="695" y="343" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#e2e8f0" text-anchor="middle">Result</text>
 
     <!-- Right side metric -->
     <text x="800" y="343" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="bold" fill="#10B981">verified</text>
   </g>
 
   <!-- Separator -->
-  <line x1="0" y1="393" x2="960" y2="393" stroke="#1e293b" stroke-width="1"/>
+  <line x1="0" y1="393" x2="960" y2="393" stroke="#1a1a2a" stroke-width="1"/>
 
-  <!-- ROW 5: review (y=394-480) -->
+  <!-- ROW 5: review (y=395-480) -->
   <g id="row-review">
     <!-- Label -->
-    <text x="30" y="425" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="bold" fill="#E2E8F0">review</text>
-    <text x="30" y="443" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#64748B">opus + verify</text>
+    <text x="30" y="425" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="bold" fill="#f0f0f5">review</text>
+    <text x="30" y="443" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#6b7280">opus + verify</text>
 
     <!-- Task box -->
-    <rect x="180" y="415" width="90" height="38" rx="6" fill="#161b22" stroke="#475569" stroke-width="1.5"/>
-    <text x="225" y="438" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#E2E8F0" text-anchor="middle">Task</text>
+    <rect x="180" y="415" width="90" height="38" rx="8" fill="#252535"/>
+    <text x="225" y="438" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#e2e8f0" text-anchor="middle">Task</text>
 
     <!-- Arrow -->
-    <line x1="270" y1="434" x2="310" y2="434" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <line x1="270" y1="434" x2="310" y2="434" stroke="#4a4a6a" stroke-width="1.5" marker-end="url(#arrow)"/>
 
     <!-- Opus box -->
-    <rect x="310" y="415" width="90" height="38" rx="6" fill="#161b22" stroke="#F59E0B" stroke-width="1.5"/>
+    <rect x="310" y="415" width="90" height="38" rx="8" fill="#252535"/>
     <text x="355" y="438" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#F59E0B" text-anchor="middle">Opus</text>
 
     <!-- Arrow -->
-    <line x1="400" y1="434" x2="440" y2="434" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <line x1="400" y1="434" x2="440" y2="434" stroke="#4a4a6a" stroke-width="1.5" marker-end="url(#arrow)"/>
 
     <!-- Verify box -->
-    <rect x="440" y="415" width="90" height="38" rx="6" fill="#161b22" stroke="#F59E0B" stroke-width="1.5"/>
+    <rect x="440" y="415" width="90" height="38" rx="8" fill="#252535"/>
     <text x="485" y="438" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#F59E0B" text-anchor="middle">Verify</text>
 
     <!-- Arrow -->
-    <line x1="530" y1="434" x2="570" y2="434" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <line x1="530" y1="434" x2="570" y2="434" stroke="#4a4a6a" stroke-width="1.5" marker-end="url(#arrow)"/>
 
     <!-- Result box -->
-    <rect x="570" y="415" width="90" height="38" rx="6" fill="#161b22" stroke="#10B981" stroke-width="1.5"/>
-    <text x="615" y="438" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#10B981" text-anchor="middle">Result</text>
+    <rect x="570" y="415" width="90" height="38" rx="8" fill="#252535"/>
+    <text x="615" y="438" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#e2e8f0" text-anchor="middle">Result</text>
 
     <!-- Right side metric -->
     <text x="710" y="438" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="bold" fill="#F59E0B">highest quality</text>
