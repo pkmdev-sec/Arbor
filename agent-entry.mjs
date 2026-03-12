@@ -30,7 +30,7 @@
  *   - Line ~214: main (stdin timeout - exits with error message)
  */
 
-import { spawn } from "node:child_process";
+import { spawn, execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, existsSync, unlinkSync, mkdtempSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -819,9 +819,10 @@ async function main() {
       }
     });
 
-    // Inactivity watchdog — kill after 5 min of stderr silence
+    // Inactivity watchdog — model-aware timeout (opus thinks longer before first tool call)
     let lastStderrTime = Date.now();
-    const INACTIVITY_LIMIT_MS = 5 * 60 * 1000; // 5 minutes
+    const isOpus = args.model.includes("opus");
+    const INACTIVITY_LIMIT_MS = isOpus ? 15 * 60 * 1000 : 10 * 60 * 1000; // opus: 15min, sonnet: 10min
     const inactivityWatchdog = setInterval(() => {
       const silenceMs = Date.now() - lastStderrTime;
       if (silenceMs >= INACTIVITY_LIMIT_MS) {
@@ -942,6 +943,26 @@ async function main() {
 
   const durationSec = (durationMs / 1000).toFixed(1);
 
+  // Detect if the agent applied changes to the working tree (critical for interrupted agents)
+  // This prevents the parent session from blindly retrying when work was already done.
+  let changesApplied = false;
+  let filesChanged = [];
+  try {
+    const diffStat = execFileSync("git", ["diff", "--stat", "--name-only"], {
+      encoding: "utf-8", timeout: 5000, cwd: args.cwd || process.cwd(),
+    }).trim();
+    if (diffStat) {
+      filesChanged = diffStat.split("\n").filter(Boolean);
+      changesApplied = filesChanged.length > 0;
+      if (changesApplied && exitCode === 124) {
+        log(`${colors.yellow}WARNING: Agent was interrupted but applied changes to ${filesChanged.length} file(s)${colors.reset}`);
+        log(`${colors.yellow}  Files: ${filesChanged.slice(0, 5).join(", ")}${filesChanged.length > 5 ? ` (+${filesChanged.length - 5} more)` : ""}${colors.reset}`);
+      }
+    }
+  } catch {
+    // Not a git repo or git not available — skip change detection
+  }
+
   // S1: Concat stderr ONCE after retry loop — avoids redundant 200MB allocations
   const stderrFull = Buffer.concat(stderrChunks).toString("utf-8");
 
@@ -1029,6 +1050,8 @@ async function main() {
       model: args.model,
       task: args.task || null,
       truncated: stdoutBytes > MAX_BUFFER_SIZE, // Output was truncated due to ring buffer
+      changes_applied: changesApplied, // true if agent modified files before exit/interrupt
+      files_changed: filesChanged,     // list of modified files (from git diff)
       telemetry, // Per-agent quality signals
     };
     writeResult(args.resultFile, result);
