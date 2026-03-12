@@ -92,10 +92,13 @@ func RenderConfirmOverlay(baseView string, dialog ConfirmDialog, width, height i
 	// Overlay on top of base
 	result := make([]string, height)
 	overlayStart := (height - len(overlayLines)) / 2
+	if overlayStart < 0 {
+		overlayStart = 0
+	}
 
 	for i := 0; i < height; i++ {
-		if i >= overlayStart && i < overlayStart+len(overlayLines) {
-			result[i] = overlayLines[i-overlayStart]
+		if idx := i - overlayStart; idx >= 0 && idx < len(overlayLines) {
+			result[i] = overlayLines[idx]
 		} else if i < len(baseLines) {
 			result[i] = baseLines[i]
 		} else {

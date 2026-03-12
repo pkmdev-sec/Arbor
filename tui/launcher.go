@@ -29,6 +29,7 @@ type LauncherModel struct {
 	modeIdx      int
 	depthIdx     int
 	focused      int
+	active       bool // true when form is activated for editing
 	launched     bool
 	lastRunDir   string
 	lastPID      int
@@ -42,7 +43,8 @@ func NewLauncherModel() LauncherModel {
 	ta.ShowLineNumbers = false
 	ta.SetWidth(60)
 	ta.SetHeight(5)
-	ta.Focus()
+	// Start blurred - user must activate with Enter
+	ta.Blur()
 
 	agentInput := textinput.New()
 	agentInput.Placeholder = "3"
@@ -61,6 +63,7 @@ func NewLauncherModel() LauncherModel {
 		modeIdx:      0,
 		depthIdx:     1, // normal
 		focused:      0,
+		active:       false, // Start inactive
 	}
 }
 
@@ -70,7 +73,27 @@ func (l LauncherModel) Update(msg tea.Msg) (LauncherModel, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		// If inactive, only respond to Enter to activate
+		if !l.active {
+			if key.Matches(msg, key.NewBinding(key.WithKeys("enter"))) {
+				l.active = true
+				l.updateFocus() // Focus first field
+				return l, nil
+			}
+			// When inactive, don't capture any other keys (let parent handle tab switching)
+			return l, nil
+		}
+
+		// Active mode - handle all keys
 		switch {
+		case key.Matches(msg, key.NewBinding(key.WithKeys("esc"))):
+			// Escape deactivates the form
+			l.active = false
+			l.taskInput.Blur()
+			l.agentInput.Blur()
+			l.timeoutInput.Blur()
+			return l, nil
+
 		case key.Matches(msg, key.NewBinding(key.WithKeys("tab"))):
 			l.focused = (l.focused + 1) % 6
 			l.updateFocus()
@@ -356,7 +379,12 @@ func (l LauncherModel) View(width, height int, theme Theme) string {
 	}
 
 	b.WriteString("\n")
-	b.WriteString(mutedStyle.Render("  Navigation: Tab/Shift+Tab to move between fields"))
+	// Show different hints based on active state
+	if l.active {
+		b.WriteString(mutedStyle.Render("  Navigation: Tab/Shift+Tab to move between fields, Esc to deactivate"))
+	} else {
+		b.WriteString(mutedStyle.Render("  Press Enter to edit, Esc to navigate tabs"))
+	}
 
 	return b.String()
 }

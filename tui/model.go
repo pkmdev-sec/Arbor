@@ -222,64 +222,75 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-		// Check for tab-switching number keys FIRST (before launcher consumes them)
-		// This allows number keys 1-9 to always switch tabs, even when launcher textarea is focused
+		// Check for ALL tab-switching keys FIRST (before launcher consumes them)
+		// This allows number keys 1-9, Tab, and Shift+Tab to always switch tabs
 		if m.activeTab == tabLauncher {
-			switch msg.String() {
-			case "1":
+			switch {
+			case key.Matches(msg, m.keys.Tab1):
 				m.activeTab = tabOverview
-				// Unfocus launcher textarea so it doesn't consume future keys
 				m.launcher.taskInput.Blur()
 				m.launcher.agentInput.Blur()
 				m.launcher.timeoutInput.Blur()
 				return m, nil
-			case "2":
+			case key.Matches(msg, m.keys.Tab2):
 				m.activeTab = tabAgents
 				m.launcher.taskInput.Blur()
 				m.launcher.agentInput.Blur()
 				m.launcher.timeoutInput.Blur()
 				return m, nil
-			case "3":
+			case key.Matches(msg, m.keys.Tab3):
 				m.activeTab = tabChat
 				m.launcher.taskInput.Blur()
 				m.launcher.agentInput.Blur()
 				m.launcher.timeoutInput.Blur()
 				return m, nil
-			case "4":
+			case key.Matches(msg, m.keys.Tab4):
 				m.activeTab = tabHierarchy
 				m.launcher.taskInput.Blur()
 				m.launcher.agentInput.Blur()
 				m.launcher.timeoutInput.Blur()
 				return m, nil
-			case "5":
+			case key.Matches(msg, m.keys.Tab5):
 				m.activeTab = tabResources
 				m.launcher.taskInput.Blur()
 				m.launcher.agentInput.Blur()
 				m.launcher.timeoutInput.Blur()
 				return m, nil
-			case "6":
+			case key.Matches(msg, m.keys.Tab6):
 				m.activeTab = tabLogs
 				m.launcher.taskInput.Blur()
 				m.launcher.agentInput.Blur()
 				m.launcher.timeoutInput.Blur()
 				return m, nil
-			case "7":
+			case key.Matches(msg, m.keys.Tab7):
 				m.activeTab = tabLauncher
 				return m, nil
-			case "8":
+			case key.Matches(msg, m.keys.Tab8):
 				m.activeTab = tabInternals
 				m.launcher.taskInput.Blur()
 				m.launcher.agentInput.Blur()
 				m.launcher.timeoutInput.Blur()
 				return m, nil
-			case "9":
+			case key.Matches(msg, m.keys.Tab9):
 				m.activeTab = tabNetwork
 				m.launcher.taskInput.Blur()
 				m.launcher.agentInput.Blur()
 				m.launcher.timeoutInput.Blur()
 				return m, nil
-			case "esc":
-				// Escape key: unfocus all launcher inputs so user can then use number keys
+			case key.Matches(msg, m.keys.NextTab):
+				m.activeTab = (m.activeTab + 1) % tabCount
+				m.launcher.taskInput.Blur()
+				m.launcher.agentInput.Blur()
+				m.launcher.timeoutInput.Blur()
+				return m, nil
+			case key.Matches(msg, m.keys.PrevTab):
+				m.activeTab = (m.activeTab - 1 + tabCount) % tabCount
+				m.launcher.taskInput.Blur()
+				m.launcher.agentInput.Blur()
+				m.launcher.timeoutInput.Blur()
+				return m, nil
+			case key.Matches(msg, m.keys.Back):
+				// Escape key: unfocus all launcher inputs
 				m.launcher.taskInput.Blur()
 				m.launcher.agentInput.Blur()
 				m.launcher.timeoutInput.Blur()
@@ -288,8 +299,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-		// Forward keys to launcher when on launcher tab (AFTER checking number keys)
-		// so that typing in the task textarea works
+		// Forward keys to launcher when on launcher tab (AFTER checking tab-switching keys)
 		if m.activeTab == tabLauncher {
 			var cmd tea.Cmd
 			m.launcher, cmd = m.launcher.Update(msg)
@@ -385,8 +395,47 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.poller.PollTick()
 	}
 
-	// Forward viewport messages when on the chat tab.
+	// For Chat tab: Check for tab-switching keys FIRST, then forward viewport messages
 	if m.activeTab == tabChat {
+		if keyMsg, ok := msg.(tea.KeyMsg); ok {
+			// Check for global tab-switching keys before forwarding to viewport
+			switch {
+			case key.Matches(keyMsg, m.keys.Tab1):
+				m.activeTab = tabOverview
+				return m, nil
+			case key.Matches(keyMsg, m.keys.Tab2):
+				m.activeTab = tabAgents
+				return m, nil
+			case key.Matches(keyMsg, m.keys.Tab3):
+				m.activeTab = tabChat
+				return m, nil
+			case key.Matches(keyMsg, m.keys.Tab4):
+				m.activeTab = tabHierarchy
+				return m, nil
+			case key.Matches(keyMsg, m.keys.Tab5):
+				m.activeTab = tabResources
+				return m, nil
+			case key.Matches(keyMsg, m.keys.Tab6):
+				m.activeTab = tabLogs
+				return m, nil
+			case key.Matches(keyMsg, m.keys.Tab7):
+				m.activeTab = tabLauncher
+				return m, nil
+			case key.Matches(keyMsg, m.keys.Tab8):
+				m.activeTab = tabInternals
+				return m, nil
+			case key.Matches(keyMsg, m.keys.Tab9):
+				m.activeTab = tabNetwork
+				return m, nil
+			case key.Matches(keyMsg, m.keys.NextTab):
+				m.activeTab = (m.activeTab + 1) % tabCount
+				return m, nil
+			case key.Matches(keyMsg, m.keys.PrevTab):
+				m.activeTab = (m.activeTab - 1 + tabCount) % tabCount
+				return m, nil
+			}
+		}
+		// Not a tab-switch key, forward to viewport
 		var cmd tea.Cmd
 		m.chatViewport, cmd = m.chatViewport.Update(msg)
 		return m, cmd
@@ -592,8 +641,53 @@ func (m Model) handleAgentKeys(msg tea.KeyMsg) Model {
 }
 
 func (m Model) handleChatKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// If chat sender is active, forward keys to it
+	// If chat sender is active, check for tab-switching keys FIRST
 	if m.chatSender.Active {
+		// Check for global tab-switching keys that should override chat sender
+		switch {
+		case key.Matches(msg, m.keys.Tab1):
+			m.chatSender.Deactivate()
+			m.activeTab = tabOverview
+			return m, nil
+		case key.Matches(msg, m.keys.Tab2):
+			m.chatSender.Deactivate()
+			m.activeTab = tabAgents
+			return m, nil
+		case key.Matches(msg, m.keys.Tab3):
+			m.chatSender.Deactivate()
+			m.activeTab = tabChat
+			return m, nil
+		case key.Matches(msg, m.keys.Tab4):
+			m.chatSender.Deactivate()
+			m.activeTab = tabHierarchy
+			return m, nil
+		case key.Matches(msg, m.keys.Tab5):
+			m.chatSender.Deactivate()
+			m.activeTab = tabResources
+			return m, nil
+		case key.Matches(msg, m.keys.Tab6):
+			m.chatSender.Deactivate()
+			m.activeTab = tabLogs
+			return m, nil
+		case key.Matches(msg, m.keys.Tab7):
+			m.chatSender.Deactivate()
+			m.activeTab = tabLauncher
+			return m, nil
+		case key.Matches(msg, m.keys.Tab8):
+			m.chatSender.Deactivate()
+			m.activeTab = tabInternals
+			return m, nil
+		case key.Matches(msg, m.keys.Tab9):
+			m.chatSender.Deactivate()
+			m.activeTab = tabNetwork
+			return m, nil
+		case key.Matches(msg, m.keys.PrevTab):
+			m.chatSender.Deactivate()
+			m.activeTab = (m.activeTab - 1 + tabCount) % tabCount
+			return m, nil
+		}
+
+		// Not a global tab-switch key, handle chat sender keys
 		switch msg.String() {
 		case "esc":
 			m.chatSender.Deactivate()
