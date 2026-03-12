@@ -47,15 +47,15 @@ func (n *TreeNode) FlattenVisible() []*TreeNode {
 
 // SwarmRun represents a parsed swarm execution for hierarchy display.
 type SwarmRun struct {
-	RunID    string
-	RunDir   string
-	Task     string
-	HasScout bool
+	RunID     string
+	RunDir    string
+	Task      string
+	HasScout  bool
 	HasDecomp bool
 	HasVerify bool
-	Agents   []SwarmAgent
-	Subtasks []SubtaskInfo
-	ModTime  time.Time
+	Agents    []SwarmAgent
+	Subtasks  []SubtaskInfo
+	ModTime   time.Time
 }
 
 // SwarmAgent is an agent within a swarm run.

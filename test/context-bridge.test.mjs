@@ -48,7 +48,7 @@ describe("contextToSystemPrompt", () => {
     const ctxFile = join(tmpDir, "array.json");
     writeFileSync(ctxFile, "[1,2,3]");
     const { prompt, error } = contextToSystemPrompt(ctxFile);
-    assert.equal(error, false);
+    assert.equal(error, true);
     assert.equal(prompt, null);
     rmSync(tmpDir, { recursive: true, force: true });
   });

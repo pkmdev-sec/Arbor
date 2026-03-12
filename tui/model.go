@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"sort"
@@ -47,16 +48,18 @@ type Model struct {
 	inputMode InputMode
 	showHelp  bool
 
-	activeTab     int
-	selectedAgent int
+	activeTab        int
+	selectedAgent    int
 	selectedLog      int // selected entry in Logs tab
-	selectedInternal int // selected entry in Internals tab
-	selectedNet      int // selected entry in Network tab
+	selectedInternal      int // selected entry in Internals tab
+	internalDetailScroll  int // vertical scroll offset in internals detail pane
+	selectedNet           int // selected entry in Network tab
+	netDetailScroll       int // vertical scroll offset in network detail pane
 
 	// Agent filtering and grouping
-	agentFilter   string // search/filter string
-	agentGroupBy  string // "", "status", "model", "run"
-	agentSortBy   string // "name", "elapsed", "status", "model"
+	agentFilter  string // search/filter string
+	agentGroupBy string // "", "status", "model", "run"
+	agentSortBy  string // "name", "elapsed", "status", "model"
 
 	ipc          *IPCConn
 	busAddress   string
@@ -66,6 +69,7 @@ type Model struct {
 	messages     *MessageRing
 	chatFilter   ChatFilter
 	chatViewport viewport.Model
+	chatSender   ChatSender
 	autoScroll   bool
 
 	hierarchy    *TreeNode
@@ -77,11 +81,13 @@ type Model struct {
 	poller    *DataPoller
 	ipcEvents []IPCEvent
 
+	seenEventKeys map[string]bool // Universal IPC: dedup key tracking
+
 	confirmDialog ConfirmDialog
 	launcher      LauncherModel
 
 	lastError   string
-	parseErrors int       // Bug K fix: Track JSON parse failures
+	parseErrors int // Bug K fix: Track JSON parse failures
 	startTime   time.Time
 	lastPoll    time.Time
 	isPolling   bool
@@ -90,19 +96,21 @@ type Model struct {
 // NewModel creates the initial model from CLI flags.
 func NewModel(busAddress, themeName string, pollInterval time.Duration) Model {
 	m := Model{
-		theme:        GetTheme(themeName),
-		themeName:    themeName,
-		keys:         DefaultKeyMap(),
-		inputMode:    ModeNormal,
-		busAddress:   busAddress,
-		messages:     NewMessageRing(maxMessages),
-		autoScroll:   true,
-		poller:       NewDataPoller(pollInterval),
-		chatViewport: InitChatViewport(80, 24),
-		launcher:     NewLauncherModel(),
-		agentSortBy:  "name",
-		agentGroupBy: "",
-		startTime:    time.Now(),
+		theme:         GetTheme(themeName),
+		themeName:     themeName,
+		keys:          DefaultKeyMap(),
+		inputMode:     ModeNormal,
+		busAddress:    busAddress,
+		messages:      NewMessageRing(maxMessages),
+		autoScroll:    true,
+		poller:        NewDataPoller(pollInterval),
+		chatViewport:  InitChatViewport(80, 24),
+		chatSender:    NewChatSender(),
+		launcher:      NewLauncherModel(),
+		agentSortBy:   "name",
+		agentGroupBy:  "",
+		startTime:     time.Now(),
+		seenEventKeys: make(map[string]bool),
 	}
 	if busAddress != "" {
 		m.ipc = NewIPCConn(busAddress)
@@ -123,6 +131,45 @@ func (m Model) Init() tea.Cmd {
 		})
 	}
 	return tea.Batch(cmds...)
+}
+
+// bridgeIPCEvents converts IPC events from logs into chat messages, with deduplication.
+func (m *Model) bridgeIPCEvents(events []IPCEvent) {
+	for _, ev := range events {
+		// Build dedup key from timestamp+from+content
+		dedupKey := fmt.Sprintf("%d:%s:%s", ev.Timestamp, ev.From, ev.Content)
+
+		// Skip if already seen
+		if m.seenEventKeys[dedupKey] {
+			continue
+		}
+
+		// Create IPC message
+		msg := IPCMessage{
+			Timestamp: ev.Timestamp,
+			Type:      strings.ToUpper(ev.Type),
+			From:      ev.From,
+			To:        ev.To,
+		}
+
+		// Marshal content to JSON if not empty
+		if ev.Content != "" {
+			if payload, err := json.Marshal(ev.Content); err == nil {
+				msg.Payload = payload
+			}
+		}
+
+		// Push to messages
+		m.messages.Push(msg)
+
+		// Mark as seen
+		m.seenEventKeys[dedupKey] = true
+	}
+
+	// Cap seenEventKeys at 2000 entries (reset map if exceeded)
+	if len(m.seenEventKeys) > 2000 {
+		m.seenEventKeys = make(map[string]bool)
+	}
 }
 
 // Update handles all incoming messages.
@@ -174,6 +221,81 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
+
+		// Check for tab-switching number keys FIRST (before launcher consumes them)
+		// This allows number keys 1-9 to always switch tabs, even when launcher textarea is focused
+		if m.activeTab == tabLauncher {
+			switch msg.String() {
+			case "1":
+				m.activeTab = tabOverview
+				// Unfocus launcher textarea so it doesn't consume future keys
+				m.launcher.taskInput.Blur()
+				m.launcher.agentInput.Blur()
+				m.launcher.timeoutInput.Blur()
+				return m, nil
+			case "2":
+				m.activeTab = tabAgents
+				m.launcher.taskInput.Blur()
+				m.launcher.agentInput.Blur()
+				m.launcher.timeoutInput.Blur()
+				return m, nil
+			case "3":
+				m.activeTab = tabChat
+				m.launcher.taskInput.Blur()
+				m.launcher.agentInput.Blur()
+				m.launcher.timeoutInput.Blur()
+				return m, nil
+			case "4":
+				m.activeTab = tabHierarchy
+				m.launcher.taskInput.Blur()
+				m.launcher.agentInput.Blur()
+				m.launcher.timeoutInput.Blur()
+				return m, nil
+			case "5":
+				m.activeTab = tabResources
+				m.launcher.taskInput.Blur()
+				m.launcher.agentInput.Blur()
+				m.launcher.timeoutInput.Blur()
+				return m, nil
+			case "6":
+				m.activeTab = tabLogs
+				m.launcher.taskInput.Blur()
+				m.launcher.agentInput.Blur()
+				m.launcher.timeoutInput.Blur()
+				return m, nil
+			case "7":
+				m.activeTab = tabLauncher
+				return m, nil
+			case "8":
+				m.activeTab = tabInternals
+				m.launcher.taskInput.Blur()
+				m.launcher.agentInput.Blur()
+				m.launcher.timeoutInput.Blur()
+				return m, nil
+			case "9":
+				m.activeTab = tabNetwork
+				m.launcher.taskInput.Blur()
+				m.launcher.agentInput.Blur()
+				m.launcher.timeoutInput.Blur()
+				return m, nil
+			case "esc":
+				// Escape key: unfocus all launcher inputs so user can then use number keys
+				m.launcher.taskInput.Blur()
+				m.launcher.agentInput.Blur()
+				m.launcher.timeoutInput.Blur()
+				m.launcher.focused = -1
+				return m, nil
+			}
+		}
+
+		// Forward keys to launcher when on launcher tab (AFTER checking number keys)
+		// so that typing in the task textarea works
+		if m.activeTab == tabLauncher {
+			var cmd tea.Cmd
+			m.launcher, cmd = m.launcher.Update(msg)
+			return m, cmd
+		}
+
 		return m.handleNormalKey(msg)
 
 	case launchSuccessMsg, launchErrMsg:
@@ -239,6 +361,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.resources = msg.result.Resources
 			m.ipcEvents = msg.result.IPCEvents
 			m.parseErrors = msg.result.ParseErrors // Bug K fix: Track parse errors
+			// Universal IPC: Bridge log events into chat messages
+			prevLen := m.messages.Len()
+			if len(msg.result.IPCEvents) > 0 {
+				m.bridgeIPCEvents(msg.result.IPCEvents)
+			}
+			// Re-render chat viewport when new messages were bridged
+			if m.messages.Len() != prevLen {
+				content := RenderChatPanel(m.messages.All(), m.chatFilter, m.width, m.theme)
+				m.chatViewport.SetContent(content)
+				if m.autoScroll {
+					m.chatViewport.GotoBottom()
+				}
+			}
+			// Update chat sender agent list
+			m.chatSender.UpdateAgents(m.agents)
 			m.hierarchy = BuildHierarchy()
 			if m.selectedAgent >= len(m.agents) {
 				m.selectedAgent = max(0, len(m.agents)-1)
@@ -455,7 +592,36 @@ func (m Model) handleAgentKeys(msg tea.KeyMsg) Model {
 }
 
 func (m Model) handleChatKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// If chat sender is active, forward keys to it
+	if m.chatSender.Active {
+		switch msg.String() {
+		case "esc":
+			m.chatSender.Deactivate()
+			return m, nil
+		case "tab":
+			m.chatSender.CycleTarget()
+			return m, nil
+		case "enter":
+			value := strings.TrimSpace(m.chatSender.Input.Value())
+			if value != "" && m.ipc != nil && m.ipc.IsConnected() {
+				composed := m.chatSender.ComposeMessage()
+				if err := m.ipc.writeMessage(composed); err != nil {
+					m.lastError = fmt.Sprintf("send failed: %v", err)
+				}
+			}
+			m.chatSender.Deactivate()
+			return m, nil
+		default:
+			var cmd tea.Cmd
+			m.chatSender.Input, cmd = m.chatSender.Input.Update(msg)
+			return m, cmd
+		}
+	}
+
 	switch {
+	case msg.String() == "i":
+		m.chatSender.Activate()
+		return m, nil
 	case key.Matches(msg, m.keys.ToggleAutoScroll):
 		m.autoScroll = !m.autoScroll
 		return m, nil
@@ -576,24 +742,28 @@ func (m Model) viewTabBar() string {
 			badgeColor = m.theme.Accent
 		}
 
-		label := fmt.Sprintf(" %d:%s%s ", i+1, tabNames[i], badge)
+		label := fmt.Sprintf("%d:%s%s", i+1, tabNames[i], badge)
 		if i == m.activeTab {
-			// Active tab: solid background + bold
+			// Active tab: solid background + bold - NO BORDERS, explicit padding
 			tabs = append(tabs, lipgloss.NewStyle().
 				Bold(true).
 				Foreground(m.theme.BG).
 				Background(m.theme.Accent).
+				Padding(0, 1).
 				Render(label))
 		} else {
-			style := lipgloss.NewStyle().Foreground(m.theme.Muted)
+			// Inactive tab: consistent style, NO BORDERS, explicit padding
+			style := lipgloss.NewStyle().
+				Foreground(m.theme.Muted).
+				Padding(0, 1)
 			if badge != "" {
-				// Inactive tab with badge: brighter text
-				badgeStyle := lipgloss.NewStyle().
+				// Inactive tab with badge: use inline styling for badge color only
+				labelWithoutBadge := fmt.Sprintf("%d:%s", i+1, tabNames[i])
+				badgeStyled := lipgloss.NewStyle().
 					Foreground(badgeColor).
-					Bold(true)
-				labelWithoutBadge := fmt.Sprintf(" %d:%s", i+1, tabNames[i])
-				renderedTab := style.Render(labelWithoutBadge) + badgeStyle.Render(badge) + " "
-				tabs = append(tabs, renderedTab)
+					Bold(true).
+					Render(badge)
+				tabs = append(tabs, style.Render(labelWithoutBadge+badgeStyled))
 			} else {
 				tabs = append(tabs, style.Render(label))
 			}
@@ -627,7 +797,7 @@ func (m Model) viewContent(width, height int) string {
 	case tabLauncher:
 		return m.launcher.View(width, height, m.theme)
 	case tabInternals:
-		return RenderInternalsPanel(m.agents, m.ipcEvents, m.selectedInternal, width, height, m.theme)
+		return RenderInternalsPanel(m.agents, m.ipcEvents, m.selectedInternal, m.internalDetailScroll, width, height, m.theme)
 	case tabNetwork:
 		return RenderNetworkPanel(m.ipcEvents, m.agents, m.selectedNet, width, height, m.theme)
 	default:
@@ -1160,7 +1330,12 @@ func (m Model) viewAgents(width, height int) string {
 	// Add metadata footer
 	metadata := mutedStyle.Render(fmt.Sprintf("Sort:%s | Group:%s | %d/%d",
 		m.agentSortBy,
-		func() string { if m.agentGroupBy == "" { return "none" }; return m.agentGroupBy }(),
+		func() string {
+			if m.agentGroupBy == "" {
+				return "none"
+			}
+			return m.agentGroupBy
+		}(),
 		m.selectedAgent+1,
 		totalCount,
 	))
@@ -1197,7 +1372,13 @@ func (m Model) viewAgents(width, height int) string {
 
 func (m Model) viewChat(width, height int) string {
 	filterBar := RenderFilterBar(m.chatFilter, m.theme)
-	return lipgloss.JoinVertical(lipgloss.Left, filterBar, m.chatViewport.View())
+	var chatInput string
+	if m.chatSender.Active {
+		chatInput = RenderChatInput(m.chatSender, width, m.theme)
+	} else {
+		chatInput = lipgloss.NewStyle().Foreground(m.theme.Muted).Render("  Press 'i' to compose a message")
+	}
+	return lipgloss.JoinVertical(lipgloss.Left, filterBar, m.chatViewport.View(), chatInput)
 }
 
 func (m Model) viewHierarchy(width, height int) string {
@@ -1252,29 +1433,47 @@ func (m Model) handleInternalKeys(msg tea.KeyMsg) Model {
 		count = len(m.agents) // fallback to all agents
 	}
 
+	// Detail pane scroll with J/K (shift+j/k)
+	detailScrollKey := key.NewBinding(key.WithKeys("J"))
+	detailScrollUpKey := key.NewBinding(key.WithKeys("K"))
+
 	switch {
+	case key.Matches(msg, detailScrollUpKey):
+		if m.internalDetailScroll > 0 {
+			m.internalDetailScroll--
+		}
+		return m
+	case key.Matches(msg, detailScrollKey):
+		m.internalDetailScroll++
+		return m
 	case key.Matches(msg, m.keys.Up):
 		if m.selectedInternal > 0 {
 			m.selectedInternal--
+			m.internalDetailScroll = 0
 		}
 	case key.Matches(msg, m.keys.Down):
 		if m.selectedInternal < count-1 {
 			m.selectedInternal++
+			m.internalDetailScroll = 0
 		}
 	case key.Matches(msg, m.keys.Top):
 		m.selectedInternal = 0
+		m.internalDetailScroll = 0
 	case key.Matches(msg, m.keys.Bottom):
 		m.selectedInternal = max(0, count-1)
+		m.internalDetailScroll = 0
 	case key.Matches(msg, m.keys.HalfUp):
 		m.selectedInternal -= 10
 		if m.selectedInternal < 0 {
 			m.selectedInternal = 0
 		}
+		m.internalDetailScroll = 0
 	case key.Matches(msg, m.keys.HalfDown):
 		m.selectedInternal += 10
 		if m.selectedInternal >= count {
 			m.selectedInternal = max(0, count-1)
 		}
+		m.internalDetailScroll = 0
 	}
 	return m
 }
@@ -1285,29 +1484,48 @@ func (m Model) handleNetworkKeys(msg tea.KeyMsg) Model {
 	if count == 0 {
 		return m
 	}
+
+	// Detail pane scroll with J/K (shift+j/k)
+	detailScrollKey := key.NewBinding(key.WithKeys("J"))
+	detailScrollUpKey := key.NewBinding(key.WithKeys("K"))
+
 	switch {
+	case key.Matches(msg, detailScrollUpKey):
+		if m.netDetailScroll > 0 {
+			m.netDetailScroll--
+		}
+		return m
+	case key.Matches(msg, detailScrollKey):
+		m.netDetailScroll++
+		return m
 	case key.Matches(msg, m.keys.Up):
 		if m.selectedNet > 0 {
 			m.selectedNet--
+			m.netDetailScroll = 0
 		}
 	case key.Matches(msg, m.keys.Down):
 		if m.selectedNet < count-1 {
 			m.selectedNet++
+			m.netDetailScroll = 0
 		}
 	case key.Matches(msg, m.keys.Top):
 		m.selectedNet = 0
+		m.netDetailScroll = 0
 	case key.Matches(msg, m.keys.Bottom):
 		m.selectedNet = max(0, count-1)
+		m.netDetailScroll = 0
 	case key.Matches(msg, m.keys.HalfUp):
 		m.selectedNet -= 10
 		if m.selectedNet < 0 {
 			m.selectedNet = 0
 		}
+		m.netDetailScroll = 0
 	case key.Matches(msg, m.keys.HalfDown):
 		m.selectedNet += 10
 		if m.selectedNet >= count {
 			m.selectedNet = max(0, count-1)
 		}
+		m.netDetailScroll = 0
 	}
 	return m
 }

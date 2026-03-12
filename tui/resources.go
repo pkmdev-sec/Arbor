@@ -12,17 +12,17 @@ import (
 
 // ResourceSnapshot holds current resource utilization metrics.
 type ResourceSnapshot struct {
-	ActiveAgents  int
-	MaxAgents     int
-	MemoryMB      float64
-	MaxMemoryMB   float64
-	Worktrees     int
-	MaxWorktrees  int
-	EstimatedCost float64
-	CostBudget    float64
-	MergesActive  int
-	MergesTotal   int
-	Throughput    float64   // msg/sec
+	ActiveAgents   int
+	MaxAgents      int
+	MemoryMB       float64
+	MaxMemoryMB    float64
+	Worktrees      int
+	MaxWorktrees   int
+	EstimatedCost  float64
+	CostBudget     float64
+	MergesActive   int
+	MergesTotal    int
+	Throughput     float64   // msg/sec
 	ThroughputHist []float64 // last 60 samples for sparkline
 }
 

@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -13,8 +14,18 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+// probeSocket tests if a Unix socket is connectable (server is alive).
+func probeSocket(path string) bool {
+	conn, err := net.DialTimeout("unix", path, 2*time.Second)
+	if err != nil {
+		return false
+	}
+	conn.Close()
+	return true
+}
+
 // discoverBusSocket finds the most recent active IPC bus socket.
-// Priority: 1) CLAUDE_IPC_SOCKET env var  2) newest /tmp/swarm/*/ipc-bus.sock
+// Priority: 1) CLAUDE_IPC_SOCKET env var  2) newest connectable socket from /tmp/swarm or /tmp/arbor
 func discoverBusSocket() string {
 	if envSock := os.Getenv("CLAUDE_IPC_SOCKET"); envSock != "" {
 		if _, err := os.Stat(envSock); err == nil {
@@ -22,8 +33,13 @@ func discoverBusSocket() string {
 		}
 	}
 
-	matches, err := filepath.Glob("/tmp/swarm/*/ipc-bus.sock")
-	if err != nil || len(matches) == 0 {
+	// Collect matches from both /tmp/swarm and /tmp/arbor
+	swarmMatches, _ := filepath.Glob("/tmp/swarm/*/ipc-bus.sock")
+	arborMatches, _ := filepath.Glob("/tmp/arbor/*/ipc-bus.sock")
+
+	// Merge results
+	matches := append(swarmMatches, arborMatches...)
+	if len(matches) == 0 {
 		return ""
 	}
 
@@ -37,6 +53,14 @@ func discoverBusSocket() string {
 		return si.ModTime().After(sj.ModTime())
 	})
 
+	// Return the first socket that's actually connectable
+	for _, sock := range matches {
+		if probeSocket(sock) {
+			return sock
+		}
+	}
+
+	// No live sockets — return newest anyway so retry logic can attempt it
 	return matches[0]
 }
 

@@ -1,11 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -117,6 +120,10 @@ func (p *DataPoller) Poll() PollResult {
 	swarmAgents, swarmErrors := pollSwarmDirs()
 	result.Agents = append(result.Agents, swarmAgents...)
 	result.ParseErrors += swarmErrors
+
+	// 5. Arbor run directories
+	arborAgents := pollArborDirs()
+	result.Agents = append(result.Agents, arborAgents...)
 
 	// Deduplicate agents by ID
 	seen := map[string]bool{}
@@ -251,6 +258,12 @@ func pollResultFiles() ([]Agent, int) {
 			continue
 		}
 
+		// Skip JSON arrays (IPC event files, not result files)
+		trimmed := bytes.TrimSpace(data)
+		if len(trimmed) > 0 && trimmed[0] == byte('[') {
+			continue
+		}
+
 		var result struct {
 			Status     string  `json:"status"`
 			Model      string  `json:"model"`
@@ -292,6 +305,7 @@ func pollResultFiles() ([]Agent, int) {
 
 		if err := json.Unmarshal(data, &result); err != nil {
 			parseErrors++ // Bug K fix: Count parse failures
+			log.Printf("[poller] parse error in %s: %v (first 200 bytes: %s)", path, err, truncateStr(string(data), 200))
 			continue
 		}
 
@@ -460,6 +474,12 @@ func pollSwarmDirs() ([]Agent, int) {
 				continue
 			}
 
+			// Skip JSON arrays (IPC event files, not result files)
+			trimmed := bytes.TrimSpace(data)
+			if len(trimmed) > 0 && trimmed[0] == byte('[') {
+				continue
+			}
+
 			var result struct {
 				Status     string  `json:"status"`
 				Model      string  `json:"model"`
@@ -500,6 +520,7 @@ func pollSwarmDirs() ([]Agent, int) {
 			}
 			if err := json.Unmarshal(data, &result); err != nil {
 				parseErrors++ // Bug K fix: Count parse failures
+				log.Printf("[poller] parse error in %s: %v (first 200 bytes: %s)", resultPath, err, truncateStr(string(data), 200))
 				continue
 			}
 
@@ -597,6 +618,12 @@ func pollSwarmDirs() ([]Agent, int) {
 				continue
 			}
 
+			// Skip JSON arrays (IPC event files, not progress files)
+			trimmed := bytes.TrimSpace(data)
+			if len(trimmed) > 0 && trimmed[0] == byte('[') {
+				continue
+			}
+
 			var progress struct {
 				ToolCalls   int    `json:"tool_calls"`
 				ElapsedMs   int    `json:"elapsed_ms"`
@@ -607,6 +634,7 @@ func pollSwarmDirs() ([]Agent, int) {
 			}
 			if err := json.Unmarshal(data, &progress); err != nil {
 				parseErrors++ // Bug K fix: Count parse failures
+				log.Printf("[poller] parse error in %s: %v (first 200 bytes: %s)", progressPath, err, truncateStr(string(data), 200))
 				continue
 			}
 
@@ -664,31 +692,9 @@ func roleDisallowedTools(role string) string {
 	}
 }
 
-// pollIPCLogs reads ipc.jsonl from the most recent swarm run
-func pollIPCLogs() []IPCEvent {
-	base := "/tmp/swarm"
-	entries, err := os.ReadDir(base)
-	if err != nil {
-		return nil
-	}
-	if len(entries) == 0 {
-		return nil
-	}
-
-	// Get last dir
-	var lastDir string
-	for i := len(entries) - 1; i >= 0; i-- {
-		if entries[i].IsDir() {
-			lastDir = entries[i].Name()
-			break
-		}
-	}
-	if lastDir == "" {
-		return nil
-	}
-
-	logPath := filepath.Join(base, lastDir, "ipc.jsonl")
-	data, err := os.ReadFile(logPath)
+// parseIPCJsonl parses an ipc.jsonl file and returns IPC events.
+func parseIPCJsonl(path string) []IPCEvent {
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil
 	}
@@ -715,9 +721,102 @@ func pollIPCLogs() []IPCEvent {
 		}
 	}
 
-	// Limit to last 500 events
-	if len(events) > 500 {
-		events = events[len(events)-500:]
-	}
 	return events
+}
+
+// pollIPCLogsFromDir scans a base directory for subdirectories and collects IPC events from ipc.jsonl files.
+func pollIPCLogsFromDir(base string) []IPCEvent {
+	entries, err := os.ReadDir(base)
+	if err != nil {
+		return nil
+	}
+
+	var allEvents []IPCEvent
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		logPath := filepath.Join(base, entry.Name(), "ipc.jsonl")
+		if _, err := os.Stat(logPath); err == nil {
+			events := parseIPCJsonl(logPath)
+			allEvents = append(allEvents, events...)
+		}
+	}
+
+	return allEvents
+}
+
+// pollArborDirs scans /tmp/arbor/ directories and reads meta.json files to build Agent entries.
+func pollArborDirs() []Agent {
+	base := "/tmp/arbor"
+	entries, err := os.ReadDir(base)
+	if err != nil {
+		return nil
+	}
+
+	var agents []Agent
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		metaPath := filepath.Join(base, entry.Name(), "meta.json")
+		data, err := os.ReadFile(metaPath)
+		if err != nil {
+			continue
+		}
+
+		var meta struct {
+			ID        string    `json:"id"`
+			Name      string    `json:"name"`
+			Model     string    `json:"model"`
+			Status    string    `json:"status"`
+			Role      string    `json:"role"`
+			TaskDesc  string    `json:"task"`
+			SpawnTime time.Time `json:"spawn_time"`
+			EndTime   time.Time `json:"end_time"`
+		}
+
+		if err := json.Unmarshal(data, &meta); err != nil {
+			continue
+		}
+
+		// Build agent from metadata
+		agents = append(agents, Agent{
+			ID:        meta.ID,
+			Name:      meta.Name,
+			Model:     meta.Model,
+			Status:    meta.Status,
+			Role:      meta.Role,
+			TaskDesc:  meta.TaskDesc,
+			SpawnTime: meta.SpawnTime,
+			EndTime:   meta.EndTime,
+			RunDir:    entry.Name(),
+		})
+	}
+
+	return agents
+}
+
+// pollIPCLogs reads ipc.jsonl from all swarm and arbor runs, merges, sorts, and caps at 500 events.
+func pollIPCLogs() []IPCEvent {
+	// Collect from both /tmp/swarm and /tmp/arbor
+	swarmEvents := pollIPCLogsFromDir("/tmp/swarm")
+	arborEvents := pollIPCLogsFromDir("/tmp/arbor")
+
+	// Merge results
+	allEvents := append(swarmEvents, arborEvents...)
+
+	// Sort by timestamp
+	sort.Slice(allEvents, func(i, j int) bool {
+		return allEvents[i].Timestamp < allEvents[j].Timestamp
+	})
+
+	// Cap at 500 events (keep most recent)
+	if len(allEvents) > 500 {
+		allEvents = allEvents[len(allEvents)-500:]
+	}
+
+	return allEvents
 }

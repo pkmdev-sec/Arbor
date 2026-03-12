@@ -110,8 +110,35 @@ func truncSummary(s string, max int) string {
 	return s
 }
 
+// wrapText wraps long lines at word boundaries to fit within width characters.
+func wrapText(text string, width int) string {
+	if width <= 0 {
+		return text
+	}
+	var result []string
+	for _, line := range strings.Split(text, "\n") {
+		if len(line) <= width {
+			result = append(result, line)
+			continue
+		}
+		for len(line) > width {
+			// Find last space within width
+			cut := strings.LastIndex(line[:width], " ")
+			if cut <= 0 {
+				cut = width // no space found, hard break
+			}
+			result = append(result, line[:cut])
+			line = strings.TrimLeft(line[cut:], " ")
+		}
+		if line != "" {
+			result = append(result, line)
+		}
+	}
+	return strings.Join(result, "\n")
+}
+
 // RenderInternalsPanel renders a two-pane Internals view with log-style entries.
-func RenderInternalsPanel(agents []Agent, ipcEvents []IPCEvent, selected, width, height int, theme Theme) string {
+func RenderInternalsPanel(agents []Agent, ipcEvents []IPCEvent, selected, detailScroll, width, height int, theme Theme) string {
 	entries := BuildLogEntries(agents)
 
 	if len(entries) == 0 {
@@ -231,11 +258,34 @@ func RenderInternalsPanel(agents []Agent, ipcEvents []IPCEvent, selected, width,
 
 	list := strings.Join(listLines, "\n")
 
-	// Build detail view (right pane)
+	// Build detail view (right pane) with scroll support
 	detail := renderLogDetail(entries, sel, detailW, theme)
+	detailLines := strings.Split(detail, "\n")
+	detailVisibleH := height - 2
+	if detailVisibleH < 3 {
+		detailVisibleH = 3
+	}
+	scrollOff := detailScroll
+	if scrollOff > len(detailLines)-detailVisibleH {
+		scrollOff = len(detailLines) - detailVisibleH
+	}
+	if scrollOff < 0 {
+		scrollOff = 0
+	}
+	endLine := scrollOff + detailVisibleH
+	if endLine > len(detailLines) {
+		endLine = len(detailLines)
+	}
+	visibleDetail := strings.Join(detailLines[scrollOff:endLine], "\n")
+	if scrollOff > 0 {
+		visibleDetail = lipgloss.NewStyle().Foreground(theme.Muted).Render(fmt.Sprintf("▲ scroll up (K) — %d lines above", scrollOff)) + "\n" + visibleDetail
+	}
+	if endLine < len(detailLines) {
+		visibleDetail += "\n" + lipgloss.NewStyle().Foreground(theme.Muted).Render(fmt.Sprintf("▼ scroll down (J) — %d lines below", len(detailLines)-endLine))
+	}
 
 	listPanel := theme.PanelStyle.Copy().Width(listW).MaxHeight(height).Render(list)
-	detailPanel := theme.ActivePanel.Copy().Width(detailW).MaxHeight(height).Render(detail)
+	detailPanel := theme.ActivePanel.Copy().Width(detailW).MaxHeight(height).Render(visibleDetail)
 
 	return lipgloss.JoinHorizontal(lipgloss.Top, listPanel, " ", detailPanel)
 }
@@ -327,34 +377,28 @@ func renderLogDetail(entries []LogEntry, sel, width int, theme Theme) string {
 	b.WriteString("\n\n")
 
 	// Summary
+	wrapW := width - 4
+	if wrapW < 10 {
+		wrapW = 10
+	}
 	b.WriteString(bold.Render("Summary"))
 	b.WriteString("\n")
-	b.WriteString(e.Summary)
+	b.WriteString(wrapText(e.Summary, wrapW))
 	b.WriteString("\n\n")
 
 	// Full detail
 	if e.Detail != "" {
 		b.WriteString(bold.Render("Detail"))
 		b.WriteString("\n")
-		// Word-wrap detail to width
-		for _, line := range strings.Split(e.Detail, "\n") {
-			if width > 4 && len(line) > width-4 {
-				line = line[:width-7] + "..."
-			}
-			b.WriteString(line + "\n")
-		}
-		b.WriteString("\n")
+		b.WriteString(wrapText(e.Detail, wrapW))
+		b.WriteString("\n\n")
 	}
 
 	// Task description
 	if e.Agent.TaskDesc != "" {
 		b.WriteString(bold.Render("Task"))
 		b.WriteString("\n")
-		task := e.Agent.TaskDesc
-		if width > 4 && len(task) > width-4 {
-			task = task[:width-7] + "..."
-		}
-		b.WriteString(task)
+		b.WriteString(wrapText(e.Agent.TaskDesc, wrapW))
 		b.WriteString("\n\n")
 	}
 
@@ -396,16 +440,14 @@ func renderLogDetail(entries []LogEntry, sel, width int, theme Theme) string {
 		b.WriteString("\n")
 		cleaned := strings.ReplaceAll(e.Agent.Output, "**", "")
 		cleaned = strings.ReplaceAll(cleaned, "```", "")
-		lines := strings.Split(cleaned, "\n")
+		wrapped := wrapText(cleaned, wrapW-2) // account for "  " prefix
+		lines := strings.Split(wrapped, "\n")
 		maxLines := 15
 		if len(lines) > maxLines {
 			lines = lines[:maxLines]
 		}
 		for _, line := range lines {
-			if width > 4 && len(line) > width-4 {
-				line = line[:width-7] + "..."
-			}
-			b.WriteString(muted.Render("  " + line) + "\n")
+			b.WriteString(muted.Render("  "+line) + "\n")
 		}
 	}
 

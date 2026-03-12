@@ -101,12 +101,21 @@ func RenderNetworkPanel(ipcEvents []IPCEvent, agents []Agent, selectedNet int, w
 		return muted.Render("  No IPC events found. Events are logged in /tmp/swarm/*/ipc.jsonl during swarm runs.")
 	}
 
-	// Two-pane layout
+	// Two-pane layout — clamp to terminal width
 	listW := width * 45 / 100
 	if listW < 50 {
 		listW = 50
 	}
+	if listW > width-20 {
+		listW = width - 20
+	}
+	if listW < 20 {
+		listW = 20
+	}
 	detailW := width - listW - 3
+	if detailW < 15 {
+		detailW = 15
+	}
 
 	// Clamp selection
 	sel := selectedNet
@@ -439,4 +448,3 @@ func renderNetworkDetail(entries []NetworkEntry, sel, width int, theme Theme) st
 
 	return b.String()
 }
-

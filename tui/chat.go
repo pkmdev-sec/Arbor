@@ -13,7 +13,7 @@ const maxMessages = 500
 
 // MessageRing is a ring buffer for IPC messages.
 type MessageRing struct {
-	mu   sync.Mutex   // Bug G fix: Mutex for thread-safe access
+	mu   sync.Mutex // Bug G fix: Mutex for thread-safe access
 	msgs []IPCMessage
 	head int
 	size int

@@ -31,7 +31,7 @@
  */
 
 import { spawn, execFileSync } from "node:child_process";
-import { readFileSync, writeFileSync, existsSync, unlinkSync, mkdtempSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, unlinkSync, mkdtempSync, rmSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
@@ -176,7 +176,7 @@ if (existsSync(localPath)) {
 
 // ── Version checking ─────────────────────────────────────────────
 try {
-  const remoteAgentPkgPath = join(dirname(CLI_JS), "..", "package.json");
+  const remoteAgentPkgPath = join(dirname(CLI_JS), "package.json");
   const remoteAgentPkg = JSON.parse(readFileSync(remoteAgentPkgPath, "utf-8"));
   const remoteVersion = remoteAgentPkg.version;
 
@@ -257,7 +257,7 @@ async function main() {
     const stdinPromise = (async () => {
       const chunks = [];
       for await (const chunk of process.stdin) chunks.push(chunk);
-      return Buffer.concat(chunks).toString("utf-8").trim();
+      return (Buffer.concat(chunks).toString("utf-8") || "").trim();
     })();
 
     const timeoutPromise = new Promise((_, reject) => {
@@ -623,12 +623,41 @@ async function main() {
   log(`${colors.dim}Task: ${taskPreview}${taskPreview.length >= 80 ? "..." : ""}${colors.reset}`);
   log("");
 
-  // Initialize IPC logger when resultFile is set (swarm workDir or explicit --result-file)
-  // Standalone runs without resultFile skip IPC — no consumer watches random temp dirs
+  // Universal IPC Revamp: ALWAYS create a work dir for IPC logging
+  const ARBOR_BASE = "/tmp/arbor";
   const agentLabel = process.env.SWARM_AGENT_ID || 'agent';
-  if (args.resultFile) {
+  let arborWorkDir = null;
+
+  if (!args.resultFile) {
+    // Standalone run: create /tmp/arbor/<runId>/ directory
+    const runId = randomUUID().slice(0, 8);
+    arborWorkDir = join(ARBOR_BASE, runId);
     try {
-      initIpcLogger(dirname(args.resultFile));
+      mkdirSync(ARBOR_BASE, { recursive: true });
+      mkdirSync(arborWorkDir, { recursive: true });
+      initIpcLogger(arborWorkDir);
+      logIpc(agentLabel, 'orchestrator', 'lifecycle', `Agent started: ${args.model}, budget $${args.budget}`, { model: args.model, budget: args.budget, turns: args.maxTurns });
+      logIpc(agentLabel, 'orchestrator', 'lifecycle', 'Task: ' + taskPreview, { model: args.model });
+
+      // Write meta.json for TUI discovery
+      const metaPath = join(arborWorkDir, "meta.json");
+      writeFileSync(metaPath, JSON.stringify({
+        type: "single",
+        task: taskPreview,
+        model: args.model,
+        pid: process.pid,
+        startTime: Date.now(),
+      }, null, 2), "utf-8");
+    } catch (err) {
+      // IPC init failure is non-fatal
+      process.stderr.write(`${colors.yellow}Warning: Failed to initialize arbor work dir: ${err.message}${colors.reset}\n`);
+      arborWorkDir = null;
+    }
+  } else {
+    // Swarm context: keep existing behavior (init with dirname(args.resultFile))
+    arborWorkDir = dirname(args.resultFile);
+    try {
+      initIpcLogger(arborWorkDir);
       logIpc(agentLabel, 'orchestrator', 'lifecycle', `Agent started: ${args.model}, budget $${args.budget}`, { model: args.model, budget: args.budget, turns: args.maxTurns });
       logIpc(agentLabel, 'orchestrator', 'lifecycle', 'Task: ' + taskPreview, { model: args.model });
     } catch {
@@ -799,7 +828,7 @@ async function main() {
         const lines = stdoutNdjsonBuffer.split("\n");
         stdoutNdjsonBuffer = lines.pop() || ""; // Keep incomplete last line
         for (const line of lines) {
-          if (!line.trim()) continue;
+          if (!(line || "").trim()) continue;
           try {
             const event = JSON.parse(line);
 
@@ -878,14 +907,14 @@ async function main() {
       // Last element is incomplete (no trailing newline) — keep in buffer
       stderrLineBuffer = lines.pop() || "";
       for (const line of lines) {
-        if (line.trim()) {
+        if ((line || "").trim()) {
           queueWrite(`${prefix}${line}\n`);
         }
       }
     }
 
     function flushRemainingLines(prefix) {
-      if (stderrLineBuffer.trim()) {
+      if ((stderrLineBuffer || "").trim()) {
         queueWrite(`${prefix}${stderrLineBuffer}\n`);
         stderrLineBuffer = "";
       }
@@ -1037,9 +1066,9 @@ async function main() {
     // When stream-json was used (--result-file mode), extract the human-readable text
     // from the parsed result event. The raw buffer contains NDJSON, not readable text.
     if (args.resultFile && streamResultText !== null) {
-      output = streamResultText.trim();
+      output = (streamResultText || "").trim();
     } else {
-      output = Buffer.concat(stdoutChunks).toString("utf-8").trim();
+      output = (Buffer.concat(stdoutChunks).toString("utf-8") || "").trim();
     }
 
     // TASK 1: Close overflow streams and clean up temp directory
@@ -1124,9 +1153,9 @@ async function main() {
   let changesApplied = false;
   let filesChanged = [];
   try {
-    const diffStat = execFileSync("git", ["diff", "--stat", "--name-only"], {
+    const diffStat = (execFileSync("git", ["diff", "--stat", "--name-only"], {
       encoding: "utf-8", timeout: 5000, cwd: args.cwd || process.cwd(),
-    }).trim();
+    }) || "").trim();
     if (diffStat) {
       filesChanged = diffStat.split("\n").filter(Boolean);
       changesApplied = filesChanged.length > 0;
@@ -1148,7 +1177,7 @@ async function main() {
   } else if (exitCode !== 0) {
     log(`\n${colors.red}Failed after ${durationSec}s (exit ${exitCode})${colors.reset}`);
     // Show stderr on failure for diagnostics
-    const stderr = stderrFull.trim();
+    const stderr = (stderrFull || "").trim();
     if (stderr) {
       const lines = stderr.split("\n").slice(-5);
       log(`${colors.dim}${lines.join("\n")}${colors.reset}`);

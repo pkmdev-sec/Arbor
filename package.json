@@ -5,7 +5,8 @@
   "type": "module",
   "bin": {
     "arbor": "./agent-entry.mjs",
-    "arbor-swarm": "./swarm.mjs"
+    "arbor-swarm": "./swarm.mjs",
+    "arbor-tui": "./arbor-tui.sh"
   },
   "scripts": {
     "start": "node agent-entry.mjs",

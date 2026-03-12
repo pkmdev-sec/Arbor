@@ -1,0 +1,7 @@
+# Python bytecode cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Hook runtime state (created by hooks at runtime)
+.acontext_state/

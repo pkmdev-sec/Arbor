@@ -23,16 +23,16 @@ var (
 
 // LauncherModel is the swarm launcher form.
 type LauncherModel struct {
-	taskInput  textarea.Model
-	agentInput textinput.Model
+	taskInput    textarea.Model
+	agentInput   textinput.Model
 	timeoutInput textinput.Model
-	modeIdx    int
-	depthIdx   int
-	focused    int
-	launched   bool
-	lastRunDir string
-	lastPID    int
-	err        error
+	modeIdx      int
+	depthIdx     int
+	focused      int
+	launched     bool
+	lastRunDir   string
+	lastPID      int
+	err          error
 }
 
 // NewLauncherModel creates a new swarm launcher.
@@ -186,8 +186,8 @@ func (l *LauncherModel) Launch() tea.Cmd {
 			task,
 		}
 
-		cmd := exec.Command("swarm", args...)
-		// Use current working directory (swarm binary is on PATH)
+		cmd := exec.Command("arbor-swarm", args...)
+		// Use current working directory (arbor-swarm binary is on PATH)
 		if cwd, err := os.Getwd(); err == nil {
 			cmd.Dir = cwd
 		}
@@ -248,35 +248,26 @@ func (l LauncherModel) View(width, height int, theme Theme) string {
 		b.WriteString(labelStyle.Render("  Mode:"))
 	}
 
-	// Visual selector with boxes around options
-	modeOptions := []string{}
+	// Visual selector chips - NO BORDERS, only background/foreground
+	modeChips := []string{}
 	for i, mode := range swarmModes {
 		if i == l.modeIdx {
-			if l.focused == 1 {
-				modeOptions = append(modeOptions, lipgloss.NewStyle().
-					Foreground(theme.BG).
-					Background(theme.Accent).
-					Bold(true).
-					Padding(0, 1).
-					Render(mode))
-			} else {
-				modeOptions = append(modeOptions, lipgloss.NewStyle().
-					Foreground(theme.Accent).
-					Bold(true).
-					Border(lipgloss.RoundedBorder()).
-					BorderForeground(theme.Accent).
-					Padding(0, 1).
-					Render(mode))
-			}
+			// Selected: background color ONLY, no border
+			modeChips = append(modeChips, lipgloss.NewStyle().
+				Background(theme.Accent).
+				Foreground(theme.BG).
+				Padding(0, 1).
+				Render(mode))
 		} else {
-			modeOptions = append(modeOptions, lipgloss.NewStyle().
+			// Unselected: foreground color ONLY, no border
+			modeChips = append(modeChips, lipgloss.NewStyle().
 				Foreground(theme.Muted).
 				Padding(0, 1).
 				Render(mode))
 		}
 	}
 	b.WriteString("\n")
-	b.WriteString(modePrefix + strings.Join(modeOptions, " "))
+	b.WriteString(modePrefix + lipgloss.JoinHorizontal(lipgloss.Center, modeChips...))
 	if l.focused == 1 {
 		b.WriteString(mutedStyle.Render("  (use ←/→)"))
 	}
@@ -291,35 +282,26 @@ func (l LauncherModel) View(width, height int, theme Theme) string {
 		b.WriteString(labelStyle.Render("  Depth:"))
 	}
 
-	// Visual selector
-	depthOptions := []string{}
+	// Visual selector chips - NO BORDERS, only background/foreground
+	depthChips := []string{}
 	for i, depth := range swarmDepths {
 		if i == l.depthIdx {
-			if l.focused == 2 {
-				depthOptions = append(depthOptions, lipgloss.NewStyle().
-					Foreground(theme.BG).
-					Background(theme.Accent).
-					Bold(true).
-					Padding(0, 1).
-					Render(depth))
-			} else {
-				depthOptions = append(depthOptions, lipgloss.NewStyle().
-					Foreground(theme.Accent).
-					Bold(true).
-					Border(lipgloss.RoundedBorder()).
-					BorderForeground(theme.Accent).
-					Padding(0, 1).
-					Render(depth))
-			}
+			// Selected: background color ONLY, no border
+			depthChips = append(depthChips, lipgloss.NewStyle().
+				Background(theme.Accent).
+				Foreground(theme.BG).
+				Padding(0, 1).
+				Render(depth))
 		} else {
-			depthOptions = append(depthOptions, lipgloss.NewStyle().
+			// Unselected: foreground color ONLY, no border
+			depthChips = append(depthChips, lipgloss.NewStyle().
 				Foreground(theme.Muted).
 				Padding(0, 1).
 				Render(depth))
 		}
 	}
 	b.WriteString("\n")
-	b.WriteString(depthPrefix + strings.Join(depthOptions, " "))
+	b.WriteString(depthPrefix + lipgloss.JoinHorizontal(lipgloss.Center, depthChips...))
 	if l.focused == 2 {
 		b.WriteString(mutedStyle.Render("  (use ←/→)"))
 	}

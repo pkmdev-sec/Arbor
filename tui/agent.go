@@ -37,19 +37,19 @@ type Agent struct {
 	Role            string         // worker, verifier, scout
 
 	// Part 1-3 features (RE findings)
-	Effort         string  // low, medium, high, max — thinking depth
-	Scope          string  // comma-separated scope paths for enforcement
-	Prefill        bool    // whether --prefill was used for warm-starting
-	FallbackModel  string  // auto-fallback model on overload
-	SessionID      string  // session UUID for resume tracking
-	RetryCount     int     // number of retries attempted
-	PersistContext bool    // context written to CLAUDE.md for compaction survival
+	Effort         string // low, medium, high, max — thinking depth
+	Scope          string // comma-separated scope paths for enforcement
+	Prefill        bool   // whether --prefill was used for warm-starting
+	FallbackModel  string // auto-fallback model on overload
+	SessionID      string // session UUID for resume tracking
+	RetryCount     int    // number of retries attempted
+	PersistContext bool   // context written to CLAUDE.md for compaction survival
 
 	// RE-discovered internal signals
-	DisallowedTools string  // tools blocked for this role (denylist)
-	LastTool        string  // last tool call observed
-	StdoutBytes     int     // output size in bytes
-	Truncated       bool    // output was truncated by ring buffer
+	DisallowedTools string // tools blocked for this role (denylist)
+	LastTool        string // last tool call observed
+	StdoutBytes     int    // output size in bytes
+	Truncated       bool   // output was truncated by ring buffer
 }
 
 // FileChange tracks a single file modification by an agent.
@@ -547,8 +547,12 @@ func SortAgents(agents []Agent, sortBy string) {
 	case "name":
 		sort.Slice(agents, func(i, j int) bool {
 			ni, nj := agents[i].Name, agents[j].Name
-			if ni == "" { ni = agents[i].ID }
-			if nj == "" { nj = agents[j].ID }
+			if ni == "" {
+				ni = agents[i].ID
+			}
+			if nj == "" {
+				nj = agents[j].ID
+			}
 			return ni < nj
 		})
 	case "elapsed":
@@ -559,8 +563,12 @@ func SortAgents(agents []Agent, sortBy string) {
 		statusOrder := map[string]int{"running": 0, "spawning": 1, "done": 2, "failed": 3, "timeout": 4}
 		sort.Slice(agents, func(i, j int) bool {
 			oi, oj := statusOrder[agents[i].Status], statusOrder[agents[j].Status]
-			if _, ok := statusOrder[agents[i].Status]; !ok { oi = 99 }
-			if _, ok := statusOrder[agents[j].Status]; !ok { oj = 99 }
+			if _, ok := statusOrder[agents[i].Status]; !ok {
+				oi = 99
+			}
+			if _, ok := statusOrder[agents[j].Status]; !ok {
+				oj = 99
+			}
 			return oi < oj
 		})
 	case "model":

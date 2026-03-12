@@ -65,7 +65,7 @@ function computeAgentCwd(mainCwd) {
 }
 
 // ── Scout project structure (Phase 3 — parallel with decompose) ──
-async function scoutProject(task, workDir, contextFile, projectTree = "") {
+async function scoutProject(task, workDir, contextFile, projectTree = "", busSocketPath = null) {
   // S3: Use pre-computed projectTree if provided, otherwise scan
   let tree = projectTree;
   if (!tree) {
@@ -138,6 +138,7 @@ async function scoutProject(task, workDir, contextFile, projectTree = "") {
     resultFile: rf,
     contextFile,
     agentId: "scout",
+    ipcSocket: busSocketPath,
   });
 
   const elapsed = ((Date.now() - start) / 1000).toFixed(1);
@@ -481,7 +482,7 @@ async function executeHierarchyLevel(node, parentTask, workDir, depth, args, gov
     // Apply worktree changes and track applied files for aggregator
     let appliedFiles = [];
     if (isolation.success) {
-      const apply = await validateAndApply(isolation.worktreePath, mainCwd, isolation.snapshot, isolation.backupDir, isolation.copiedUntracked);
+      const apply = await validateAndApply(isolation.worktreePath, mainCwd, isolation.snapshot, isolation.backupDir, isolation.copiedUntracked, new Set(), [], new Map(), new Set(), isolation.baseCommit);
       if (apply.valid) {
         appliedFiles = apply.applied;
         log(`  ${colors.green}✓${colors.reset} ${agentId}: applied ${appliedFiles.length} files`);
@@ -714,12 +715,13 @@ async function main() {
       turns: DEPTH[depth].turns, budget: DEPTH[depth].budget,
       resultFile: rf, contextFile: args.contextFile,
       agentId: "agent-01", cwd: agentCwd(isolation.worktreePath),
+      ipcSocket: busSocketPath,
     });
     workerResults = [{ id: "agent-01", subtask: args.task.slice(0, 80), model: "sonnet", ...result, resultFile: rf, worktreePath: isolation.worktreePath }];
     logIpc('agent-01', 'orchestrator', 'result', 'Completed in ' + (result.durationMs / 1000).toFixed(1) + 's (exit ' + result.exitCode + ')', { exitCode: result.exitCode, durationMs: result.durationMs });
     log(`  ${result.exitCode === 0 ? `${colors.green}✓${colors.reset}` : `${colors.red}✗${colors.reset}`} ${(result.durationMs / 1000).toFixed(1)}s`);
     if (isolation.success) {
-      const apply = await validateAndApply(isolation.worktreePath, mainCwd, isolation.snapshot, isolation.backupDir, isolation.copiedUntracked);
+      const apply = await validateAndApply(isolation.worktreePath, mainCwd, isolation.snapshot, isolation.backupDir, isolation.copiedUntracked, new Set(), [], new Map(), new Set(), isolation.baseCommit);
       if (apply.valid) {
         logIpc('orchestrator', 'agent-01', 'lifecycle', 'Applied ' + apply.applied.length + ' files' + (apply.escaped.length ? ', ' + apply.escaped.length + ' escaped' : ''), {});
         log(`  ${colors.green}✓${colors.reset} agent-01: applied ${apply.applied.length} files${apply.escaped.length ? `, ${apply.escaped.length} escaped (validated)` : ""}`);
@@ -747,8 +749,8 @@ async function main() {
 
     // Phase 3: Run scout in parallel with decomposer to eliminate idle time
     const [subtasks, scoutOutput] = await Promise.all([
-      decompose(args.task, Math.max(1, args.agents - 1), depth, args.contextFile, workDir, projectTree),
-      scoutProject(args.task, workDir, args.contextFile, projectTree),
+      decompose(args.task, Math.max(1, args.agents - 1), depth, args.contextFile, workDir, projectTree, { busSocketPath }),
+      scoutProject(args.task, workDir, args.contextFile, projectTree, busSocketPath),
     ]);
     scoutSummary = scoutOutput;
     logIpc('scout', 'orchestrator', 'result', (scoutSummary || '(no output)').slice(0, 200), {});
@@ -776,12 +778,12 @@ async function main() {
       log(`${colors.yellow}Note: ${subtasks.length} subtasks generated — consider --mode hierarchical for better coordination and crash recovery.${colors.reset}`);
     }
 
-    const parallelResult = await executeParallel(subtasks, depth, args.contextFile, workDir, scoutSummary);
+    const parallelResult = await executeParallel(subtasks, depth, args.contextFile, workDir, scoutSummary, busSocketPath);
     workerResults = parallelResult.results;
     conflictReport = parallelResult.conflictReport;
 
   } else if (mode === "pipeline") {
-    workerResults = await executePipeline(args.task, depth, args.contextFile, workDir);
+    workerResults = await executePipeline(args.task, depth, args.contextFile, workDir, busSocketPath);
 
   } else if (mode === "review") {
     const rf = join(workDir, "reviewer-result.json");
@@ -792,12 +794,13 @@ async function main() {
       turns: 15, budget: DEPTH[depth].budget,
       resultFile: rf, contextFile: args.contextFile,
       agentId: "reviewer", cwd: agentCwd(isolation.worktreePath),
+      ipcSocket: busSocketPath,
     });
     workerResults = [{ id: "reviewer", subtask: args.task.slice(0, 80), model: "opus", ...result, resultFile: rf, worktreePath: isolation.worktreePath }];
     logIpc('reviewer', 'orchestrator', 'result', 'Completed in ' + (result.durationMs / 1000).toFixed(1) + 's (exit ' + result.exitCode + ')', { exitCode: result.exitCode, durationMs: result.durationMs });
     log(`  ${result.exitCode === 0 ? `${colors.green}✓${colors.reset}` : `${colors.red}✗${colors.reset}`} ${(result.durationMs / 1000).toFixed(1)}s`);
     if (isolation.success) {
-      const apply = await validateAndApply(isolation.worktreePath, mainCwd, isolation.snapshot, isolation.backupDir, isolation.copiedUntracked);
+      const apply = await validateAndApply(isolation.worktreePath, mainCwd, isolation.snapshot, isolation.backupDir, isolation.copiedUntracked, new Set(), [], new Map(), new Set(), isolation.baseCommit);
       if (apply.valid) {
         logIpc('orchestrator', 'reviewer', 'lifecycle', 'Applied ' + apply.applied.length + ' files' + (apply.escaped.length ? ', ' + apply.escaped.length + ' escaped' : ''), {});
         log(`  ${colors.green}✓${colors.reset} reviewer: applied ${apply.applied.length} files${apply.escaped.length ? `, ${apply.escaped.length} escaped (validated)` : ""}`);
@@ -861,13 +864,14 @@ async function main() {
           isFallback: true,
           fallbackReason: "hierarchical_mode_failed",
           fallbackContext: "Executing flat swarm as fallback from hierarchical mode failure",
+          busSocketPath,
         }),
-        scoutProject(args.task, workDir, args.contextFile, projectTree),
+        scoutProject(args.task, workDir, args.contextFile, projectTree, busSocketPath),
       ]);
       scoutSummary = scoutOutput;
 
       // Execute parallel with fallback metadata
-      const parallelResult2 = await executeParallel(subtasks, depth, args.contextFile, workDir, scoutSummary);
+      const parallelResult2 = await executeParallel(subtasks, depth, args.contextFile, workDir, scoutSummary, busSocketPath);
       workerResults = parallelResult2.results;
       conflictReport = parallelResult2.conflictReport;
 
@@ -897,7 +901,7 @@ async function main() {
     }
 
     // Optional scout for richer context
-    scoutSummary = await scoutProject(args.task, workDir, args.contextFile, projectTree);
+    scoutSummary = await scoutProject(args.task, workDir, args.contextFile, projectTree, busSocketPath);
 
     // Generate distinct approaches
     const approaches = await generateApproaches(args.task, forkCount, {
@@ -938,6 +942,7 @@ async function main() {
         contextFile: args.contextFile,
         agentId,
         cwd: agentCwd(isolation.worktreePath),
+        ipcSocket: busSocketPath,
       });
 
       const icon = result.exitCode === 0 ? `${colors.green}✓${colors.reset}` : `${colors.red}✗${colors.reset}`;
@@ -963,7 +968,7 @@ async function main() {
 
     // Apply only the winner's worktree changes
     if (winner.isolation.success) {
-      const apply = await validateAndApply(winner.isolation.worktreePath, mainCwd, winner.isolation.snapshot, winner.isolation.backupDir, winner.isolation.copiedUntracked);
+      const apply = await validateAndApply(winner.isolation.worktreePath, mainCwd, winner.isolation.snapshot, winner.isolation.backupDir, winner.isolation.copiedUntracked, new Set(), [], new Map(), new Set(), winner.isolation.baseCommit);
       if (apply.valid) {
         log(`  ${colors.green}✓${colors.reset} ${winner.id}: applied ${apply.applied.length} files`);
         logIpc('orchestrator', winner.id, 'lifecycle', `Applied ${apply.applied.length} files`);
@@ -1008,7 +1013,7 @@ async function main() {
 
   // Verification pass
   if (shouldVerify) {
-    verifyResult = await verify(args.task, workerResults, depth, workDir);
+    verifyResult = await verify(args.task, workerResults, depth, workDir, busSocketPath);
     if (verifyResult) {
       const vm = (verifyResult.output || '').match(/VERDICT:\s*(PASS|FAIL|NEEDS_REWORK)/i);
       logIpc('verifier', 'orchestrator', 'verdict', vm ? vm[1] : 'UNKNOWN', { durationMs: verifyResult.durationMs });
