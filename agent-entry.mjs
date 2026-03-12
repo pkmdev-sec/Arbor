@@ -421,9 +421,13 @@ async function main() {
         return "I'll start by reading the relevant files to understand the current code, then make the requested changes.\n\n";
       case "decomposer":
         return "I'll analyze the task scope and produce a JSON decomposition.\n\n";
-      default:
-        // verifier and unknown roles: no prefill (let them reason independently)
+      case "verifier":
+        // Verifier: no prefill (let it reason from scratch for adversarial quality)
         return null;
+      default:
+        // Standalone calls (no --role): nudge agent to act, not just explore.
+        // Without this, opus spends all turns reading files and produces empty output.
+        return "I'll examine the relevant code, then produce concrete output (write files, generate content, or provide a clear text response). I will NOT spend all my turns just reading — I'll act on what I find.\n\n";
     }
   }
 
@@ -1041,10 +1045,25 @@ async function main() {
       }
     }
 
+    // When output is empty but agent was active, synthesize an activity summary
+    // so the parent session knows what happened instead of seeing "(No output)"
+    let effectiveOutput = output.slice(0, 500_000);
+    if (!effectiveOutput && progress.tool_calls_count > 0) {
+      const parts = [`[arbor: agent completed with no text output but made ${progress.tool_calls_count} tool call(s) in ${durationSec}s]`];
+      if (changesApplied) {
+        parts.push(`Files modified: ${filesChanged.slice(0, 10).join(", ")}${filesChanged.length > 10 ? ` (+${filesChanged.length - 10} more)` : ""}`);
+      } else {
+        parts.push("No files were modified — agent spent turns exploring/reading without producing changes.");
+      }
+      parts.push(`Last tool used: ${progress.last_tool || "unknown"}`);
+      effectiveOutput = parts.join("\n");
+      log(`${colors.yellow}WARNING: Agent produced no text output despite ${progress.tool_calls_count} tool calls — activity summary injected into result${colors.reset}`);
+    }
+
     const result = {
       version: 1,
       status: exitCode === 0 ? "completed" : exitCode === 124 ? "interrupted" : "failed",
-      output: output.slice(0, 500_000), // 500KB cap
+      output: effectiveOutput, // 500KB cap, or synthesized activity summary if empty
       duration_ms: durationMs,
       exit_code: exitCode,
       model: args.model,
