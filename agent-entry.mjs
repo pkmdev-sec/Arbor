@@ -39,7 +39,7 @@ import { tmpdir } from "node:os";
 import { createWriteStream } from "node:fs";
 
 import { colors, log, setQuiet } from "./lib/output.mjs";
-import { MAX_BUFFER_SIZE, TOOL_CALL_RE, resolveModel, ROLE_PROMPTS, ROLE_THINKING_TOKENS, ROLE_OUTPUT_TOKENS, ROLE_BASH_LIMIT } from "./lib/config.mjs";
+import { MAX_BUFFER_SIZE, TOOL_CALL_RE, resolveModel, ROLE_PROMPTS, ROLE_THINKING_TOKENS, ROLE_OUTPUT_TOKENS, ROLE_BASH_OUTPUT_LENGTH, DEFAULT_THINKING_TOKENS, DEFAULT_OUTPUT_TOKENS, DEFAULT_BASH_OUTPUT_LENGTH } from "./lib/config.mjs";
 import { parseAgentArgs, showAgentHelp } from "./lib/cli.mjs";
 import { contextToSystemPrompt, writeResult } from "./lib/context-bridge.mjs";
 // filterSystemPromptForRole and filteringStats now used via lib/supervisor.mjs
@@ -311,6 +311,7 @@ async function main() {
   env.CLAUDECODE = ""; // Belt-and-suspenders: also clear the env guard
 
   // F1: Non-essential traffic suppression — verified in SDK
+  env.DISABLE_TELEMETRY = "1";
   env.DISABLE_ERROR_REPORTING = "1";
   env.DISABLE_AUTOUPDATER = "1";
   env.DISABLE_COST_WARNINGS = "1";
@@ -327,15 +328,18 @@ async function main() {
   env.ANTHROPIC_SMALL_FAST_MODEL = "claude-haiku-4-5-20251001";
 
   // F4: Role-specific resource tuning — verified env var names in SDK
-  if (args.role && ROLE_THINKING_TOKENS[args.role]) {
-    env.MAX_THINKING_TOKENS = String(ROLE_THINKING_TOKENS[args.role]);
-  }
-  if (args.role && ROLE_OUTPUT_TOKENS[args.role]) {
-    env.CLAUDE_CODE_MAX_OUTPUT_TOKENS = String(ROLE_OUTPUT_TOKENS[args.role]);
-  }
-  if (args.role && ROLE_BASH_LIMIT[args.role]) {
-    env.BASH_MAX_OUTPUT_LENGTH = String(ROLE_BASH_LIMIT[args.role]);
-  }
+  // QW4: Role-specific thinking tokens with fallback to default
+  const role = args.role || 'worker';
+  const thinkingTokens = ROLE_THINKING_TOKENS[role] || DEFAULT_THINKING_TOKENS;
+  env.MAX_THINKING_TOKENS = String(thinkingTokens);
+
+  // QW5: Role-specific output tokens with fallback to default
+  const outputTokens = ROLE_OUTPUT_TOKENS[role] || DEFAULT_OUTPUT_TOKENS;
+  env.CLAUDE_CODE_MAX_OUTPUT_TOKENS = String(outputTokens);
+
+  // QW6: Role-specific bash output length
+  const bashOutputLen = ROLE_BASH_OUTPUT_LENGTH[role] || DEFAULT_BASH_OUTPUT_LENGTH;
+  env.BASH_MAX_OUTPUT_LENGTH = String(bashOutputLen);
 
   // ── Session resume support ───────────────────────────────────────
   // Generate a stable session ID for the first run. On retry, --resume picks up
@@ -482,6 +486,7 @@ async function main() {
         isRetry,
         previousResultFile,
         env,
+        scope: args.scope,
       });
     } catch (err) {
       if (err.message === "Context file is required but failed to load") {
