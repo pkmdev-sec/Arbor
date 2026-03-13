@@ -31,6 +31,8 @@ import { generateApproaches } from "./lib/approach-generator.mjs";
 import { selectWinner } from "./lib/branch-selector.mjs";
 import LearningStore from "./lib/learning.mjs";
 import OutputValidator from "./lib/output-validator.mjs";
+import { profileProject } from './lib/project-profiler.mjs';
+import { generateAgentConfig } from './lib/agent-config.mjs';
 
 // Hierarchical mode — lazy-loaded for graceful fallback if modules are missing
 let hierarchyModules = null;
@@ -647,6 +649,15 @@ async function main() {
     log(`${colors.dim}Learning store: promoted ${promoted}, pruned ${pruned} patterns${colors.reset}`);
   }
 
+  // REQ-036: Wire project profiler + agent config
+  let domainSupplement = null;
+  try {
+    const profile = await profileProject(process.cwd());
+    const agentConfig = generateAgentConfig(profile);
+    domainSupplement = agentConfig.domainSupplement || null;
+    if (!args.quiet && profile.projectType) log(colors.dim + 'Project: ' + profile.projectType + ' (' + profile.primaryLanguage + ')' + colors.reset);
+  } catch { /* non-fatal */ }
+
   log(`${colors.bold}${colors.cyan}swarm${colors.reset} ${colors.dim}|${colors.reset} mode=${mode} ${colors.dim}|${colors.reset} agents=${args.agents} ${colors.dim}|${colors.reset} depth=${depth} ${colors.dim}|${colors.reset} verify=${shouldVerify}${args.bdTask ? ` ${colors.dim}|${colors.reset} bd=${args.bdTask}` : ""}`);
   log(`${colors.dim}Run: ${workDir}${colors.reset}`);
   log(`${colors.dim}Task: ${args.task.slice(0, 80)}${args.task.length > 80 ? "..." : ""}${colors.reset}`);
@@ -802,12 +813,12 @@ async function main() {
       log(`${colors.yellow}Note: ${subtasks.length} subtasks generated — consider --mode hierarchical for better coordination and crash recovery.${colors.reset}`);
     }
 
-    const parallelResult = await executeParallel(subtasks, depth, args.contextFile, workDir, scoutSummary, busSocketPath);
+    const parallelResult = await executeParallel(subtasks, depth, args.contextFile, workDir, scoutSummary, busSocketPath, { domainSupplement, continuous: true });
     workerResults = parallelResult.results;
     conflictReport = parallelResult.conflictReport;
 
   } else if (mode === "pipeline") {
-    workerResults = await executePipeline(args.task, depth, args.contextFile, workDir, busSocketPath);
+    workerResults = await executePipeline(args.task, depth, args.contextFile, workDir, busSocketPath, { domainSupplement });
 
   } else if (mode === "review") {
     const rf = join(workDir, "reviewer-result.json");
@@ -895,7 +906,7 @@ async function main() {
       scoutSummary = scoutOutput;
 
       // Execute parallel with fallback metadata
-      const parallelResult2 = await executeParallel(subtasks, depth, args.contextFile, workDir, scoutSummary, busSocketPath);
+      const parallelResult2 = await executeParallel(subtasks, depth, args.contextFile, workDir, scoutSummary, busSocketPath, { domainSupplement, continuous: true });
       workerResults = parallelResult2.results;
       conflictReport = parallelResult2.conflictReport;
 
