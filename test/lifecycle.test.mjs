@@ -1,3 +1,9 @@
+/**
+ * Tests for Lifecycle Management
+ *
+ * Tests cleanup handlers, run directory management, and graceful shutdown mechanisms.
+ */
+
 import { describe, it, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync, existsSync, rmSync, mkdtempSync, readdirSync, statSync, utimesSync } from "node:fs";

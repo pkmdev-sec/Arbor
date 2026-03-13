@@ -1,3 +1,9 @@
+/**
+ * Tests for Context Budget Manager
+ *
+ * Tests token budget tracking, estimation, and enforcement for LLM context management.
+ */
+
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import ContextBudget, {

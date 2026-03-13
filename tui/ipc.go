@@ -383,8 +383,6 @@ func connectToIPC(address string) tea.Cmd {
 		if err := conn.Connect(); err != nil {
 			return ipcErrMsg{err: err}
 		}
-		// TODO(C10): model.go needs to handle ipcConnectedWithConn message type
-		// and store the conn reference in the model state
 		return ipcConnectedWithConn{conn: conn}
 	}
 }

@@ -1,3 +1,9 @@
+/**
+ * Tests for Configuration Module
+ *
+ * Tests model resolution, constants, and configuration defaults.
+ */
+
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { resolveModel, TOOL_CALL_RE, ALLOWED_MODELS, DEPTH, MAX_BUFFER_SIZE, DEFAULT_EXCLUDES } from "../lib/config.mjs";

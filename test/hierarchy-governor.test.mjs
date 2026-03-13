@@ -1,3 +1,9 @@
+/**
+ * Tests for Hierarchy Governor
+ *
+ * Tests resource limit enforcement and hierarchical swarm governance.
+ */
+
 import { describe, it, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { ResourceGovernor, GovernorLimitError } from "../lib/hierarchy/governor.mjs";

@@ -1,3 +1,9 @@
+/**
+ * Tests for RingBuffer
+ *
+ * Tests ring buffer implementation for bounded memory usage with overflow handling.
+ */
+
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { RingBuffer } from "../lib/buffer.mjs";

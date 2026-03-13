@@ -1612,15 +1612,11 @@ func (m Model) handleLogKeys(msg tea.KeyMsg) Model {
 
 // handleInternalKeys handles navigation in the Internals tab.
 func (m Model) handleInternalKeys(msg tea.KeyMsg) Model {
-	// Count agents with quality issues for bounds
-	count := 0
-	for _, a := range m.agents {
-		if a.QualityIssue != "" {
-			count++
-		}
-	}
+	// Count actual log entries from BuildLogEntries for correct bounds
+	entries := BuildLogEntries(m.agents)
+	count := len(entries)
 	if count == 0 {
-		count = len(m.agents) // fallback to all agents
+		return m
 	}
 
 	// Detail pane scroll with J/K (shift+j/k)

@@ -19,13 +19,17 @@ import sys
 import time
 from pathlib import Path
 
+# Monotonic sequence counter (per-process, resets per agent)
+_seq_counter = 0
 
-def _write_ipc_event(ipc_dir: str, agent_id: str, tool_name: str, meta: dict) -> None:
-    """Append a tool_event to the IPC JSONL log."""
+
+def _write_ipc_event(ipc_dir: str, agent_id: str, tool_name: str, meta: dict, seq: int) -> None:
+    """Append a tool_event to the IPC JSONL log with enhanced metadata."""
     ipc_path = Path(ipc_dir) / "ipc.jsonl"
     event = {
         "ts": int(time.time() * 1000),
         "t": time.strftime("%H:%M:%S"),
+        "seq": seq,  # NEW: global sequence number
         "from": agent_id,
         "to": "tui",
         "type": "tool_event",
@@ -67,6 +71,78 @@ def _extract_result_summary(tool_name: str, tool_result: dict | str) -> str:
     return ""
 
 
+def _extract_rich_meta(
+    tool_name: str, tool_input: dict, tool_result: dict | str
+) -> dict:
+    """Extract rich metadata per tool type with duration, counts, sizes, etc."""
+    global _seq_counter
+    _seq_counter += 1
+
+    target = _extract_target(tool_name, tool_input)
+    result_summary = _extract_result_summary(tool_name, tool_result)
+
+    meta = {
+        "tool": tool_name,
+        "target": target,
+        "result_preview": result_summary,
+        "seq": _seq_counter,
+    }
+
+    # Extract duration_ms if available in result
+    if isinstance(tool_result, dict):
+        if "duration_ms" in tool_result:
+            meta["duration_ms"] = tool_result["duration_ms"]
+        elif "durationMs" in tool_result:
+            meta["duration_ms"] = tool_result["durationMs"]
+
+    # Tool-specific metadata extraction
+    if tool_name in ("Read", "Write", "Edit"):
+        # File operations: extract file size
+        if isinstance(tool_result, str):
+            meta["file_size"] = len(tool_result)
+        elif isinstance(tool_result, dict):
+            # Try to get content or output length
+            content = tool_result.get("content") or tool_result.get("output", "")
+            if content:
+                meta["file_size"] = len(str(content))
+
+    elif tool_name == "Bash":
+        # Bash: extract exit code and command
+        if isinstance(tool_result, dict):
+            if "exit_code" in tool_result:
+                meta["exit_code"] = tool_result["exit_code"]
+            elif "exitCode" in tool_result:
+                meta["exit_code"] = tool_result["exitCode"]
+        # Command already in target (first 80 chars from _extract_target)
+
+    elif tool_name in ("Grep", "Glob"):
+        # Grep/Glob: extract match count
+        if isinstance(tool_result, str):
+            # Count lines as matches
+            meta["match_count"] = len(tool_result.split("\n")) if tool_result else 0
+        elif isinstance(tool_result, dict):
+            # Try to extract matches array or count field
+            if "matches" in tool_result:
+                matches = tool_result["matches"]
+                meta["match_count"] = (
+                    len(matches) if isinstance(matches, list) else 1
+                )
+            elif "count" in tool_result:
+                meta["match_count"] = tool_result["count"]
+            elif "output" in tool_result:
+                output = str(tool_result["output"])
+                meta["match_count"] = len(output.split("\n")) if output else 0
+
+    elif tool_name == "Agent":
+        # Agent: extract description and model if available
+        if isinstance(tool_result, dict):
+            if "model" in tool_result:
+                meta["agent_model"] = tool_result["model"]
+        # Description already in target from _extract_target
+
+    return meta
+
+
 def main() -> None:
     """Read PostToolUse event from stdin, write IPC event, output empty JSON."""
     try:
@@ -88,16 +164,10 @@ def main() -> None:
         tool_input = event.get("tool_input", {})
         tool_result = event.get("tool_result", "")
 
-        target = _extract_target(tool_name, tool_input)
-        result_summary = _extract_result_summary(tool_name, tool_result)
+        # Extract rich metadata with tool-specific fields
+        meta = _extract_rich_meta(tool_name, tool_input, tool_result)
 
-        meta = {
-            "tool": tool_name,
-            "target": target,
-            "result_preview": result_summary,
-        }
-
-        _write_ipc_event(ipc_dir, agent_id, tool_name, meta)
+        _write_ipc_event(ipc_dir, agent_id, tool_name, meta, meta["seq"])
 
         # PostToolUse hooks return empty JSON (no blocking behavior)
         print("{}")

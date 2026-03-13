@@ -1,6 +1,12 @@
+/**
+ * Tests for Context Filter
+ *
+ * Tests role-based context filtering and system prompt adaptation for different agent types.
+ */
+
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { filterContextForRole, filterSystemPromptForRole, filteringStats, getStrippedSections } from "../lib/context-filter.mjs";
+import { filterContextForRole, filterSystemPromptForRole, filteringStats, getStrippedSections, filterContextSemantically } from "../lib/context-filter.mjs";
 
 // ── filterContextForRole ─────────────────────────────────────────
 
@@ -316,5 +322,233 @@ describe("getStrippedSections", () => {
     assert.ok(!stripped.includes("gitDiff"));
     assert.ok(!stripped.includes("testResults"));
     assert.ok(!stripped.includes("workerOutputs"));
+  });
+});
+
+// ── filterContextSemantically ────────────────────────────────────────
+
+describe("filterContextSemantically", () => {
+  it("worker with scope=['lib/tui/'] gets only tui-related file summaries", () => {
+    const prompt = [
+      "CONSTRAINTS:\n- use TypeScript",
+      "FILE CONTEXT:\n- lib/tui/foo.go: TUI component\n- lib/ipc/bar.mjs: IPC module\n- lib/context-filter.mjs: Context filtering",
+      "KNOWN DECISIONS:\n- use Go for TUI\n- use Node.js for backend",
+    ].join("\n\n");
+
+    const filtered = filterContextSemantically(prompt, "worker", "lib/tui/");
+
+    // Should keep tui-related file
+    assert.ok(filtered.includes("lib/tui/foo.go"), "should include lib/tui/foo.go");
+    // Should strip non-tui files
+    assert.ok(!filtered.includes("lib/ipc/bar.mjs"), "should not include lib/ipc/bar.mjs");
+    assert.ok(!filtered.includes("lib/context-filter.mjs"), "should not include lib/context-filter.mjs");
+    // Should keep constraints
+    assert.ok(filtered.includes("CONSTRAINTS"), "should keep CONSTRAINTS");
+  });
+
+  it("worker with multiple scopes filters file summaries correctly", () => {
+    const prompt = [
+      "FILE CONTEXT:\n- lib/tui/model.go: TUI model\n- lib/ipc/client.mjs: IPC client\n- test/tui.test.mjs: TUI tests\n- hooks/agent.py: Agent hook",
+    ].join("\n\n");
+
+    const filtered = filterContextSemantically(prompt, "worker", "lib/tui/,test/");
+
+    assert.ok(filtered.includes("lib/tui/model.go"), "should include lib/tui/model.go");
+    assert.ok(filtered.includes("test/tui.test.mjs"), "should include test/tui.test.mjs");
+    assert.ok(!filtered.includes("lib/ipc/client.mjs"), "should not include lib/ipc/client.mjs");
+    assert.ok(!filtered.includes("hooks/agent.py"), "should not include hooks/agent.py");
+  });
+
+  it("worker with scope filters decisions to relevant paths", () => {
+    const prompt = [
+      "KNOWN DECISIONS:\n- lib/tui/: use Bubble Tea framework\n- lib/ipc/: use JSON-RPC\n- use ESM modules everywhere",
+    ].join("\n\n");
+
+    const filtered = filterContextSemantically(prompt, "worker", "lib/tui/");
+
+    assert.ok(filtered.includes("use Bubble Tea framework"), "should include TUI decision");
+    assert.ok(filtered.includes("use ESM modules"), "should include generic decision");
+    assert.ok(!filtered.includes("use JSON-RPC"), "should not include IPC decision");
+  });
+
+  it("verifier with large diff gets summarized version", () => {
+    // Create a diff with > 500 lines
+    const diffLines = ["GIT DIFF:", "diff --git a/file1.js b/file1.js", "--- a/file1.js", "+++ b/file1.js", "@@ -1,10 +1,10 @@"];
+    for (let i = 0; i < 550; i++) {
+      diffLines.push(`+line ${i}`);
+    }
+    const prompt = diffLines.join("\n");
+
+    const filtered = filterContextSemantically(prompt, "verifier", null);
+
+    // Should be shorter
+    assert.ok(filtered.length < prompt.length, "should reduce diff size");
+    // Should keep headers
+    assert.ok(filtered.includes("diff --git"), "should keep diff headers");
+    assert.ok(filtered.includes("@@ -1,10 +1,10 @@"), "should keep hunk headers");
+    // Should have truncation message
+    assert.ok(filtered.includes("[diff truncated for verifier context efficiency]"), "should have truncation message");
+  });
+
+  it("verifier with small diff is not truncated", () => {
+    const prompt = [
+      "GIT DIFF:",
+      "diff --git a/file.js b/file.js",
+      "--- a/file.js",
+      "+++ b/file.js",
+      "@@ -1,5 +1,5 @@",
+      "+added line 1",
+      "+added line 2",
+      "-removed line",
+    ].join("\n");
+
+    const filtered = filterContextSemantically(prompt, "verifier", null);
+
+    // Should not be truncated
+    assert.ok(!filtered.includes("[diff truncated"), "should not truncate small diff");
+    assert.equal(filtered.includes("added line 1"), true, "should keep all lines");
+  });
+
+  it("verifier summarizes worker outputs", () => {
+    const prompt = [
+      "WORKER OUTPUTS:",
+      "agent-01: Starting task...",
+      "agent-01: Reading file src/auth.ts",
+      "agent-01: Modified src/auth.ts to add JWT support",
+      "agent-01: Tool call: Read(src/api.ts)",
+      "agent-01: Created new file src/middleware/auth.js",
+      "agent-01: Analyzing dependencies...",
+      "agent-01: Fixed bug in login handler",
+    ].join("\n");
+
+    const filtered = filterContextSemantically(prompt, "verifier", null);
+
+    // Should keep action lines
+    assert.ok(filtered.includes("Modified src/auth.ts"), "should keep modified line");
+    assert.ok(filtered.includes("Created new file"), "should keep created line");
+    assert.ok(filtered.includes("Fixed bug"), "should keep fixed line");
+    // Should strip intermediate lines
+    assert.ok(!filtered.includes("Starting task"), "should strip starting line");
+    assert.ok(!filtered.includes("Reading file"), "should strip reading line");
+  });
+
+  it("decomposer gets directory-level summaries, not file-level", () => {
+    const prompt = [
+      "FILE CONTEXT:",
+      "- lib/tui/model.go: TUI model",
+      "- lib/tui/view.go: TUI view",
+      "- lib/tui/ipc.go: TUI IPC",
+      "- lib/ipc/client.mjs: IPC client",
+      "- lib/ipc/server.mjs: IPC server",
+      "- test/tui.test.mjs: TUI test",
+      "- test/ipc.test.mjs: IPC test",
+    ].join("\n");
+
+    const filtered = filterContextSemantically(prompt, "decomposer", null);
+
+    // Should have directory summaries
+    assert.ok(filtered.includes("lib/tui/ — 3 files"), "should have lib/tui summary");
+    assert.ok(filtered.includes("lib/ipc/ — 2 files"), "should have lib/ipc summary");
+    assert.ok(filtered.includes("test/ — 2 files"), "should have test summary");
+    // Should NOT have individual files
+    assert.ok(!filtered.includes("model.go"), "should not have individual file");
+    assert.ok(!filtered.includes("client.mjs"), "should not have individual file");
+  });
+
+  it("decomposer gets high-level scout report only", () => {
+    const prompt = [
+      "[Scout Report]",
+      "Project structure: Node.js monorepo",
+      "Main components: TUI (Go), Backend (Node.js)",
+      "Dependencies: @anthropic-ai/sdk, bubbletea",
+      "Code details: function processRequest() { ... }",
+      "Module boundaries: lib/tui/, lib/ipc/",
+      "More code: class Agent extends Base { ... }",
+    ].join("\n");
+
+    const filtered = filterContextSemantically(prompt, "decomposer", null);
+
+    // Should keep structure info
+    assert.ok(filtered.includes("Project structure"), "should keep structure line");
+    assert.ok(filtered.includes("Main components"), "should keep components line");
+    assert.ok(filtered.includes("Module boundaries"), "should keep boundaries line");
+    // Should strip code details
+    assert.ok(!filtered.includes("function processRequest"), "should strip code details");
+    assert.ok(!filtered.includes("class Agent extends"), "should strip code details");
+  });
+
+  it("token reduction is measured correctly", () => {
+    const prompt = [
+      "CONSTRAINTS:\n- use TypeScript\n- no external deps\n- follow style guide",
+      "FILE CONTEXT:\n- lib/tui/foo.go: TUI\n- lib/ipc/bar.mjs: IPC\n- lib/context-filter.mjs: Filter\n- test/foo.test.mjs: Test",
+      "KNOWN DECISIONS:\n- use Go for TUI\n- use Node.js for backend\n- use ESM modules",
+      "GIT DIFF:\n" + "+line\n".repeat(100),
+    ].join("\n\n");
+
+    const filtered = filterContextSemantically(prompt, "worker", "lib/tui/");
+
+    // Should have significant reduction (target >= 30%, test for >= 20% to be conservative)
+    const reduction = ((1 - filtered.length / prompt.length) * 100);
+    assert.ok(reduction >= 20, `should have >= 20% reduction, got ${reduction.toFixed(1)}%`);
+
+    // Verify GIT DIFF was stripped (worker doesn't get it)
+    assert.ok(!filtered.includes("GIT DIFF"), "worker should not have GIT DIFF");
+  });
+
+  it("unfiltered path works (no role set)", () => {
+    const prompt = [
+      "CONSTRAINTS:\n- use TypeScript",
+      "FILE CONTEXT:\n- lib/tui/foo.go: TUI\n- lib/ipc/bar.mjs: IPC",
+    ].join("\n\n");
+
+    const filtered = filterContextSemantically(prompt, undefined, null);
+
+    // Should return unchanged (but will apply filterSystemPromptForRole which returns unchanged for unknown role)
+    assert.equal(filtered, prompt, "should return prompt unchanged for undefined role");
+  });
+
+  it("unknown role returns section-filtered prompt", () => {
+    const prompt = [
+      "CONSTRAINTS:\n- use TypeScript",
+      "FILE CONTEXT:\n- lib/tui/foo.go: TUI",
+    ].join("\n\n");
+
+    const filtered = filterContextSemantically(prompt, "unknown-role", null);
+
+    // Should pass through filterSystemPromptForRole which returns unchanged for unknown roles
+    assert.equal(filtered, prompt, "should return prompt unchanged for unknown role");
+  });
+
+  it("handles empty scope gracefully", () => {
+    const prompt = [
+      "FILE CONTEXT:\n- lib/tui/foo.go: TUI\n- lib/ipc/bar.mjs: IPC",
+    ].join("\n\n");
+
+    // Empty string scope
+    const filtered1 = filterContextSemantically(prompt, "worker", "");
+    assert.ok(filtered1.includes("lib/tui/foo.go"), "should include all files with empty scope");
+    assert.ok(filtered1.includes("lib/ipc/bar.mjs"), "should include all files with empty scope");
+
+    // Null scope
+    const filtered2 = filterContextSemantically(prompt, "worker", null);
+    assert.ok(filtered2.includes("lib/tui/foo.go"), "should include all files with null scope");
+    assert.ok(filtered2.includes("lib/ipc/bar.mjs"), "should include all files with null scope");
+
+    // Undefined scope
+    const filtered3 = filterContextSemantically(prompt, "worker", undefined);
+    assert.ok(filtered3.includes("lib/tui/foo.go"), "should include all files with undefined scope");
+    assert.ok(filtered3.includes("lib/ipc/bar.mjs"), "should include all files with undefined scope");
+  });
+
+  it("handles scope array input", () => {
+    const prompt = [
+      "FILE CONTEXT:\n- lib/tui/foo.go: TUI\n- lib/ipc/bar.mjs: IPC\n- test/foo.test.mjs: Test",
+    ].join("\n\n");
+
+    const filtered = filterContextSemantically(prompt, "worker", ["lib/tui/", "test/"]);
+
+    assert.ok(filtered.includes("lib/tui/foo.go"), "should include lib/tui/foo.go");
+    assert.ok(filtered.includes("test/foo.test.mjs"), "should include test/foo.test.mjs");
+    assert.ok(!filtered.includes("lib/ipc/bar.mjs"), "should not include lib/ipc/bar.mjs");
   });
 });

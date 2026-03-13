@@ -1,3 +1,9 @@
+/**
+ * Tests for Context Bridge
+ *
+ * Tests context passing mechanisms between agents via files and IPC.
+ */
+
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { writeFileSync, mkdtempSync, rmSync, readFileSync } from "node:fs";

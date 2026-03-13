@@ -1,3 +1,9 @@
+/**
+ * Tests for Council
+ *
+ * Tests multi-agent review and voting mechanisms for critical decisions.
+ */
+
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import Council from "../lib/council.mjs";

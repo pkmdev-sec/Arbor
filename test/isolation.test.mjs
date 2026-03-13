@@ -1,3 +1,9 @@
+/**
+ * Tests for Isolation Mechanisms
+ *
+ * Tests file snapshotting, backup, and worktree isolation for agent execution.
+ */
+
 import { describe, it, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, mkdtempSync } from "node:fs";

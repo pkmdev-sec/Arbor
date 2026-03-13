@@ -1,3 +1,9 @@
+/**
+ * Tests for Output Validator
+ *
+ * Tests agent output validation, quality checks, and error detection.
+ */
+
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import OutputValidator, { SEVERITY } from "../lib/output-validator.mjs";

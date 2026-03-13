@@ -1,3 +1,9 @@
+/**
+ * Tests for Learning Store
+ *
+ * Tests project-aware learning, pattern detection, and knowledge persistence.
+ */
+
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, writeFileSync, existsSync, unlinkSync } from "node:fs";

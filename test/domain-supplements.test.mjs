@@ -1,3 +1,9 @@
+/**
+ * Tests for Domain Supplements
+ *
+ * Tests domain-specific guidance generation for different languages and frameworks.
+ */
+
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { generateSupplement, shouldIncludeSupplement } from "../lib/domain-supplements.mjs";

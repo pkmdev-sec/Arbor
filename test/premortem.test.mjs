@@ -1,3 +1,9 @@
+/**
+ * Tests for Premortem Analysis
+ *
+ * Tests pre-execution risk analysis and failure mode detection.
+ */
+
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import Premortem from "../lib/premortem.mjs";

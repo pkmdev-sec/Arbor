@@ -1,3 +1,9 @@
+/**
+ * Tests for Model Router
+ *
+ * Tests intelligent model selection based on task complexity and cost optimization.
+ */
+
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { MODEL_TIERS, estimateComplexity, routeModel, calculateSavings } from "../lib/model-router.mjs";

@@ -1,3 +1,9 @@
+/**
+ * Tests for Project Profiler
+ *
+ * Tests project structure analysis, language detection, and framework identification.
+ */
+
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { profileProject, formatProfileForPrompt } from "../lib/project-profiler.mjs";

@@ -1,3 +1,9 @@
+/**
+ * Tests for IPC Protocol
+ *
+ * Tests inter-process communication protocol and message passing.
+ */
+
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 

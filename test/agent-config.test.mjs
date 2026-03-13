@@ -1,3 +1,10 @@
+/**
+ * Tests for Agent Config Generator
+ *
+ * Tests generation of agent configuration based on project profiles,
+ * framework guidance, and swarm type recommendations.
+ */
+
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { generateAgentConfig, getFrameworkGuidance } from "../lib/agent-config.mjs";

@@ -1,3 +1,9 @@
+/**
+ * Tests for Discovery Channel
+ *
+ * Tests discovery tracking and propagation mechanism for agent findings.
+ */
+
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { DiscoveryChannel } from "../lib/discoveries.mjs";

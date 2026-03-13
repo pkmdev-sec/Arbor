@@ -1,3 +1,9 @@
+/**
+ * Tests for Fork-Merge Pattern
+ *
+ * Tests approach generation, scoring, and CLI argument parsing for multi-approach execution.
+ */
+
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { scoreApproach } from "../lib/branch-selector.mjs";

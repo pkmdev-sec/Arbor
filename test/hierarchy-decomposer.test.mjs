@@ -1,3 +1,9 @@
+/**
+ * Tests for Hierarchy Decomposer
+ *
+ * Tests task decomposition, dependency analysis, and agent budget estimation for hierarchical swarms.
+ */
+
 import { describe, it, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync, rmSync, mkdtempSync } from "node:fs";
