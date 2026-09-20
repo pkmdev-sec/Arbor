@@ -155,7 +155,7 @@ All methods include comprehensive error handling:
 
 To verify installation:
 ```bash
-cd ~/.claude/arbor
+cd /path/to/arbor
 node -e "import * as h from './lib/hierarchy/index.mjs'; console.log(Object.keys(h));"
 ```
 

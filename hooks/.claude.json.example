@@ -3,7 +3,7 @@
     "preToolUse": [
       {
         "name": "scope-guard",
-        "path": "~/.claude/remote-agent/hooks/scope-guard.py",
+        "path": "/path/to/arbor/hooks/scope-guard.py",
         "toolMatchers": ["Write", "Edit", "Bash"],
         "description": "Enforces file scope restrictions on remote agents. Set ARBOR_SCOPE env var to comma-separated paths."
       }

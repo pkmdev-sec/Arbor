@@ -1,0 +1,6 @@
+ARCHITECTURE_ANALYSIS.md
+opus_4_6_prompt.xml
+test/
+tui/orch-tui-race
+**/__pycache__/
+**/*.pyc

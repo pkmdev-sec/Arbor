@@ -13,7 +13,7 @@ Arbor spawns isolated Claude Code agents in separate git worktrees, each with a 
 ## Quick start
 
 ```bash
-git clone <repo-url> && cd arbor
+git clone https://github.com/pkmdev-sec/Arbor.git && cd Arbor
 ./install.sh
 
 # Single agent

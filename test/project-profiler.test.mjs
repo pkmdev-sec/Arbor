@@ -6,12 +6,16 @@
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { profileProject, formatProfileForPrompt } from "../lib/project-profiler.mjs";
+
+const REPO_ROOT = resolve(fileURLToPath(new URL("..", import.meta.url)));
 
 describe("profileProject", () => {
   it("profiles the current arbor project", async () => {
     // Test with the actual arbor project
-    const profile = await profileProject("/path/to/arbor");
+    const profile = await profileProject(REPO_ROOT);
 
     assert.equal(profile.packageManager, "npm");
     assert.equal(profile.primaryLanguage, "JavaScript");

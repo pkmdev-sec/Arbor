@@ -20,7 +20,7 @@ export ARBOR_SCOPE="lib/config.mjs,lib/output.mjs,test/"
 ```
 
 Paths can be:
-- **Absolute:** `~/.claude/lib/config.mjs`
+- **Absolute:** `/path/to/project/lib/config.mjs`
 - **Relative:** `lib/config.mjs` (resolved against CWD)
 - **Files:** Exact file match only
 - **Directories:** Any file within the directory
@@ -70,7 +70,7 @@ The hook is automatically loaded by arbor when configured in `.claude.json`:
     "preToolUse": [
       {
         "name": "scope-guard",
-        "path": "~/.claude/arbor/hooks/scope-guard.py",
+        "path": "/path/to/arbor/hooks/scope-guard.py",
         "toolMatchers": ["Write", "Edit", "Bash"]
       }
     ]
@@ -103,7 +103,7 @@ import json, subprocess, os
 
 def test(event, scope):
     proc = subprocess.run(
-        ["python3", "~/.claude/arbor/hooks/scope-guard.py"],
+        ["python3", "/path/to/arbor/hooks/scope-guard.py"],
         input=json.dumps(event),
         capture_output=True,
         text=True,

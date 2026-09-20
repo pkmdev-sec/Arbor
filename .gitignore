@@ -17,8 +17,10 @@ config/subagents/
 # OS files
 .DS_Store
 
-# Package lock (regenerated from package.json)
-package-lock.json
-
 # Go binary
 tui/orch-tui
+tui/orch-tui-race
+
+# Python bytecode
+__pycache__/
+*.pyc

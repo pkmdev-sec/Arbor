@@ -14,7 +14,7 @@
     "update-claude": "npm install @anthropic-ai/claude-code@latest"
   },
   "dependencies": {
-    "@anthropic-ai/claude-code": "2.1.71",
+    "@anthropic-ai/claude-code": "2.1.278",
     "@anthropic-ai/sdk": "^0.78.0",
     "ink": "^5.2.1",
     "ink-spinner": "^5.0.0",
